@@ -1,3 +1,11 @@
+# ACL — Vision
+
+> **This is the long-form product vision, not a description of the current build.**
+> It was the repository's original `README.md` and is kept here verbatim as the
+> statement of intent. Most of what it describes is not implemented yet. For what
+> actually exists today, see the [README](../README.md) and
+> [docs/PROJECT_STATUS.md](PROJECT_STATUS.md).
+
 ACL — Anyone Can Learn
 
 «An open-source, scalable digital learning ecosystem built for Nigerian universities and the wider African education community.»
