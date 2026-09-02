@@ -27,7 +27,7 @@
         <env name="CACHE_STORE" value="array"/>
         <!--
             Tests run against MariaDB, not SQLite. The engines disagree on
-            things this schema depends on -- utf8mb4_unicode_ci is case- and
+            things this schema depends on: utf8mb4_unicode_ci is case- and
             accent-insensitive, TIMESTAMP columns stop at 2038, integer
             overflow raises an error under strict mode rather than widening,
             and json() is a CHECK-constrained LONGTEXT. A suite that passed on
