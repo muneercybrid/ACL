@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <!--
+            There is no tests/Unit directory. The suite that used to be
+            declared here pointed at a path that has never existed; add it
+            back alongside a real unit test rather than leaving it dangling.
+        -->
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <!--
+            Tests run against MariaDB, not SQLite. The engines disagree on
+            things this schema depends on -- utf8mb4_unicode_ci is case- and
+            accent-insensitive, TIMESTAMP columns stop at 2038, integer
+            overflow raises an error under strict mode rather than widening,
+            and json() is a CHECK-constrained LONGTEXT. A suite that passed on
+            SQLite proved nothing about the engine we deploy on. See ADR-0005.
+
+            The devcontainer provisions this database; see post-create.sh.
+        -->
+        <env name="DB_CONNECTION" value="mariadb"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="3306"/>
+        <env name="DB_DATABASE" value="acl_test"/>
+        <env name="DB_USERNAME" value="acl_user"/>
+        <env name="DB_PASSWORD" value="acl_password"/>
+        <!-- Blanked so a DB_URL in .env cannot redirect tests at a real database. -->
+        <env name="DB_URL" value=""/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+    </php>
+</phpunit>
