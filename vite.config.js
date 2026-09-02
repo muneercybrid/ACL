@@ -20,6 +20,7 @@ import tailwindcss from '@tailwindcss/vite';
 const codespaceName = process.env.CODESPACE_NAME;
 const forwardingDomain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
 const vitePort = Number(process.env.ACL_VITE_PORT ?? 5173);
+const appPort = Number(process.env.ACL_APP_PORT ?? 8000);
 
 const codespaceServer = codespaceName && forwardingDomain
     ? {
@@ -32,6 +33,14 @@ const codespaceServer = codespaceName && forwardingDomain
               host: `${codespaceName}-${vitePort}.${forwardingDomain}`,
               protocol: 'wss',
               clientPort: 443,
+          },
+          // The page comes from the 8000 origin and Vite from the 5173 one, so
+          // @vite/client and app.js are cross-origin module scripts -- which
+          // browsers do gate on CORS, unlike a plain stylesheet. Vite 6+ stopped
+          // reflecting arbitrary origins, and on its own it advertises only its
+          // own origin, so the app's origin has to be named here explicitly.
+          cors: {
+              origin: `https://${codespaceName}-${appPort}.${forwardingDomain}`,
           },
       }
     : undefined;
