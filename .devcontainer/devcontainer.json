@@ -1,24 +1,81 @@
 {
-  "name": "ACL v0 Codespaces",
+  "name": "ACL — Anyone Can Learn",
   "image": "mcr.microsoft.com/devcontainers/php:1-8.4-bookworm",
+
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
-      "version": "20",
+      "version": "24",
       "nodeGypDependencies": true
     },
     "ghcr.io/devcontainers/features/git:1": {},
-    "ghcr.io/devcontainers/features/common-utils:2": {}
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": false
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
+
+  "//": "Fixed development-only values. The database they unlock exists only inside this container and is never reachable from the internet. Production credentials live in the deployment environment, never in this repo. Keep in sync with .devcontainer/config.sh.",
+  "containerEnv": {
+    "ACL_DB_HOST": "127.0.0.1",
+    "ACL_DB_PORT": "3306",
+    "ACL_DB_NAME": "acl",
+    "ACL_DB_TEST_NAME": "acl_test",
+    "ACL_DB_USER": "acl_user",
+    "ACL_DB_PASSWORD": "acl_password",
+    "ACL_APP_PORT": "8000",
+    "ACL_VITE_PORT": "5173"
+  },
+
+  "//onCreate": "System packages; runs once per container build.",
+  "onCreateCommand": "bash .devcontainer/install-services.sh",
+
+  "//postCreate": "Application setup; idempotent, safe to re-run on rebuild.",
   "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "postStartCommand": "sudo service mariadb start",
+
+  "//postStart": "Starts MariaDB and waits until it accepts connections. Runs on EVERY start, so the database is up after a codespace is stopped and resumed, not only on first create.",
+  "postStartCommand": "bash .devcontainer/start-services.sh",
+
+  "waitFor": "postCreateCommand",
+
   "forwardPorts": [8000, 5173],
+  "portsAttributes": {
+    "8000": { "label": "ACL app", "onAutoForward": "notify" },
+    "5173": { "label": "Vite dev server", "onAutoForward": "silent" }
+  },
+
+  "remoteUser": "vscode",
+
   "customizations": {
     "vscode": {
       "extensions": [
-        "xdebug.php-debug",
         "bmewburn.vscode-intelephense-client",
-        "dbaeumer.vscode-eslint"
-      ]
+        "xdebug.php-debug",
+        "onecentlin.laravel-blade",
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint",
+        "editorconfig.editorconfig",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-mysql",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "files.eol": "\n",
+        "intelephense.environment.phpVersion": "8.4.0",
+        "emmet.includeLanguages": { "blade": "html" },
+        "files.associations": { "*.blade.php": "blade" },
+        "sqltools.connections": [
+          {
+            "name": "ACL (dev)",
+            "driver": "MySQL",
+            "server": "127.0.0.1",
+            "port": 3306,
+            "database": "acl",
+            "username": "acl_user",
+            "password": "acl_password"
+          }
+        ]
+      }
     }
   }
 }

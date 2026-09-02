@@ -39,6 +39,42 @@ contradiction?
 3. **MariaDB everywhere** — matches the devcontainer, `.env`, and
    `.env.example`; MySQL-compatible; ubiquitous and cheap on the VPS hosts
    ACL targets; a solid fit for a modular monolith.
+4. **MongoDB Atlas** — raised on 2026-09-02 because a hosted Atlas account
+   was already available. Rejected; see "MongoDB considered and rejected".
+
+## MongoDB considered and rejected
+
+Recorded because the option was raised explicitly and the answer should not
+have to be re-derived later.
+
+- **The domain is relational, not document-shaped.** ACL's core is a chain of
+  foreign keys — organization → faculty → department → programme → level →
+  semester → course → offering → enrolment → entitlement — plus scoped RBAC
+  (`role_assignments` pointing at a role, a user, and a scope row). Academic
+  records need referential integrity: an enrolment must not be able to
+  reference a student or an offering that does not exist. Relational
+  constraints enforce that in the engine; in MongoDB it becomes application
+  code that can be bypassed.
+- **Laravel has no first-party MongoDB support.** Eloquent, the schema
+  builder, and migrations target SQL. MongoDB requires the third-party
+  `mongodb/laravel-mongodb` package plus the `mongodb` PHP extension, which
+  conflicts with the project's dependency-discipline rule (§11 of
+  `.ai/guidelines/ACL.md`).
+- **The app already depends on SQL for its own plumbing.** `SESSION_DRIVER`,
+  `CACHE_STORE`, and `QUEUE_CONNECTION` are all `database`. Those drivers are
+  SQL-only, so MongoDB would mean either a second database anyway or
+  rewriting all three.
+- **Atlas is remote.** Every query in development would cross the internet,
+  which is slower and less reliable than the MariaDB running inside the
+  devcontainer, and unusable offline.
+- **Sunk, verified work.** The migrations, models, policies, and feature
+  tests already target MariaDB, and `phpunit.xml` pins the suite to a MariaDB
+  `acl_test` schema precisely so tests exercise the deployment engine.
+
+If a genuinely document-shaped workload appears later — AI chat transcripts,
+raw analytics events, arbitrarily-shaped content blocks — MongoDB may be
+added *alongside* MariaDB for that workload under a new ADR. It does not
+replace the relational core.
 
 ## Decision
 
