@@ -66,4 +66,30 @@ for ext in $ACL_OPTIONAL_PHP_EXTS; do
   php -m | grep -qix "$ext" || warn "Optional PHP extension not present: ${ext}"
 done
 
+# ---------------------------------------------------------------------------
+# Xdebug
+# ---------------------------------------------------------------------------
+# The base image enables Xdebug with mode=debug and start_with_request=yes, so
+# every single PHP invocation tries to reach a debug client on localhost:9003
+# and prints "Could not connect to debugging client" when nothing is listening
+# -- which, on a CLI-driven project, is most of the time. `trigger` keeps the
+# extension loaded and the debugger one variable away (XDEBUG_TRIGGER=1, or the
+# VS Code launch config, which sets it for you) without the noise on every
+# artisan and composer command.
+#
+# Written as a separate file rather than by editing the image's xdebug.ini:
+# PHP reads conf.d in alphabetical order and later files win, so the zz- prefix
+# is what makes this override rather than get overridden.
+say "Quieting Xdebug's step debugger..."
+XDEBUG_SCAN_DIR="$(php -i | awk -F'=> ' '/^Scan this dir for additional .ini files/ {print $2; exit}')"
+if [ -n "$XDEBUG_SCAN_DIR" ] && [ -d "$XDEBUG_SCAN_DIR" ]; then
+  printf '%s\n' \
+    '; Written by .devcontainer/install-services.sh -- see the comment there.' \
+    'xdebug.start_with_request = trigger' \
+    | sudo tee "${XDEBUG_SCAN_DIR}/zz-acl-xdebug.ini" >/dev/null
+  say "Xdebug starts on trigger only; set XDEBUG_TRIGGER=1 to debug a command."
+else
+  warn "Could not find PHP's conf.d directory; leaving Xdebug as the image set it."
+fi
+
 say "System packages ready."
