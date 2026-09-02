@@ -27,7 +27,7 @@ set -euo pipefail
 say() { printf '\033[36m[ACL]\033[0m %s\n' "$1"; }
 die() { printf '\033[31m[ACL] %s\033[0m\n' "$1" >&2; exit 1; }
 
-if php -m 2>/dev/null | grep -qix pdo_mysql; then
+if php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);' 2>/dev/null; then
   say "pdo_mysql already present."
   exit 0
 fi
@@ -81,7 +81,8 @@ if ! command -v mysql_config >/dev/null 2>&1 && ! command -v mariadb_config >/de
 fi
 
 CANDIDATES="/usr"
-if [ -f "$($PHP_CONFIG --include-dir)/ext/mysqlnd/mysqlnd.h" ] && php -m | grep -qix mysqlnd; then
+if [ -f "$($PHP_CONFIG --include-dir)/ext/mysqlnd/mysqlnd.h" ] \
+   && php -r 'exit(extension_loaded("mysqlnd") ? 0 : 1);' 2>/dev/null; then
   CANDIDATES="${CANDIDATES} mysqlnd"
 fi
 
@@ -118,10 +119,18 @@ make install >/dev/null
 
 # Enable it via the scan directory rather than editing php.ini, so the change
 # is additive and survives an image-level php.ini replacement.
-SCAN_DIR="$(php -i | awk -F'=> ' '/^Scan this dir for additional .ini files/ {print $2; exit}')"
-if [ -z "$SCAN_DIR" ] || [ "$SCAN_DIR" = "(none)" ]; then
+#
+# Read the scan directory from PHP's own compiled-in constant. The obvious
+# `php -i | awk '/Scan this dir/ {print; exit}'` is a trap here: `php -i` emits
+# ~80 KB, more than a pipe buffer holds, so awk's early exit closes the pipe
+# while php is still writing, php dies of SIGPIPE, and `set -o pipefail` then
+# aborts this script immediately after `make install` -- leaving a built-but-
+# unregistered extension and no error message. (`php -m | grep -q` gets away
+# with the same shape only because its output fits in the buffer.)
+SCAN_DIR="$(php -r 'echo PHP_CONFIG_FILE_SCAN_DIR;' 2>/dev/null || true)"
+if [ -z "$SCAN_DIR" ]; then
   # A PHP build with no conf.d at all: append to the loaded php.ini instead.
-  PHP_INI="$(php -r 'echo php_ini_loaded_file() ?: "";')"
+  PHP_INI="$(php -r 'echo php_ini_loaded_file() ?: "";' 2>/dev/null || true)"
   [ -n "$PHP_INI" ] || die "PHP has neither a conf.d scan directory nor a loaded php.ini; cannot enable pdo_mysql."
   grep -q '^extension=pdo_mysql.so' "$PHP_INI" || printf '\nextension=pdo_mysql.so\n' >> "$PHP_INI"
   ENABLED_VIA="$PHP_INI"
@@ -131,8 +140,9 @@ else
   ENABLED_VIA="${SCAN_DIR}/pdo_mysql.ini"
 fi
 
-php -m | grep -qix pdo_mysql || die "pdo_mysql built but did not load; check ${ENABLED_VIA}"
-php -r 'in_array("mysql", PDO::getAvailableDrivers(), true) || exit(1);' \
+php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);' \
+  || die "pdo_mysql built but did not load; check ${ENABLED_VIA}"
+php -r 'exit(in_array("mysql", PDO::getAvailableDrivers(), true) ? 0 : 1);' \
   || die "pdo_mysql loaded but PDO does not report the mysql driver."
 
-say "pdo_mysql built and enabled. PDO drivers: $(php -r 'echo implode(", ", PDO::getAvailableDrivers());')"
+say "pdo_mysql built and enabled via ${ENABLED_VIA}. PDO drivers: $(php -r 'echo implode(", ", PDO::getAvailableDrivers());')"

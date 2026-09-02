@@ -28,16 +28,18 @@ say "Verifying required PHP extensions..."
 # pdo_mysql is normally baked into the image by the Dockerfile. This is the
 # self-healing path for a container built straight from the base image, where
 # PHP is compiled without --with-pdo-mysql and nothing can reach MariaDB.
-if ! php -m | grep -qix pdo_mysql; then
+if ! php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);' 2>/dev/null; then
   warn "pdo_mysql is not compiled into this PHP build; building it now."
   # `env "PATH=$PATH"` rather than plain sudo: sudo's secure_path drops
   # /usr/local/php/<version>/bin, and the script needs php and phpize.
   sudo env "PATH=$PATH" "$(dirname "${BASH_SOURCE[0]}")/build-pdo-mysql.sh"
 fi
 
+has_ext() { php -r 'exit(extension_loaded($argv[1]) ? 0 : 1);' "$1" 2>/dev/null; }
+
 MISSING=""
 for ext in $ACL_REQUIRED_PHP_EXTS; do
-  php -m | grep -qix "$ext" || MISSING="${MISSING} ${ext}"
+  has_ext "$ext" || MISSING="${MISSING} ${ext}"
 done
 
 # Never pretend to succeed: a missing pdo_mysql otherwise surfaces much later
@@ -51,7 +53,7 @@ if [ -n "$MISSING" ]; then
   fi
   STILL_MISSING=""
   for ext in $MISSING; do
-    php -m | grep -qix "$ext" || STILL_MISSING="${STILL_MISSING} ${ext}"
+    has_ext "$ext" || STILL_MISSING="${STILL_MISSING} ${ext}"
   done
   [ -z "$STILL_MISSING" ] || die "PHP extensions still missing:${STILL_MISSING}. Install them and re-run this script."
   say "Extensions installed."
@@ -63,7 +65,7 @@ info_drivers="$(php -r 'echo implode(", ", PDO::getAvailableDrivers());')"
 say "PDO drivers: ${info_drivers}"
 
 for ext in $ACL_OPTIONAL_PHP_EXTS; do
-  php -m | grep -qix "$ext" || warn "Optional PHP extension not present: ${ext}"
+  has_ext "$ext" || warn "Optional PHP extension not present: ${ext}"
 done
 
 # ---------------------------------------------------------------------------
@@ -80,8 +82,15 @@ done
 # Written as a separate file rather than by editing the image's xdebug.ini:
 # PHP reads conf.d in alphabetical order and later files win, so the zz- prefix
 # is what makes this override rather than get overridden.
+#
+# The directory comes from PHP's own compiled-in constant, not from parsing
+# `php -i`. `php -i | awk '/Scan this dir/ {print; exit}'` looks equivalent and
+# is not: `php -i` writes ~80 KB, more than a pipe buffer holds, so awk's early
+# exit closes the pipe mid-write, php dies of SIGPIPE, and `set -o pipefail`
+# aborts this whole script here without a word. (`php -m | grep -q` above is
+# the same shape but safe -- its output fits in the buffer.)
 say "Quieting Xdebug's step debugger..."
-XDEBUG_SCAN_DIR="$(php -i | awk -F'=> ' '/^Scan this dir for additional .ini files/ {print $2; exit}')"
+XDEBUG_SCAN_DIR="$(php -r 'echo PHP_CONFIG_FILE_SCAN_DIR;' 2>/dev/null || true)"
 if [ -n "$XDEBUG_SCAN_DIR" ] && [ -d "$XDEBUG_SCAN_DIR" ]; then
   printf '%s\n' \
     '; Written by .devcontainer/install-services.sh -- see the comment there.' \
