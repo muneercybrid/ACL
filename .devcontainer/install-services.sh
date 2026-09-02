@@ -24,15 +24,24 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
   >/dev/null
 
 say "Verifying required PHP extensions..."
+
+# pdo_mysql is normally baked into the image by the Dockerfile. This is the
+# self-healing path for a container built straight from the base image, where
+# PHP is compiled without --with-pdo-mysql and nothing can reach MariaDB.
+if ! php -m | grep -qix pdo_mysql; then
+  warn "pdo_mysql is not compiled into this PHP build; building it now."
+  # `env "PATH=$PATH"` rather than plain sudo: sudo's secure_path drops
+  # /usr/local/php/<version>/bin, and the script needs php and phpize.
+  sudo env "PATH=$PATH" "$(dirname "${BASH_SOURCE[0]}")/build-pdo-mysql.sh"
+fi
+
 MISSING=""
 for ext in $ACL_REQUIRED_PHP_EXTS; do
   php -m | grep -qix "$ext" || MISSING="${MISSING} ${ext}"
 done
 
-# install-php-extensions ships in the devcontainers PHP image and resolves
-# each extension's system libraries for us. Attempt a repair before giving
-# up, but never pretend to succeed: a missing pdo_mysql would otherwise
-# surface much later as an inscrutable "could not find driver" error.
+# Never pretend to succeed: a missing pdo_mysql otherwise surfaces much later
+# as "could not find driver" from the middle of a migration.
 if [ -n "$MISSING" ]; then
   warn "Missing PHP extensions:${MISSING}"
   if command -v install-php-extensions >/dev/null 2>&1; then
@@ -49,6 +58,9 @@ if [ -n "$MISSING" ]; then
 else
   say "All required PHP extensions present."
 fi
+
+info_drivers="$(php -r 'echo implode(", ", PDO::getAvailableDrivers());')"
+say "PDO drivers: ${info_drivers}"
 
 for ext in $ACL_OPTIONAL_PHP_EXTS; do
   php -m | grep -qix "$ext" || warn "Optional PHP extension not present: ${ext}"

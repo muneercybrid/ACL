@@ -1,6 +1,11 @@
 {
   "name": "ACL — Anyone Can Learn",
-  "image": "mcr.microsoft.com/devcontainers/php:1-8.4-bookworm",
+
+  "//image": "Built from .devcontainer/Dockerfile rather than used directly: the base image compiles PHP without pdo_mysql, so MariaDB is unreachable until that extension is built against it. See .devcontainer/build-pdo-mysql.sh.",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
 
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
