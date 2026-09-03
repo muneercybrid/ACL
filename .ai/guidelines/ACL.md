@@ -1,5 +1,12 @@
 # ACL Engineering Constitution
 
+This file is the short form, loaded automatically by assistant tooling. Its expanded
+form is `docs/ACL_DEVELOPMENT_CONSTITUTION.md`, which states the same principles with
+the file paths, ADR references and enforcement gates that make them checkable, and
+`docs/agent-system/` describes the agents that enforce them. Where the two differ in
+detail, the expanded form is authoritative; where they differ in principle, that is a
+bug in one of them and belongs in a single commit that fixes both.
+
 ## Project
 
 ACL — Anyone Can Learn
