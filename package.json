@@ -1,5 +1,7 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
+    "//name": "Pins the root name npm writes into package-lock.json. Without it npm uses the containing directory, so the lockfile read \"acl\" here and \"ACL\" in a codespace that cloned into ACL/ -- one line of churn that returned after every npm install.",
+    "name": "acl",
     "private": true,
     "type": "module",
     "scripts": {
