@@ -23,6 +23,13 @@ RUN chmod +x /usr/local/bin/acl-drop-unsigned-apt-sources \
 # Build dependencies for the phpize build. Removed from the layer afterwards
 # is not worth it here: this is a development image, not a production one,
 # and the compilers are useful for future PECL extensions.
+#
+# openssh-server, and the package index left in place rather than deleted, are
+# both for Codespaces' own bootstrap: it installs and starts an SSH server
+# inside this container the first time anything connects to it, and on an image
+# with no apt lists and no openssh-server that attempt fails with
+# "failed to start SSH server", which locks you out of the container entirely.
+# A few megabytes of package index is a cheap price for being able to get in.
 RUN set -eux; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -31,8 +38,8 @@ RUN set -eux; \
         pkg-config \
         default-libmysqlclient-dev \
         ca-certificates \
-        curl; \
-    rm -rf /var/lib/apt/lists/*
+        curl \
+        openssh-server
 
 COPY build-pdo-mysql.sh /usr/local/bin/acl-build-pdo-mysql
 RUN chmod +x /usr/local/bin/acl-build-pdo-mysql && /usr/local/bin/acl-build-pdo-mysql
@@ -41,4 +48,8 @@ RUN chmod +x /usr/local/bin/acl-build-pdo-mysql && /usr/local/bin/acl-build-pdo-
 RUN php -m | grep -qix pdo_mysql \
     && php -r 'exit(in_array("mysql", PDO::getAvailableDrivers(), true) ? 0 : 1);'
 
-USER vscode
+# Deliberately no `USER vscode` here. devcontainer.json's remoteUser already
+# makes every terminal, task and lifecycle command run as vscode, while the
+# container itself keeps starting as root -- which Codespaces' agent needs in
+# order to install its server and sshd into a running container. An image that
+# ends as vscode looks tidier and costs you SSH access to the codespace.
