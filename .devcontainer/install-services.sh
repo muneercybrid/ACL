@@ -16,7 +16,33 @@ say()  { printf '\033[36m[ACL]\033[0m %s\n' "$1"; }
 warn() { printf '\033[33m[ACL] %s\033[0m\n' "$1"; }
 die()  { printf '\033[31m[ACL] %s\033[0m\n' "$1" >&2; exit 1; }
 
+# When a devcontainer image fails to build, Codespaces does not hand you a
+# half-built container to poke at -- it discards it and starts a recovery
+# container from mcr.microsoft.com/devcontainers/base:alpine instead. The
+# workspace is still mounted, so everything looks normal until a command needs
+# the tooling: no php, no mariadb, no apt-get. Without this guard the first
+# symptom is a bare "sudo: apt-get: command not found" from the line below,
+# which says nothing about why. Nothing this script does can repair that
+# container; only a successful rebuild can.
+if ! command -v apt-get >/dev/null 2>&1; then
+  PRETTY="unknown"
+  if [ -r /etc/os-release ]; then
+    PRETTY="$(. /etc/os-release; printf '%s' "${PRETTY_NAME:-unknown}")"
+  fi
+  warn "This container is ${PRETTY}, which has no apt-get."
+  if [ "${CODESPACES_RECOVERY_CONTAINER:-}" = "true" ]; then
+    warn "CODESPACES_RECOVERY_CONTAINER=true -- the devcontainer image failed to build,"
+    warn "so this is Codespaces' fallback container and not this project's environment."
+    warn "The build error is in /workspaces/.codespaces/.persistedshare/creation.log."
+  fi
+  die "Cannot install packages here. Fix the image build and rebuild the container."
+fi
+
 say "Installing MariaDB server and client..."
+# A container built from the Dockerfile has had this done already; it matters
+# for one built straight from the base image, where the leftover unverifiable
+# apt source makes the update below exit 100 and abort this script.
+sudo bash "$(dirname "${BASH_SOURCE[0]}")/drop-unsigned-apt-sources.sh"
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
   mariadb-server \

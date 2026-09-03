@@ -13,6 +13,13 @@ FROM mcr.microsoft.com/devcontainers/php:1-8.4-bookworm
 
 USER root
 
+# Must come before the first apt-get update: the base image carries an apt
+# source it can no longer verify, which makes apt-get update exit 100 and, under
+# set -e, fails this build. See drop-unsigned-apt-sources.sh.
+COPY drop-unsigned-apt-sources.sh /usr/local/bin/acl-drop-unsigned-apt-sources
+RUN chmod +x /usr/local/bin/acl-drop-unsigned-apt-sources \
+    && /usr/local/bin/acl-drop-unsigned-apt-sources
+
 # Build dependencies for the phpize build. Removed from the layer afterwards
 # is not worth it here: this is a development image, not a production one,
 # and the compilers are useful for future PECL extensions.

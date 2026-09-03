@@ -74,7 +74,17 @@ PHP_CONFIG="$(command -v php-config)"
 # the compile finished -- not on whether configure exited 0.
 if ! command -v mysql_config >/dev/null 2>&1 && ! command -v mariadb_config >/dev/null 2>&1; then
   say "No mysql_config found; installing MySQL client development headers..."
-  apt-get update -qq >/dev/null 2>&1 || true
+  # The base image's Yarn apt source cannot be verified and makes apt-get update
+  # exit 100, which would leave the install below working from stale lists. The
+  # Dockerfile installs the same fixer as acl-drop-unsigned-apt-sources; when
+  # this script runs from .devcontainer/ its sibling is used instead.
+  DROP_SOURCES="$(dirname "${BASH_SOURCE[0]}")/drop-unsigned-apt-sources.sh"
+  if [ -f "$DROP_SOURCES" ]; then
+    bash "$DROP_SOURCES" || true
+  elif command -v acl-drop-unsigned-apt-sources >/dev/null 2>&1; then
+    acl-drop-unsigned-apt-sources || true
+  fi
+  apt-get update -qq >/dev/null 2>&1 || say "apt-get update reported an error; continuing."
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
     default-libmysqlclient-dev >/dev/null 2>&1 \
     || say "Could not install default-libmysqlclient-dev; continuing anyway."
