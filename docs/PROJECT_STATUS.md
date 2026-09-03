@@ -1,30 +1,31 @@
 # ACL Project Status & Handoff
 
-_Last updated: 2026-09-02. Maintain this file at every milestone._
+_Last updated: 2026-09-03. Maintain this file at every milestone._
 
 ## 1. Repository
-- GitHub: muneercybrid/ACL, branch: main. Remote is configured
-  (`git@github.com:muneercybrid/ACL.git`) but **no commits have been pushed
-  yet** — the first commit is intentionally held until the test suite runs
-  green locally (see §9).
+- GitHub: muneercybrid/ACL, branch: main, remote
+  `https://github.com/muneercybrid/ACL.git`. **The code is pushed.** Three pull
+  requests are merged — #1 (devcontainer image build + SSH), #2 (tracked Claude
+  config), #3 (the ACL agent system) — plus the vendored Claude skills.
 - App root = repository root.
-- Development runs in a **GitHub Codespace** for `muneercybrid/ACL`, driven
-  from the local Windows laptop over `gh codespace ssh` (decided 2026-09-02).
-  The laptop is the editing interface and the source of truth for code; the
-  codespace is the runtime where migrations, seeders, and tests execute
-  (PHP 8.4 + MariaDB + Node are provisioned there by `.devcontainer/`). Code
-  reaches the codespace via git (push here → pull/reset there); `.env` is
-  never pushed — the codespace generates its own via `post-create.sh`.
+- Development runs in a **GitHub Codespace** for `muneercybrid/ACL`. The Windows
+  laptop is the editing interface; the codespace is the runtime where migrations,
+  seeders and tests execute (PHP 8.4 + MariaDB + Node are provisioned there by
+  `.devcontainer/`). Code reaches the codespace via git (push here → pull there);
+  `.env` is never pushed — the codespace generates its own via `post-create.sh`.
 
 ## 2. Stack (current)
-- Laravel 13.17+, PHP 8.4, Node 20 (devcontainer), Vite 8, Tailwind v4,
-  Alpine.js 3.
+- Laravel 13.25, PHP 8.4, Node 24 (devcontainer `node` feature), Vite 8,
+  Tailwind v4, Alpine.js 3.
 - Database: **MariaDB across all environments (ADR-0005)**. This supersedes
   the earlier SQLite → PostgreSQL plan (ADR-0002).
 - Cache / queue / session: Laravel database drivers. Redis later, only when
   justified.
+- Deployment: a container image plus a Render blueprint exist
+  (`Dockerfile`, `render.yaml`, ADR-0006). **Nothing is deployed yet** and the
+  image has not been built — see §9.
 
-## 3. Implemented in code (local verification pending — see §9)
+## 3. Implemented in code (verified in the codespace — see §9)
 - Laravel 13 foundation; default tables (users, cache, jobs, sessions).
 - `.devcontainer/`; `.ai/guidelines/ACL.md` (engineering constitution).
 - `docs/` skeleton; ADR-0001..0005.
@@ -41,27 +42,31 @@ _Last updated: 2026-09-02. Maintain this file at every milestone._
 - **Auth** — session-based login (`LoginController`, `LoginRequest`).
 - **Authorization** — `CourseOfferingPolicy`, `LessonPolicy`.
 - **Dev data** — `DevelopmentSeeder`, `RbacSeeder`.
-- **Tests present** (not yet executed locally): Auth, RBAC scoping, course
-  access, institutional entitlement.
+- **Tests executed and green**: Auth, RBAC scoping, course access,
+  institutional entitlement — 39 tests, 67 assertions.
 
 ## 4. Key Decisions (do not revisit without a new ADR)
 - Modular monolith; API-ready; no microservices yet (ADR-0001).
 - MariaDB everywhere (ADR-0005); write portable migrations.
 - Models in `app/Models`; domain folders only when populated (ADR-0003).
+- Deployed as a container ACL owns, on Render, with MariaDB supplied by a
+  managed provider outside Render (ADR-0006). Render has no managed
+  MySQL/MariaDB; ADR-0005 is unchanged, not reversed.
 - AI is optional/pluggable; never a hard dependency.
 - No bulk schema generation: schema follows the domain model, slice by slice.
 
 ## 5. Current Phase
-Phase 1 (foundation) is largely implemented in code. Immediate focus:
-push the codebase to the repo, bootstrap the codespace, and verify
-migrations + `php artisan test` **in the codespace**, then continue with
+Phase 1 (foundation) is implemented and verified in the codespace. Immediate
+focus: the UI pass over the dashboard and course viewer per ADR-0004, then
 Slice 5.
 
 ## 6. Next Steps (in order)
-1. First commit + push to muneercybrid/ACL (clean initial history).
-2. Codespace verification: `migrate`, `db:seed`, `php artisan test`
-   (the toolchain is provisioned in the codespace).
-3. UI pass (dashboard + course viewer) per ADR-0004 design language.
+1. UI pass (dashboard + course viewer) per the ADR-0004 design language, and
+   feature-test the dashboard listing that the suite currently does not reach.
+2. Deploy: build the image, provision MariaDB, apply `render.yaml`, attach the
+   Namecheap domain — procedure in `docs/deployment/README.md`.
+3. A CI pipeline. There is still no `.github/` directory, so nothing runs the
+   suite or Pint automatically.
 4. Slice 5: authentication hardening (2FA for staff) + audit-logging
    foundation.
 5. Then: assessments, then certificates.
@@ -85,10 +90,17 @@ Slice 5.
   production.
 
 ## 9. Verification status (be honest about this)
-- The test suite has **not** been executed yet. "Implemented in code" is not
-  the same as "verified". It is being run in the codespace now (PHP 8.4 +
-  MariaDB are present there). Do not claim anything is green until the suite
-  actually passes; record the result here once it does.
+- **Verified in the codespace on 2026-09-03.** `bash scripts/troubleshoot.sh`
+  reported no failures across all four sections. `php artisan test` →
+  **39 passed, 67 assertions, 4.85s**. `php artisan serve` came up on
+  `0.0.0.0:8000` and answered a request.
+- **Not verified:** the container image and Render blueprint. `Dockerfile`,
+  `render.yaml` and `docker/` have never been built or run — there is no Docker
+  on the development laptop and nothing has been deployed. Do not describe the
+  deployment path as working until an image has actually built and a service has
+  actually served a request.
+- The dashboard is exercised by only one assertion (a guest is redirected to
+  `/login`). Its listing logic never executes in the suite.
 
 ## 10. Known Non-Issues
 - "Xdebug: Could not connect to debugging client" — harmless warning; ignore.

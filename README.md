@@ -6,7 +6,9 @@ rather than from a shopping cart.
 
 > **Status: early. Working skeleton, not a product.**
 > Login, a student dashboard, a course viewer, lesson completion, scoped RBAC and
-> institutional entitlement all work and are covered by tests. Everything else in
+> institutional entitlement all work. All of it is covered by tests except the
+> dashboard, which the suite only proves redirects a guest to `/login` — the
+> listing logic behind it never executes. Everything else in
 > [docs/VISION.md](docs/VISION.md) is intent, not code. This README describes only
 > what is actually in the repository.
 
@@ -52,8 +54,15 @@ composer run dev
 | `postStartCommand` | [`start-services.sh`](.devcontainer/start-services.sh) | Starts MariaDB and **waits until it accepts connections** — on every container start, so the DB is up again after a stop/resume |
 
 All four are idempotent: re-running them on an existing container changes nothing
-it does not need to change. Fixed development values live in one place,
-[`.devcontainer/config.sh`](.devcontainer/config.sh).
+it does not need to change.
+
+The fixed development values are declared **twice**, deliberately.
+[`devcontainer.json`](.devcontainer/devcontainer.json)'s `containerEnv` exports
+them into the container, and [`config.sh`](.devcontainer/config.sh) repeats them
+as `${VAR:-default}` fallbacks so every script still works when you run it by hand
+outside Codespaces. Because `containerEnv` produces real environment variables,
+**the exported values win** — `config.sh` is the fallback, not the override.
+Change a credential in one and you must change it in the other.
 
 ### Development credentials
 
@@ -143,8 +152,14 @@ Named plainly so nobody goes looking: no registration or password reset, no
 authoring UI (content is created by seeders), no payments or subscriptions, no
 AI tutor, no REST/GraphQL API, no notifications or email delivery, no admin
 panel, no file/media uploads, no forums or messaging, no certificates, no
-analytics, no CI pipeline, no deployment configuration. `tests/Unit` does not
-exist — the suite is feature tests only, by design.
+analytics, no CI pipeline. `tests/Unit` does not exist — the suite is feature
+tests only, by design.
+
+There **is** now a container image and a Render blueprint
+([`Dockerfile`](Dockerfile), [`render.yaml`](render.yaml), ADR-0006), but nothing
+has been deployed with them and no environment is live. Treat
+[docs/deployment/README.md](docs/deployment/README.md) as the procedure, not as a
+record of a running system.
 
 ---
 
