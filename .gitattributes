@@ -1,3 +1,10 @@
+# Every text file is stored and checked out with LF endings.
+#
+# This is not a style preference. .devcontainer/*.sh and docker/entrypoint.sh
+# run under bash inside Linux containers, and a CRLF shebang fails with
+# "/usr/bin/env: 'bash\r': No such file or directory" -- a container that dies
+# on start with an error naming a file that looks perfectly fine. Do not
+# loosen this line.
 * text=auto eol=lf
 
 *.blade.php diff=html
