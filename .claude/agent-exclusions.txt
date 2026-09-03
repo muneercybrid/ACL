@@ -1,0 +1,14 @@
+# Upstream agent paths ACL deliberately does not track.
+#
+# Data, not policy: scripts/agents/check-upstream-agents.sh reads this so a known
+# exclusion is reported as EXCLUDED rather than as a new agent to triage. The
+# reasoning is in docs/agent-system/AGENCY_AGENT_COVERAGE.md; changing this file is a
+# scope decision and belongs in the same commit as the documentation that explains it.
+#
+# Format: <upstream path prefix><TAB><reason>. A prefix ending in / excludes a division.
+
+game-development/	Game engines, shaders, multiplayer netcode. ACL is a web learning platform.
+gis/	Geospatial analysis, cartography, BIM. No spatial dimension to ACL's domain.
+spatial-computing/	visionOS, XR, Metal. ACL targets browsers, and mobile means PWA.
+healthcare/	Clinical evidence and health systems. Would invite unqualified medical advice.
+integrations/mcp-memory/backend-architect-with-memory.md	Memory-augmented duplicate of engineering-backend-architect.md, which ACL already loads.
