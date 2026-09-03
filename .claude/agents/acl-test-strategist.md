@@ -17,10 +17,14 @@ Four feature test classes, 39 tests, 67 assertions, all passing:
 
 | File | Covers |
 |---|---|
-| `tests/Feature/Auth/AuthenticationTest.php` | sign-in, sign-out, validation, throttling, guest redirects |
+| `tests/Feature/Auth/AuthenticationTest.php` | sign-in, sign-out, invalid credentials, guest redirects (6 tests) |
 | `tests/Feature/Authorization/RbacScopingTest.php` | scoped roles, sibling-scope isolation (13 tests) |
 | `tests/Feature/Authorization/CourseAccessTest.php` | policies: unenrolled, expired, withdrawn, draft, cross-offering |
 | `tests/Feature/Entitlement/InstitutionalEntitlementTest.php` | `EntitlementService`, idempotent sync |
+
+Login throttling is implemented in `app/Http/Requests/Auth/LoginRequest.php`
+(`ensureIsNotRateLimited()`, five attempts) but **nothing tests it**. That is an
+open gap, not a covered case.
 
 **`tests/Unit` does not exist and its absence is deliberate** (`README.md`,
 `.ai/guidelines/ACL.md` §8). Do not create it. ACL's risk lives in the seam

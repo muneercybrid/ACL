@@ -16,7 +16,7 @@ acl-orchestrator.md	ACL	yes	-	n-a	7ab62dd1595a19634cd2aeaf723349fa6d91e8b81d7045
 acl-release-gatekeeper.md	ACL	yes	-	n-a	8f04193b8f73d7fcde56eb1505b359d4461b42bc7ecec25b8394c35a908f5072
 acl-security-architect.md	ACL	yes	-	n-a	8cf37f5b9fe22c505f6d80b368cffa9b06b4deafaa54bf44ee869117262ca263
 acl-software-architect.md	ACL	yes	-	n-a	2d66383564fe9b2cc12309c3d3ba9ad6805ba0c43b3d8ced748d77c0f72c9518
-acl-test-strategist.md	ACL	yes	-	n-a	6d52e8641d5c0963514526f8f89970fb3f351814307fb9124ba947d6dd22c2b2
+acl-test-strategist.md	ACL	yes	-	n-a	c78d83dc4d5cdfc406181dd1c464edddc3434163044d8bcf440257e903bff937
 agentic-identity-trust.md	PERIODIC	no	specialized/agentic-identity-trust.md	no	55de131a5c790dfb84edd9855d8fd2911d4d676d07f7f6c8e90d36705e73427b
 agents-orchestrator.md	PERIODIC	no	specialized/agents-orchestrator.md	no	3f900ee286eba5a809388ecc22ad860c4a3ef9ed7ff25488e80eac18f3a0f317
 automation-governance-architect.md	PERIODIC	no	specialized/automation-governance-architect.md	no	8aab89104fec352f1f601ec5e6db11c9628d0b2072e6324484fd7e4c8462f55e
