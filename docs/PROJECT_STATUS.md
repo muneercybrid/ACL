@@ -22,8 +22,8 @@ _Last updated: 2026-09-03. Maintain this file at every milestone._
 - Cache / queue / session: Laravel database drivers. Redis later, only when
   justified.
 - Deployment: a container image plus a Render blueprint exist
-  (`Dockerfile`, `render.yaml`, ADR-0006). **Nothing is deployed yet** and the
-  image has not been built — see §9.
+  (`Dockerfile`, `render.yaml`, ADR-0006). The image **builds on Render** and the
+  container starts; it has **not yet served a request** — see §9.
 
 ## 3. Implemented in code (verified in the codespace — see §9)
 - Laravel 13 foundation; default tables (users, cache, jobs, sessions).
@@ -94,11 +94,16 @@ Slice 5.
   reported no failures across all four sections. `php artisan test` →
   **39 passed, 67 assertions, 4.85s**. `php artisan serve` came up on
   `0.0.0.0:8000` and answered a request.
-- **Not verified:** the container image and Render blueprint. `Dockerfile`,
-  `render.yaml` and `docker/` have never been built or run — there is no Docker
-  on the development laptop and nothing has been deployed. Do not describe the
-  deployment path as working until an image has actually built and a service has
-  actually served a request.
+- **Verified on Render, 2026-09-03:** the image **builds** — all stages complete,
+  layers pushed. The container **starts**: `docker/entrypoint.sh` renders
+  `/etc/nginx/conf.d/default.conf` from `$PORT` and `nginx -t` reports the
+  configuration valid. The `APP_KEY` guard then refused to boot and the deploy
+  exited 1, which is the guard working as designed on a service whose
+  environment variables had not yet been set.
+- **Still not verified:** anything past that guard. No database connection, no
+  migration, no request served, no health check passed. php-fpm has never
+  started. Do not describe the deployment path as working until a service has
+  actually answered `/up`.
 - The dashboard is exercised by only one assertion (a guest is redirected to
   `/login`). Its listing logic never executes in the suite.
 

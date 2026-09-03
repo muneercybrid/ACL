@@ -14,8 +14,11 @@
 #     docker build -t acl:local .
 #     docker run --rm -p 8000:8000 -e PORT=8000 --env-file .env.docker acl:local
 #
-# NOT YET VERIFIED: this image has never been built. There is no Docker on the
-# development laptop. See docs/PROJECT_STATUS.md section 9 and ADR-0006.
+# PARTIALLY VERIFIED (2026-09-03): this image builds successfully on Render, and
+# the container starts, renders its nginx config and passes `nginx -t`. It has
+# not yet served a request, connected to a database or run a migration -- the
+# first deploy stopped at the entrypoint's APP_KEY guard, by design. There is no
+# Docker on the development laptop. See docs/PROJECT_STATUS.md section 9.
 
 # ---------------------------------------------------------------------------
 # Stage 1 -- PHP dependencies

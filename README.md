@@ -156,8 +156,10 @@ analytics, no CI pipeline. `tests/Unit` does not exist — the suite is feature
 tests only, by design.
 
 There **is** now a container image and a Render blueprint
-([`Dockerfile`](Dockerfile), [`render.yaml`](render.yaml), ADR-0006), but nothing
-has been deployed with them and no environment is live. Treat
+([`Dockerfile`](Dockerfile), [`render.yaml`](render.yaml), ADR-0006). As of
+2026-09-03 the image builds on Render and the container starts, but it has never
+served a request: the first deploy stopped at the entrypoint's `APP_KEY` guard,
+and no environment is live. Treat
 [docs/deployment/README.md](docs/deployment/README.md) as the procedure, not as a
 record of a running system.
 

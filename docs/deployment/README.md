@@ -8,10 +8,13 @@ the database is *not* on Render — is
 
 ## Read this first
 
-**Nothing here has been executed.** The image has never been built: there is no
-Docker on the development laptop, and no environment is live. This document is a
-procedure, not a record of a working system. Expect the first build to surface
-something, and read the build log rather than assuming.
+**How far this has actually been taken (2026-09-03).** The image **builds on
+Render** and the container **starts** — the nginx config renders from `$PORT` and
+`nginx -t` passes. It stopped there, at the entrypoint's `APP_KEY` guard, because
+the service's environment variables had not been set yet. So Steps 1 to 5 below
+are confirmed as far as "the container boots and refuses for the right reason".
+Nothing past that guard has run: no database connection, no migration, no request
+served. Steps 6 to 8 are still procedure, not record.
 
 **Two things are missing before ACL is genuinely usable in production**, both
 called out in full below:
@@ -173,25 +176,33 @@ cache on the first attempt.
 3. `npm run build` writes to `public/build`. Vite prints the file list.
 4. The final image is pushed.
 
-**In the deploy (runtime) log**, `docker/entrypoint.sh` narrates itself:
+**In the deploy (runtime) log**, `docker/entrypoint.sh` narrates itself. A
+successful boot reads exactly like this:
 
 ```
-[acl] rendering nginx config for port 10000
-[acl] nginx config OK
-[acl] building caches
-[acl] waiting for the database
-[acl] running migrations
+[acl] Binding nginx to port 10000
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+[acl] Discovering packages and building caches
+[acl] Waiting for the database
+[acl] Database reachable after 1 attempt(s).
+[acl] Applying migrations
+[acl] Starting php-fpm and nginx
 ```
 
-Then supervisor starts php-fpm and nginx, and Render reports the service live
-once `/up` answers.
+The two `nginx:` lines are nginx's own output from `nginx -t`, which the
+entrypoint runs deliberately: an invalid config fails at start, loudly, instead
+of serving blank pages. Render then reports the service live once `/up` answers.
+
+A boot that stops before `Discovering packages` has failed a guard, not a build.
+Read the `[acl]` line immediately above where it stops.
 
 What failure looks like, and what it means:
 
 | Log line | Cause | Fix |
 |---|---|---|
-| `APP_KEY is not set` and the container exits | The variable is empty or was never set | Step 2, then Step 4 |
-| `the database did not become reachable` | Wrong host/port, the schema does not exist, or Render's egress addresses are not allow-listed | Step 1.2 and 1.4 |
+| `[acl] APP_KEY is empty.` and the container exits 1 | The variable is empty or was never set. Render retries a few times, then marks the deploy failed | Step 2, then Step 4 |
+| `[acl] Database unreachable after 60s.` | Wrong host/port, the schema does not exist, or Render's egress addresses are not allow-listed | Step 1.2 and 1.4 |
 | `Access denied for user` | Wrong credentials, or the user has no privileges on that schema | Step 1.3 |
 | `nginx: [emerg] ... /etc/nginx/conf.d/default.conf` | `envsubst` produced an invalid config | Report it — `entrypoint.sh` runs `nginx -t` precisely so this fails loudly at start instead of serving blank pages |
 | Health check fails, no PHP error anywhere | php-fpm is up but got no environment | `clear_env = no` in `docker/php-fpm-pool.conf` is what prevents this; check it is still there |
@@ -500,8 +511,8 @@ Do not skip `APP_KEY` to "see if it starts" — the entrypoint refuses, by desig
 | Render reports no services in the blueprint | `render.yaml` is not on the branch Render is reading, or failed to parse. The log names the line. |
 | Build fails immediately, no Composer output | Render did not find `Dockerfile` at the repository root, or `dockerfilePath` is wrong. |
 | `Could not open input file: artisan` | The build context excluded too much. Check `.dockerignore` against what the stage copies. |
-| Container starts, then exits with `APP_KEY is not set` | Step 2 and Step 4. Working as intended. |
-| `the database did not become reachable after 60s` | Wrong `DB_HOST`/`DB_PORT`, the schema does not exist, or Render's egress addresses are not allow-listed. The entrypoint prints the driver's own error under this message — read that line. |
+| Container starts, then exits 1 with `[acl] APP_KEY is empty.` | Step 2 and Step 4. Working as intended — the guard fired instead of booting a broken application. |
+| `[acl] Database unreachable after 60s.` | Wrong `DB_HOST`/`DB_PORT`, the schema does not exist, or Render's egress addresses are not allow-listed. The entrypoint prints the driver's own error under this message — read that line. |
 | `SQLSTATE[HY000] [2002]` | The host resolves but nothing answers on the port. Firewall or wrong port. |
 | `Unknown database 'acl'` | The schema was never created. Laravel does not create it. Step 1.2. |
 | Health check fails but PHP logs nothing | php-fpm has no environment. `clear_env = no` in `docker/php-fpm-pool.conf`. |
