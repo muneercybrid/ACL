@@ -67,6 +67,13 @@ _Last updated: 2026-09-05. Maintain this file at every milestone._
   Cloudflare Tunnel (ADR-0011, superseding ADR-0009's serve-from-Codespace and
   ADR-0010's locally-managed tunnel; ADR-0009 had superseded ADR-0006's Render
   decision). The container image ACL owns is retained as a portable fallback.
+- Secrets have one source of truth: Doppler, with per-environment `dev`/`prd`
+  configs feeding the environment; the app still reads only from `config/` and no
+  secret enters the repo (ADR-0012). Decided this cycle; wiring is a pending
+  Codespace/EC2 step (see §9).
+- Production error tracking and external uptime monitoring use Honeybadger, keyed
+  from Doppler and enabled in production only (ADR-0013). Decided this cycle;
+  wiring is a pending Codespace/EC2 step (see §9).
 - AI is optional/pluggable; never a hard dependency.
 - No bulk schema generation: schema follows the domain model, slice by slice.
 
@@ -78,17 +85,22 @@ Slice 5.
 ## 6. Next Steps (in order)
 1. UI pass (dashboard + course viewer) per the ADR-0004 design language, and
    feature-test the dashboard listing that the suite currently does not reach.
-2. Production hardening follow-ups from ADR-0011: an `acl:create-admin` command
-   (or production-safe seeder) to replace the hand-bootstrapped admin and retire
-   the blanket `Gate::before` platform-admin; a least-privilege TiDB production
-   user (not the current broad `…root` grant); a Content-Security-Policy header;
-   and monitoring/alerting for the EC2 and the tunnel.
-3. A CI pipeline. There is still no `.github/` directory, so nothing runs the
+2. Wire up the integrations decided this cycle (implementation is a Codespace/EC2
+   step — see §9): Doppler as the secrets source of truth (ADR-0012) and
+   Honeybadger error + uptime monitoring (ADR-0013, `composer require` +
+   `config/honeybadger.php` filtering + the `withExceptions` report callback + a
+   spy-transport filtering test).
+3. Remaining production hardening follow-ups from ADR-0011: an `acl:create-admin`
+   command (or production-safe seeder) to replace the hand-bootstrapped admin and
+   retire the blanket `Gate::before` platform-admin; a least-privilege TiDB
+   production user (not the current broad `…root` grant); a Content-Security-Policy
+   header; and host/infra metrics beyond Honeybadger's app-error + uptime slice.
+4. A CI pipeline. There is still no `.github/` directory, so nothing runs the
    suite or Pint automatically — and, per ADR-0011, nothing gates what reaches
    the EC2.
-4. Slice 5: authentication hardening (2FA for staff) + audit-logging
+5. Slice 5: authentication hardening (2FA for staff) + audit-logging
    foundation.
-5. Then: assessments, then certificates.
+6. Then: assessments, then certificates.
 
 ## 7. Rules for Any AI Agent Continuing This Project
 1. Read this file, `.ai/guidelines/ACL.md`, and `docs/adr/` BEFORE changing
@@ -113,6 +125,16 @@ Slice 5.
   reported no failures across all four sections. `php artisan test` →
   **39 passed, 67 assertions, 4.85s**. `php artisan serve` came up on
   `0.0.0.0:8000` and answered a request.
+- **Decisions only, not implemented — 2026-09-05.** ADR-0012 (Doppler as the
+  secrets source of truth) and ADR-0013 (Honeybadger error + uptime monitoring)
+  were authored and accepted this turn. **Neither is wired:** no `composer`
+  package was added (`composer.json`/`composer.lock` unchanged), no
+  `config/honeybadger.php`, no `bootstrap/app.php` `withExceptions` callback, no
+  Doppler CLI in the devcontainer or on the EC2. The laptop cannot run
+  `composer`, `honeybadger:install` or the suite, so implementation and its
+  verification (including the required spy-transport filtering test) are a
+  Codespace/EC2 step. The 39-passing suite result below is unaffected and was
+  **not** re-run.
 - **Not yet verified — this hardening cycle (2026-09-05):** ADR-0007 (TiDB dev
   runtime) and ADR-0008 (Redis for dev sessions/cache/queue) landed with their
   devcontainer wiring — `install-services.sh` installing Redis + Mailpit,
