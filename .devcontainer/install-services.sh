@@ -85,6 +85,32 @@ else
   say "Mailpit already installed ($(mailpit version 2>/dev/null | head -n1))."
 fi
 
+# ---------------------------------------------------------------------------
+# cloudflared (Cloudflare Tunnel)
+# ---------------------------------------------------------------------------
+# Publishes the local dev app through a Cloudflare Tunnel (ADR-0009). Not in
+# apt, so -- like Mailpit above -- it is a single static binary fetched from
+# the official release into /usr/local/bin. Guarded by command -v so a rebuild
+# that kept /usr/local/bin does not re-download it. The tunnel is *started*
+# (only when the credentials secret is present) by start-services.sh, never
+# here; installing the binary is all this step does.
+if ! command -v cloudflared >/dev/null 2>&1; then
+  say "Installing cloudflared..."
+  if command -v curl >/dev/null 2>&1; then
+    arch="$(dpkg --print-architecture 2>/dev/null || echo amd64)"   # amd64 | arm64
+    if curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${arch}" -o /tmp/cloudflared; then
+      sudo install -m 0755 /tmp/cloudflared /usr/local/bin/cloudflared
+      rm -f /tmp/cloudflared
+    else
+      warn "cloudflared download failed; Cloudflare Tunnel will be unavailable until it is installed."
+    fi
+  else
+    warn "curl not found; cannot install cloudflared. Cloudflare Tunnel will be unavailable."
+  fi
+else
+  say "cloudflared already installed ($(cloudflared --version 2>/dev/null | head -n1))."
+fi
+
 say "Verifying required PHP extensions..."
 
 # pdo_mysql is normally baked into the image by the Dockerfile. This is the

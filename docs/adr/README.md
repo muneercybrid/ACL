@@ -18,4 +18,5 @@ Future Considerations.
 | [0006](0006-deploy-on-render-with-docker.md) | Deploy as a container on Render, MariaDB supplied externally | Superseded by 0009 |
 | [0007](0007-tidb-cloud-dev-runtime.md) | TiDB Cloud Serverless as the development runtime database | Accepted (amends 0005 for dev) |
 | [0008](0008-redis-in-development.md) | Redis for sessions, cache & queue in development | Accepted (amends 0006 for dev) |
-| [0009](0009-serve-from-codespace-via-cloudflare-tunnel.md) | Serve from the Codespace via a Cloudflare Tunnel; drop Render as the host | Accepted (supersedes 0006) |
+| [0009](0009-serve-from-codespace-via-cloudflare-tunnel.md) | Serve from the Codespace via a Cloudflare Tunnel; drop Render as the host | Accepted (supersedes 0006; §6 amended by 0010) |
+| [0010](0010-locally-managed-cloudflare-tunnel.md) | Locally-managed Cloudflare Tunnel with a credentials-file secret | Accepted (amends 0009 §6) |

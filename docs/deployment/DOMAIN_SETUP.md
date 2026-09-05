@@ -1,6 +1,6 @@
 # Serving ACL at app.aclacademy.me — Cloudflare Tunnel
 
-*This document records the procedure for publishing the ACL Codespace at a public hostname through a Cloudflare Tunnel. The decision to serve this way — from the Codespace, with Render dropped — is [ADR-0009](../adr/0009-serve-from-codespace-via-cloudflare-tunnel.md); publishing the app and changing devcontainer provisioning are architectural changes under `CLAUDE.md` §6/§12, and this procedure is the authorised way to carry them out. Nothing here is wired up automatically — following it is the authorised step. All shell commands run **inside the Codespace terminal** unless a step says otherwise; the Windows laptop is only your editor and dashboard browser.*
+*This document records the procedure for publishing the ACL Codespace at a public hostname through a Cloudflare Tunnel. The decision to serve this way — from the Codespace, with Render dropped — is [ADR-0009](../adr/0009-serve-from-codespace-via-cloudflare-tunnel.md), with the locally-managed tunnel mechanism this guide uses pinned by [ADR-0010](../adr/0010-locally-managed-cloudflare-tunnel.md); publishing the app and changing devcontainer provisioning are architectural changes under `CLAUDE.md` §6/§12, and this procedure is the authorised way to carry them out. The devcontainer scripts start the tunnel automatically **only when its credentials secret is present** (Part 3); this guide is how you create the tunnel, supply that secret, and point DNS at it. All shell commands run **inside the Codespace terminal** unless a step says otherwise; the Windows laptop is only your editor and dashboard browser.*
 
 > **The domain is publicly reachable, with no edge access gate.** An earlier draft of this guide put a Cloudflare Access email-OTP challenge in front of the app; that has been **removed at the maintainer's request**. The consequence: **ACL's own login is the only barrier between the internet and the app**, so before you expose the tunnel you must neutralise the seeded `admin@acl.local` / `password` administrator (see [Security notes](#security-notes)). Serving `php artisan serve` through a tunnel is a *development server made reachable*, not a production tier.
 
@@ -34,9 +34,9 @@ The loopback leg is unencrypted **by design and is safe only because it is loopb
 - The domain **`aclacademy.me`** registered at Namecheap, with access to change its nameservers.
 - A free **Cloudflare** account (`https://dash.cloudflare.com`).
 - The **ACL Codespace**, able to run `php artisan serve` on port `8000`.
-- Permission to add a **GitHub Codespaces secret** at the repo or org level (Settings → Secrets and variables → Codespaces) — used in Part 3 for the tunnel token.
+- Permission to add a **GitHub Codespaces secret** at the repo or org level (Settings → Secrets and variables → Codespaces) — used in Part 3 for the tunnel **credentials**.
 - Outbound network from the Codespace on TCP/UDP **7844** (Codespaces permits this; no inbound ports are needed).
-- Order dependency: `aclacademy.me` must be **Active** on Cloudflare (Part 1) before the tunnel's routing step (Part 2) can offer it in the domain dropdown.
+- Order dependency: `aclacademy.me` must be **Active** on Cloudflare (Part 1) before the tunnel's routing step (Part 2, `cloudflared tunnel route dns`) can create the `app` record.
 
 ## Part 1 — Put aclacademy.me on Cloudflare
 
@@ -69,83 +69,80 @@ dig NS aclacademy.me +short
 
 This should return the two `*.ns.cloudflare.com` names.
 
+## Part 1.5 — Move the apex off the GitHub Pages site
+
+Searching `aclacademy.me` still shows the GitHub Pages site because the domain was pointed at a GitHub repository (the custom-domain "user/organization site"). That pointing is **DNS**: four `A` records for the apex at GitHub's Pages addresses (`185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`) and usually a `CNAME www → <user>.github.io`. When Cloudflare scanned the zone in Part 1 it most likely **imported those records**, so they are now yours to change **in Cloudflare, not in Namecheap** (Namecheap no longer serves this domain's DNS).
+
+ACL is canonical at **`app.aclacademy.me`** (the tunnel). The simplest, recommended choice for the bare `aclacademy.me` and `www` is to **301-redirect both to `https://app.aclacademy.me`**.
+
+**In the Cloudflare dashboard → your zone → DNS → Records:**
+
+1. **Delete** the four Pages `A` records on `@` (`185.199.108–111.153`) and any `CNAME www → <user>.github.io`. This alone stops the GitHub site being served.
+2. Add one **proxied** placeholder so the apex still resolves (the target is irrelevant — a Redirect Rule intercepts the request before it is forwarded):
+   - `AAAA` `@` → `100::` — **Proxied** (orange cloud). (`100::` is the IPv6 discard prefix; a proxied `A @ 192.0.2.1` works equally well.)
+   - `CNAME` `www` → `aclacademy.me` — **Proxied** (orange cloud).
+
+**Then add the redirect — Cloudflare → your zone → Rules → Redirect Rules → Create rule:**
+
+3. Match with a **custom filter expression**: `(http.host eq "aclacademy.me") or (http.host eq "www.aclacademy.me")`.
+4. Then **Static redirect** → URL `https://app.aclacademy.me`, status **301**, **Preserve query string** on. **Deploy.**
+5. Now `aclacademy.me` and `www` 301 to `https://app.aclacademy.me`, while `app.aclacademy.me` is served by the tunnel (Part 2). Browsers cache 301s hard — test in a private window and clear the cache if you had visited the Pages site.
+
+Optional: to keep a real page on the apex instead of redirecting, leave the Pages `A` records (proxied) rather than deleting them in step 1 — but then ACL is not what the apex shows. The redirect above is recommended while `app.aclacademy.me` is the only thing to serve.
+
 ## Part 2 — Create the tunnel and route app.aclacademy.me → localhost:8000
 
-This uses a **remotely-managed (token-based)** tunnel: its whole configuration lives on Cloudflare and the connector needs only a token to run — no interactive `cloudflared tunnel login` browser step, which is the right fit for a headless Codespace.
+This uses a **locally-managed** tunnel: you authenticate once with `cloudflared tunnel login` against the ordinary Cloudflare dashboard, create a named tunnel, and route the hostname — all from the CLI. Unlike a remotely-managed (token) tunnel it needs **no Cloudflare Zero Trust onboarding**, which is what avoids the "add a payment method" wall on the free plan. The trade-off: the connector is configured from a local `config.yml` + credentials file (Part 3 regenerates both on every start), not from the dashboard.
 
-### 2.1 Create the named tunnel and copy its token
+### 2.1 Install cloudflared in the Codespace
 
-1. Go to **Cloudflare One** (`https://one.dash.cloudflare.com`). On first use you are asked to pick a **team name** and choose the **Free** Zero Trust plan.
-2. **Networks → Connectors → Cloudflare Tunnels** (older guides call this "Access → Tunnels" or "Zero Trust → Networks → Tunnels" — same feature, relocated). Being in the **Cloudflare Tunnel** connector section already selects the `cloudflared` connector.
-3. Select **Create a tunnel**.
-4. Enter a name (e.g. `acl-codespace`) → **Save tunnel** / **Create Tunnel**.
-5. The next screen is **"Install and run a connector"**: choose **Debian/Ubuntu, 64-bit**. Cloudflare shows an install command that embeds the token — the token is the long **`eyJ...`** string. Per Cloudflare: *"Copy the cloudflared installation command into a text editor (do not run the command). The token is the `eyJ...` string."* **Copy that token now.**
-
-Treat the token as a secret — anyone holding it can run your tunnel. You will store it as a Codespaces secret in Part 3. You can retrieve or rotate it later from the tunnel's **Configure** page.
-
-### 2.2 Install cloudflared in the Codespace (for a first manual test)
-
-This installs the binary into the **current** container so you can verify the path end-to-end now; Part 3 makes the install durable across rebuilds. Use the Cloudflare apt repository (gets updates via `apt`):
+Part 3 makes this durable across rebuilds (it is already in `install-services.sh`); for a first manual run, fetch the single static binary into the current container:
 
 ```bash
-sudo mkdir -p --mode=0755 /usr/share/keyrings
+sudo curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$(dpkg --print-architecture)" -o /usr/local/bin/cloudflared && sudo chmod 0755 /usr/local/bin/cloudflared
 ```
-
-```bash
-curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
-```
-
-```bash
-echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
-```
-
-```bash
-sudo apt-get update
-```
-
-```bash
-sudo apt-get install cloudflared
-```
-
-Note: the repo line uses the component **`.../cloudflared any main`**. Older guides use `$(lsb_release -cs)` (e.g. `bookworm`, `jammy`); Cloudflare consolidated to the single **`any`** distribution, so use `any`.
-
-*(Alternative — direct `.deb`, what the dashboard's default command uses):*
-
-```bash
-curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-```
-
-```bash
-sudo dpkg -i cloudflared.deb
-```
-
-Verify either way:
 
 ```bash
 cloudflared --version
 ```
 
-### 2.3 Route the public hostname to the local app
+### 2.2 Authenticate once (browser — no card)
+
+```bash
+cloudflared tunnel login
+```
+
+This opens a Cloudflare URL; pick the `aclacademy.me` zone and authorise. It writes **`~/.cloudflared/cert.pem`** — the certificate that lets the CLI **manage** tunnels and DNS for that zone. It uses the ordinary dashboard, **not** Cloudflare Zero Trust, so no payment method is requested. `cert.pem` is needed only for the management commands below (create/route), never to *run* the tunnel.
+
+### 2.3 Create the named tunnel
+
+```bash
+cloudflared tunnel create acl
+```
+
+This prints a **tunnel UUID** and writes `~/.cloudflared/<UUID>.json` — the run-time **credentials** (Part 3's secret): that file alone lets `cloudflared` run this tunnel, no `cert.pem` required. The UUID itself is not secret. List tunnels anytime with `cloudflared tunnel list`.
+
+### 2.4 Route the public hostname to the tunnel
 
 Prerequisite: `aclacademy.me` is **Active** on Cloudflare (Part 1).
 
-1. **Networks → Connectors → Cloudflare Tunnels** → select your tunnel (`acl-codespace`) → **Configure**, then open the **Routes** tab.
-2. On the **Routes** tab, select **Add route → Published application**. (This is the renamed "Public Hostname → Add a public hostname" from older tutorials — the single biggest terminology change.)
-3. Fill in:
-   - **Subdomain:** `app`
-   - **Domain:** select **`aclacademy.me`** from the dropdown.
-   - **Path:** leave empty.
-   - **Type / Service URL:** `HTTP`, host `localhost:8000` — i.e. the full **Service URL `http://localhost:8000`**.
-4. Select **Add route** (Save).
-
-Cloudflare **auto-creates the DNS record**: a proxied (orange-cloud) `CNAME` named `app` pointing at `<TUNNEL-UUID>.cfargotunnel.com`. You do not add this by hand — that is why the zone had to exist on Cloudflare first. TLS for `https://app.aclacademy.me` is terminated at Cloudflare's edge by Universal SSL automatically. (A single-level subdomain like `app` is covered by the free certificate; a multi-level host such as `x.app.aclacademy.me` would need an Advanced Certificate — not your case.)
-
-### 2.4 Run the connector once and smoke-test
-
-Make the token available to this terminal only. This `export` lives in the current shell and is **not** written to any file — Part 3 replaces it with a Codespaces secret so it survives restarts:
-
 ```bash
-export CLOUDFLARE_TUNNEL_TOKEN='eyJ...paste-the-token-here...'
+cloudflared tunnel route dns acl app.aclacademy.me
+```
+
+This **auto-creates** the proxied (orange-cloud) `CNAME` `app` → `<UUID>.cfargotunnel.com` in the Cloudflare zone — the record the dashboard would otherwise add, done from the CLI. That is why the zone had to exist on Cloudflare first. TLS for `https://app.aclacademy.me` is terminated at Cloudflare's edge by Universal SSL automatically (a single-level subdomain like `app` is covered by the free certificate). Re-running is idempotent; it errors only if a conflicting record exists, which you clear in the Cloudflare **DNS** dashboard.
+
+### 2.5 Write a config and smoke-test
+
+Create `~/.cloudflared/config.yml` (Part 3 regenerates this on every container start — this is the manual first run), substituting the UUID from 2.3:
+
+```yaml
+tunnel: <UUID>
+credentials-file: /home/vscode/.cloudflared/<UUID>.json
+ingress:
+  - hostname: app.aclacademy.me
+    service: http://localhost:8000
+  - service: http_status:404
 ```
 
 In a first terminal, start the app:
@@ -154,137 +151,57 @@ In a first terminal, start the app:
 php artisan serve --host=0.0.0.0 --port=8000
 ```
 
-In a second terminal, run the connector (the foreground `run --token` form is correct for a Codespace, which has no systemd for the dashboard's `service install` command):
+In a second terminal, run the connector (no token, no `cert.pem` needed — it reads the credentials file named in the config):
 
 ```bash
-cloudflared tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"
+cloudflared tunnel --config ~/.cloudflared/config.yml run
 ```
 
-The tunnel goes **HEALTHY** in the dashboard once connected. In a third terminal, confirm the full path answers:
+In a third terminal, confirm the full path answers:
 
 ```bash
 curl -I https://app.aclacademy.me
 ```
 
-Any HTTP response returned here (even an ACL error page — the app is not built or configured for HTTPS yet, that is Parts 4–5) proves the browser → edge → tunnel → app path works. A connection failure instead means the connector or the local `:8000` listener is down.
+Any HTTP response here (even an ACL error page — the app is not built or configured for HTTPS yet, that is Parts 4–5) proves browser → edge → tunnel → app works. `cloudflared tunnel info acl` shows the active connector; a connection failure instead means the connector or the local `:8000` listener is down.
 
 ## Part 3 — Make the tunnel survive codespace restarts
 
 In Codespaces the events differ: **stop/resume** pauses and resumes the *same* container — the writable filesystem (an installed binary) survives but running processes do not; **rebuild** builds a *new* container — only what `onCreateCommand`/`postCreateCommand` reinstall (or what is baked into the image) survives. This is the same split the repo already uses for Mailpit: install the binary where a rebuild still has it, and (re)start the daemon on every container start. The steps below mirror the existing `.devcontainer/` scripts exactly.
 
-### 3.1 Store the token as a Codespaces secret
+### 3.1 Store the tunnel credentials as a Codespaces secret
 
-**Do this in GitHub, not in the repo.** Repo (or org) → **Settings → Secrets and variables → Codespaces** → add `CLOUDFLARE_TUNNEL_TOKEN` with the `eyJ...` value from Part 2.1. It arrives as an environment variable in the Codespace.
+The run-time credentials are the `~/.cloudflared/<UUID>.json` file written in Part 2.3 (`<UUID>` is the tunnel ID `cloudflared tunnel create` printed; `cloudflared tunnel list` shows it again). Base64-encode that file as a single unwrapped line:
 
-- Do **not** add it to `containerEnv` in `devcontainer.json`.
-- Do **not** put it in a committed `.env`.
-- Do **not** give it a default in `config.sh`.
+```bash
+base64 -w0 ~/.cloudflared/<UUID>.json; echo
+```
 
-The `if [ -z … ]` guard below is what keeps a token-less codespace booting cleanly.
+Copy the one-line output. **Do this in GitHub, not in the repo:** repo (or org) → **Settings → Secrets and variables → Codespaces** → **New repository secret** → name `CLOUDFLARE_TUNNEL_CREDENTIALS_B64`, value = that base64 string. It is injected as an environment variable on **every** codespace start (create *and* resume), which is what lets the tunnel come back after a stop/resume or a rebuild.
+
+- Do **not** paste the base64 value into a chat, an issue, or a commit message.
+- Do **not** add it to `containerEnv` in `devcontainer.json`, and do **not** put it in a committed `.env`.
+- Do **not** give it a default in `config.sh` — the contract is the variable name only, exactly like `ACL_TIDB_*`.
+
+The `[ -n "${CLOUDFLARE_TUNNEL_CREDENTIALS_B64:-}" ]` guard in `start-services.sh` keeps a credential-less codespace booting cleanly: the tunnel is simply skipped.
 
 ### 3.2 Install cloudflared durably — `.devcontainer/install-services.sh`
 
-Add this block right after the existing Mailpit block. It is the same shape and voice as that block: a single static binary fetched into `/usr/local/bin`, guarded by `command -v`, re-run on rebuild by `onCreateCommand`:
+**Already in the repo.** `install-services.sh` (run by `onCreateCommand` on create/rebuild) fetches the single static `cloudflared` binary into `/usr/local/bin`, right after the Mailpit block and in the same shape: guarded by `command -v` so a rebuild that kept `/usr/local/bin` does not re-download it, and `warn`-ing rather than failing if the download is unavailable. `dpkg --print-architecture` selects `amd64`/`arm64`, which are exactly cloudflared's release-asset suffixes, so it is correct on both x86 and ARM codespaces. See the block in [`.devcontainer/install-services.sh`](../../.devcontainer/install-services.sh); the tunnel is only *installed* here — it is *started* (and only when the credentials secret is present) by `start-services.sh`, never here.
 
-```bash
-# ---------------------------------------------------------------------------
-# cloudflared (Cloudflare Tunnel)
-# ---------------------------------------------------------------------------
-# Publishes the local dev app through a Cloudflare Tunnel. Not in apt, so --
-# like Mailpit above -- it is a single static binary fetched from the official
-# release into /usr/local/bin. Guarded by command -v so a rebuild that kept
-# /usr/local/bin does not re-download it. The tunnel is *started* (only when a
-# token is present) by start-services.sh, never here.
-if ! command -v cloudflared >/dev/null 2>&1; then
-  say "Installing cloudflared..."
-  if command -v curl >/dev/null 2>&1; then
-    arch="$(dpkg --print-architecture 2>/dev/null || echo amd64)"   # amd64 | arm64
-    if curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${arch}" -o /tmp/cloudflared; then
-      sudo install -m 0755 /tmp/cloudflared /usr/local/bin/cloudflared
-      rm -f /tmp/cloudflared
-    else
-      warn "cloudflared download failed; Cloudflare Tunnel will be unavailable until it is installed."
-    fi
-  else
-    warn "curl not found; cannot install cloudflared. Cloudflare Tunnel will be unavailable."
-  fi
-else
-  say "cloudflared already installed ($(cloudflared --version 2>/dev/null | head -n1))."
-fi
-```
+### 3.3 Reconstruct and start the tunnel on every container start — `.devcontainer/start-services.sh`
 
-`dpkg --print-architecture` returns `amd64`/`arm64`, which are exactly the suffixes on cloudflared's release assets, so this is correct on both x86 and ARM codespaces.
+**Already in the repo.** `start-services.sh` (run by `postStartCommand` on every start, resume included) defines `ensure_cloudflared`, which:
 
-*Alternative — bake it into the image layer instead.* Put this after the existing `apt-get install` that already provides `curl`/`ca-certificates` (around line 42 of `.devcontainer/Dockerfile`; hardcode `amd64`, since Codespaces is x86_64). The `install-services.sh` placement is recommended as primary because it is the precedent Mailpit set:
+1. **skips cleanly** when `CLOUDFLARE_TUNNEL_CREDENTIALS_B64` is absent, so a credential-less codespace still boots;
+2. base64-decodes the secret, reads the `TunnelID` out of it, and writes the credentials back to `~/.cloudflared/<UUID>.json` (mode 600);
+3. regenerates `~/.cloudflared/config.yml` (mode 600) from `config.sh`'s `ACL_TUNNEL_HOSTNAME` + metrics port on every start, so the ingress can never drift;
+4. starts `cloudflared --config … tunnel run` with `nohup … & disown` (the same detach `ensure_mailpit` uses), guarded by `pgrep -x cloudflared` so it never double-starts;
+5. reports readiness from cloudflared's own loopback `/ready` metric — there is no inbound listener to probe.
 
-```dockerfile
-RUN curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && chmod +x /usr/local/bin/cloudflared
-```
+The fixed values live in [`.devcontainer/config.sh`](../../.devcontainer/config.sh) (`ACL_TUNNEL_HOSTNAME=app.aclacademy.me`, `ACL_TUNNEL_METRICS_PORT=60123`); the metrics port is loopback-only and deliberately **absent** from `forwardPorts`. The bring-up block runs `ensure_cloudflared || true`, so — matching the rule that only MariaDB's failure sets the exit code — a tunnel problem is reported but never breaks the container. Read the function in [`.devcontainer/start-services.sh`](../../.devcontainer/start-services.sh).
 
-### 3.3 Start the daemon on every container start — `.devcontainer/start-services.sh`
-
-Add `ensure_cloudflared` after `ensure_mailpit` (the `}` closing that function is line 135). The name follows the file's existing `ensure_*` style; readiness comes from cloudflared's own metrics `/ready` endpoint (there is no inbound listener to probe), and the double-start guard is a `pgrep` since there is no port to check:
-
-```bash
-# --- Cloudflare Tunnel ----------------------------------------------------
-# Publishes the local app at a stable public hostname across codespace
-# stop/resume and rebuild. The token is a SECRET, read from the
-# CLOUDFLARE_TUNNEL_TOKEN environment variable -- set as a GitHub Codespaces
-# secret (Settings > Secrets and variables > Codespaces), NEVER committed and
-# NEVER written to .env. When the variable is absent the tunnel is skipped, so
-# a codespace without the secret still comes up cleanly.
-#
-# Unlike the services above, cloudflared has no inbound listener to probe: it
-# makes outbound connections to Cloudflare's edge. So readiness comes from its
-# own metrics server -- `/ready` returns 200 once at least one edge connection
-# is up -- bound to loopback only, and the "don't start twice" guard is a
-# pgrep on the process rather than a port check.
-ACL_TUNNEL_METRICS_ADDR="127.0.0.1:${ACL_TUNNEL_METRICS_PORT:-60123}"
-tunnel_ready() { curl -sf "http://${ACL_TUNNEL_METRICS_ADDR}/ready" >/dev/null 2>&1; }
-
-ensure_cloudflared() {
-  if [ -z "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
-    say "No CLOUDFLARE_TUNNEL_TOKEN in the environment; skipping Cloudflare Tunnel."
-    return 0
-  fi
-  command -v cloudflared >/dev/null 2>&1 \
-    || { warn "cloudflared not installed; Cloudflare Tunnel unavailable. Run install-services.sh."; return 1; }
-  if pgrep -x cloudflared >/dev/null 2>&1; then say "Cloudflare Tunnel already running."; return 0; fi
-
-  say "Starting Cloudflare Tunnel..."
-  # --metrics goes on the `tunnel` command, before `run`. --no-autoupdate: the
-  # binary is managed by install-services.sh, not by cloudflared rewriting
-  # itself under us. The token is passed on argv as cloudflared documents;
-  # nothing here echoes it and it never touches disk.
-  nohup cloudflared tunnel --no-autoupdate --metrics "$ACL_TUNNEL_METRICS_ADDR" \
-    run --token "$CLOUDFLARE_TUNNEL_TOKEN" \
-    >>"${ACL_STATE_DIR}/cloudflared.log" 2>&1 &
-  disown 2>/dev/null || true
-
-  for _ in $(seq 1 30); do
-    if tunnel_ready; then say "Cloudflare Tunnel is up (edge connections established)."; return 0; fi
-    sleep 1
-  done
-  tail -n 20 "${ACL_STATE_DIR}/cloudflared.log" 2>/dev/null || true
-  warn "Cloudflare Tunnel did not report ready within 30s (log tail above)."
-  return 1
-}
-```
-
-Then extend the "Bring everything up" block at the bottom (lines 142–146) so a tunnel failure is reported but never breaks the container — matching the existing rule that only MariaDB's failure sets the exit code:
-
-```bash
-rc=0
-ensure_mariadb     || rc=1
-ensure_redis       || true
-ensure_mailpit     || true
-ensure_cloudflared || true
-exit "$rc"
-```
-
-This reuses the file's `say`/`warn` helpers, its `${ACL_STATE_DIR}` log location, the same `nohup … & ; disown` detach `ensure_mailpit` uses, and `${CLOUDFLARE_TUNNEL_TOKEN:-}` is `set -u`-safe.
-
-*Optional single-source note:* for full fidelity with the repo's "`config.sh` is the single source of truth for fixed values" rule, `ACL_TUNNEL_METRICS_PORT` ideally belongs in `.devcontainer/config.sh` alongside `ACL_APP_PORT`/`ACL_MAIL_UI_PORT`. It is loopback-only and internal, so it does **not** need adding to `forwardPorts`. Left inline with a `:-60123` default above to stay self-contained; promote it if you want the single-source property.
+Nothing echoes the secret, and the decoded credentials never leave the container's private home. Unlike a `--token` on argv, the secret never appears on the process command line (`ps`); the trade is a 600 credentials file on the throwaway container's own disk.
 
 ### 3.4 Apply it to the current container
 
@@ -411,13 +328,13 @@ npm run build
 php artisan config:cache
 ```
 
-4. **Ensure the app is listening and the tunnel is up.** With Part 3 wired, `start-services.sh` starts the tunnel on container start; start the app if it is not already running:
+4. **Ensure the app is listening and the tunnel is up.** With Part 3 in place, `start-services.sh` starts the tunnel on container start (when the credentials secret is set); start the app if it is not already running:
 
 ```bash
 php artisan serve --host=0.0.0.0 --port=8000
 ```
 
-   (If you did not wire auto-start in Part 3, also run `cloudflared tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"`.) Confirm the tunnel shows **HEALTHY** in Cloudflare One.
+   (If the tunnel is not already running, start it with `cloudflared tunnel --config ~/.cloudflared/config.yml run`.) Confirm it is connected with `cloudflared tunnel info acl`, or `curl -sf http://127.0.0.1:60123/ready` inside the container.
 5. **Neutralise the seeded administrator — do this before the URL is shared with anyone.** If `DevelopmentSeeder` has run, `admin@acl.local` / `password` exists and `AppServiceProvider`'s `Gate::before` makes it omnipotent; with no edge gate that is an open admin door (see the security notes). Change its password, or do not run `DevelopmentSeeder` on the exposed instance. See "Bootstrapping a real administrator" in [`README.md`](README.md).
 6. **Load the site** in a browser: `https://app.aclacademy.me`. There is no edge challenge — the app loads straight to ACL's own login.
 7. **Confirm ACL's own login:** you reach ACL's `/login` and sign in with a real ACL account. ACL's authentication, scoped RBAC and institutional entitlement are the only barrier — there is no gate in front of them.
@@ -425,10 +342,10 @@ php artisan serve --host=0.0.0.0 --port=8000
 
 ## Security notes
 
-- **The tunnel token — and any Cloudflare API token — are secrets.** Store `CLOUDFLARE_TUNNEL_TOKEN` only as a GitHub Codespaces secret (Settings → Secrets and variables → Codespaces). Never commit it, never put it in a tracked `.env`, never give it a default in `config.sh`. Anyone holding the token can run your tunnel. This mirrors how the repo already treats `ACL_TIDB_*`: the contract is the variable name; the value lives only in the environment.
-- **Process-args caveat:** `--token "$…"` puts the token in `ps` / `/proc/<pid>/cmdline` inside the container (never on disk, never in the log). To keep it out of `ps` entirely, cloudflared also accepts the token via the `TUNNEL_TOKEN` environment variable (`export TUNNEL_TOKEN="$CLOUDFLARE_TUNNEL_TOKEN"` and drop `--token`) — worth verifying against your cloudflared version; the `--token` form is the documented, example-confirmed one.
+- **The tunnel credentials JSON — and any Cloudflare API token — are secrets.** Store the tunnel's `<UUID>.json` only as the base64 GitHub Codespaces secret `CLOUDFLARE_TUNNEL_CREDENTIALS_B64` (Settings → Secrets and variables → Codespaces). Never commit it, never put it in a tracked `.env`, never give it a default in `config.sh`. Anyone holding it can run your tunnel. This mirrors how the repo already treats `ACL_TIDB_*`: the contract is the variable name; the value lives only in the environment. `cert.pem` is a separate management credential (create/route/delete) and is likewise never committed; it is not needed to *run* the tunnel.
+- **On-disk credentials caveat:** `start-services.sh` reconstructs the credentials file at `~/.cloudflared/<UUID>.json` (mode 600) and the config at `~/.cloudflared/config.yml` (mode 600) on every start — inside the container's private home, never in the repo tree. Unlike a token on `--token`, nothing puts the secret on the process argv / `ps`; the trade is a 600 file on the container's own disk, which is appropriate for a throwaway dev container.
 - **Trusting all proxies (`trustProxies(at: '*')`) is safe only because the origin is loopback-only behind the tunnel.** Keep the Codespace's port `8000` **private** (do not "make public" the forwarded port), so nothing but `cloudflared` can inject `X-Forwarded-*` headers; Cloudflare overwrites them itself. Map the tunnel route to **only** `app → 127.0.0.1:8000` — never Mailpit (`:8025`), Vite (`:5173`), or the database.
 - **`SESSION_SECURE_COOKIE=true` means the origin must be reached only via the HTTPS tunnel.** Hitting `http://localhost:8000` directly will not set the cookie and produces a login/419 loop.
 - **There is no edge access gate — ACL's own login is the only barrier.** The domain is publicly reachable ([ADR-0009](../adr/0009-serve-from-codespace-via-cloudflare-tunnel.md) removed the Cloudflare Access OTP gate at the maintainer's request), so ACL's authentication, scoped RBAC and institutional entitlement are the sole authority for who gets in and what they may do. **Before exposing the URL, neutralise the seeded administrator:** `DevelopmentSeeder` creates `admin@acl.local` / `password`, and `AppServiceProvider`'s `Gate::before` makes a platform administrator omnipotent — on a public URL with no edge gate, that well-known default is an open admin door. Change its password, or do not run `DevelopmentSeeder` on the exposed instance.
 - **`APP_DEBUG=false` before exposing**, so stack traces, env values and SQL never render to a visitor. Do not add a Cloudflare "Cache Everything" rule over HTML, or a cached CSRF token will 419 every visitor.
-- **Governance.** Under `CLAUDE.md` §6/§12, publishing the app and changing devcontainer provisioning are architectural changes needing authorisation in-conversation and an ADR; that decision is **[ADR-0009](../adr/0009-serve-from-codespace-via-cloudflare-tunnel.md)**, accepted. §8 forbids secrets in the repo. This document is the procedure ADR-0009 points to — applying it is the authorised step.
+- **Governance.** Under `CLAUDE.md` §6/§12, publishing the app and changing devcontainer provisioning are architectural changes needing authorisation in-conversation and an ADR; that decision is **[ADR-0009](../adr/0009-serve-from-codespace-via-cloudflare-tunnel.md)**, accepted (its tunnel-secret mechanism amended by **[ADR-0010](../adr/0010-locally-managed-cloudflare-tunnel.md)**). §8 forbids secrets in the repo. This document is the procedure ADR-0009 points to — applying it is the authorised step.
