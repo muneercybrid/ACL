@@ -1,6 +1,6 @@
 # ACL Project Status & Handoff
 
-_Last updated: 2026-09-03. Maintain this file at every milestone._
+_Last updated: 2026-09-05. Maintain this file at every milestone._
 
 ## 1. Repository
 - GitHub: muneercybrid/ACL, branch: main, remote
@@ -17,10 +17,13 @@ _Last updated: 2026-09-03. Maintain this file at every milestone._
 ## 2. Stack (current)
 - Laravel 13.25, PHP 8.4, Node 24 (devcontainer `node` feature), Vite 8,
   Tailwind v4, Alpine.js 3.
-- Database: **MariaDB across all environments (ADR-0005)**. This supersedes
-  the earlier SQLite → PostgreSQL plan (ADR-0002).
-- Cache / queue / session: Laravel database drivers. Redis later, only when
-  justified.
+- Database: **MariaDB for the test suite and production (ADR-0005)** —
+  superseding the earlier SQLite → PostgreSQL plan (ADR-0002). The dev *runtime*
+  is TiDB Cloud when its `ACL_TIDB_*` Codespaces secrets are present, else the
+  local MariaDB (ADR-0007); the suite always runs on the local MariaDB.
+- Cache / queue / session: Laravel `database` drivers in production and in a
+  plain clone; the devcontainer overrides all three to Redis via the pure-PHP
+  `predis` client (ADR-0008). Redis is now settled for dev — no longer "later".
 - Deployment: a container image plus a Render blueprint exist
   (`Dockerfile`, `render.yaml`, ADR-0006). The image **builds on Render** and the
   container starts; it has **not yet served a request** — see §9.
@@ -47,7 +50,11 @@ _Last updated: 2026-09-03. Maintain this file at every milestone._
 
 ## 4. Key Decisions (do not revisit without a new ADR)
 - Modular monolith; API-ready; no microservices yet (ADR-0001).
-- MariaDB everywhere (ADR-0005); write portable migrations.
+- MariaDB for tests and production (ADR-0005); TiDB Cloud permitted for the dev
+  runtime only (ADR-0007); write portable migrations either way.
+- Dev sessions/cache/queue run on Redis via `predis` (ADR-0008); production
+  keeps the `database` drivers. Putting Redis into production is a new-
+  infrastructure decision that would need its own ADR.
 - Models in `app/Models`; domain folders only when populated (ADR-0003).
 - Deployed as a container ACL owns, on Render, with MariaDB supplied by a
   managed provider outside Render (ADR-0006). Render has no managed
@@ -94,6 +101,17 @@ Slice 5.
   reported no failures across all four sections. `php artisan test` →
   **39 passed, 67 assertions, 4.85s**. `php artisan serve` came up on
   `0.0.0.0:8000` and answered a request.
+- **Not yet verified — this hardening cycle (2026-09-05):** ADR-0007 (TiDB dev
+  runtime) and ADR-0008 (Redis for dev sessions/cache/queue) landed with their
+  devcontainer wiring — `install-services.sh` installing Redis + Mailpit,
+  `start-services.sh` starting all three, `post-create.sh` selecting TiDB or the
+  local MariaDB and writing the Redis/Mail keys, and `predis` added to
+  `composer.json`. **None of this has been exercised in a fresh or rebuilt
+  codespace yet, and the suite has not been re-run since.** Treat the
+  three-service startup as designed-but-unproven until `start-services.sh` has
+  brought MariaDB, Redis and Mailpit all up and `php artisan test` has been
+  re-run in the codespace and its output recorded here. The 39-passing result
+  above predates this change and does not cover it.
 - **Verified on Render, 2026-09-03:** the image **builds** — all stages complete,
   layers pushed. The container **starts**: `docker/entrypoint.sh` renders
   `/etc/nginx/conf.d/default.conf` from `$PORT` and `nginx -t` reports the

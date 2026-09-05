@@ -20,7 +20,7 @@
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
-  "//": "Fixed development-only values. The database they unlock exists only inside this container and is never reachable from the internet. Production credentials live in the deployment environment, never in this repo. Keep in sync with .devcontainer/config.sh.",
+  "//": "Fixed development-only values. The services they unlock (MariaDB, Redis, Mailpit) exist only inside this container and are never reachable from the internet. Production credentials live in the deployment environment, never in this repo. Keep in sync with .devcontainer/config.sh.",
   "containerEnv": {
     "ACL_DB_HOST": "127.0.0.1",
     "ACL_DB_PORT": "3306",
@@ -29,7 +29,18 @@
     "ACL_DB_USER": "acl_user",
     "ACL_DB_PASSWORD": "acl_password",
     "ACL_APP_PORT": "8000",
-    "ACL_VITE_PORT": "5173"
+    "ACL_VITE_PORT": "5173",
+    "ACL_REDIS_HOST": "127.0.0.1",
+    "ACL_REDIS_PORT": "6379",
+    "ACL_REDIS_PASSWORD": "acl_redis_password",
+    "ACL_REDIS_MAXMEMORY": "256mb",
+    "ACL_REDIS_MAXMEMORY_POLICY": "noeviction",
+    "ACL_REDIS_DB": "0",
+    "ACL_REDIS_CACHE_DB": "1",
+    "ACL_MAIL_UI_PORT": "8025",
+    "ACL_MAIL_SMTP_PORT": "1025",
+    "ACL_MAIL_USER": "acl",
+    "ACL_MAIL_PASSWORD": "acl_mail_password"
   },
 
   "//onCreate": "System packages; runs once per container build.",
@@ -38,15 +49,16 @@
   "//postCreate": "Application setup; idempotent, safe to re-run on rebuild.",
   "postCreateCommand": "bash .devcontainer/post-create.sh",
 
-  "//postStart": "Starts MariaDB and waits until it accepts connections. Runs on EVERY start, so the database is up after a codespace is stopped and resumed, not only on first create.",
+  "//postStart": "Starts MariaDB, Redis and Mailpit and waits until each accepts connections. Runs on EVERY start, so the backing services are up after a codespace is stopped and resumed, not only on first create.",
   "postStartCommand": "bash .devcontainer/start-services.sh",
 
   "waitFor": "postCreateCommand",
 
-  "forwardPorts": [8000, 5173],
+  "forwardPorts": [8000, 5173, 8025],
   "portsAttributes": {
     "8000": { "label": "ACL app", "onAutoForward": "notify" },
-    "5173": { "label": "Vite dev server", "onAutoForward": "silent" }
+    "5173": { "label": "Vite dev server", "onAutoForward": "silent" },
+    "8025": { "label": "Mailpit inbox", "onAutoForward": "silent" }
   },
 
   "remoteUser": "vscode",

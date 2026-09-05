@@ -4,9 +4,10 @@
 # exactly one place and can never drift between scripts.
 #
 # THESE CREDENTIALS ARE DEVELOPMENT-ONLY AND DELIBERATELY PUBLIC.
-# The database they unlock exists only inside this throwaway container and
-# is never reachable from the internet. Production credentials live in the
-# deployment environment and never in this repository. See docs/adr/0005.
+# The services they unlock (MariaDB, Redis, Mailpit) exist only inside this
+# throwaway container and are never reachable from the internet. Production
+# credentials live in the deployment environment and never in this repository.
+# See docs/adr/0005 (MariaDB), 0007 (TiDB for dev) and 0008 (Redis).
 #
 # shellcheck shell=bash
 
@@ -23,9 +24,52 @@ ACL_DB_PASSWORD="${ACL_DB_PASSWORD:-acl_password}"
 ACL_DB_CHARSET="utf8mb4"
 ACL_DB_COLLATION="utf8mb4_unicode_ci"
 
+# --- Development runtime database: TiDB Cloud (ADR-0007) ------------------
+# Optional and secret. When ACL_TIDB_* are present in the environment -- set
+# as GitHub Codespaces secrets, never committed -- post-create.sh points the
+# application at TiDB Cloud over TLS instead of the local MariaDB above. The
+# local MariaDB above always remains: the test suite runs on it (phpunit pins
+# acl_test to it) and it is the zero-config fallback when TiDB is not supplied.
+#
+# No defaults are set here on purpose. Unlike the loopback MariaDB credentials,
+# these reach an internet-facing database and are genuine secrets. The contract
+# is the five variable names below; the values live only in Codespaces secrets:
+#   ACL_TIDB_HOST  ACL_TIDB_PORT  ACL_TIDB_DATABASE  ACL_TIDB_USERNAME  ACL_TIDB_PASSWORD
+
 # --- Ports ----------------------------------------------------------------
 ACL_APP_PORT="${ACL_APP_PORT:-8000}"
 ACL_VITE_PORT="${ACL_VITE_PORT:-5173}"
+ACL_MAIL_UI_PORT="${ACL_MAIL_UI_PORT:-8025}"
+
+# --- Redis (ADR-0008) -----------------------------------------------------
+# Backs sessions, cache and the queue in development. Runs inside the container
+# bound to loopback only, so -- exactly like the MariaDB credentials above --
+# this password is development-only and deliberately public: the server it
+# unlocks is never reachable from the internet. Production supplies its own.
+ACL_REDIS_HOST="${ACL_REDIS_HOST:-127.0.0.1}"
+ACL_REDIS_PORT="${ACL_REDIS_PORT:-6379}"
+ACL_REDIS_PASSWORD="${ACL_REDIS_PASSWORD:-acl_redis_password}"
+ACL_REDIS_MAXMEMORY="${ACL_REDIS_MAXMEMORY:-256mb}"
+# noeviction, NOT an LRU policy: db0 holds sessions, and silently evicting a
+# session key would log a student out mid-request. Cache lives in its own db
+# (ACL_REDIS_CACHE_DB) so cache growth cannot pressure sessions in the first
+# place; if the 256mb ceiling is ever hit, a loud write error is the correct
+# outcome for a dev box, not a mystery logout.
+ACL_REDIS_MAXMEMORY_POLICY="${ACL_REDIS_MAXMEMORY_POLICY:-noeviction}"
+# db0: sessions + queue. db1: cache. Kept apart so `cache:clear` (a FLUSHDB on
+# db1) can never evict a live session sitting in db0.
+ACL_REDIS_DB="${ACL_REDIS_DB:-0}"
+ACL_REDIS_CACHE_DB="${ACL_REDIS_CACHE_DB:-1}"
+
+# --- Mailpit --------------------------------------------------------------
+# Catches every outbound mail in development so nothing is ever delivered to a
+# real address from a codespace. Real SMTP on ACL_MAIL_SMTP_PORT, web inbox on
+# ACL_MAIL_UI_PORT (forwarded). AUTH is enabled -- mirroring a real SMTP relay
+# so the dev mail path exercises the same code prod will -- with these
+# loopback-only, development-only credentials.
+ACL_MAIL_SMTP_PORT="${ACL_MAIL_SMTP_PORT:-1025}"
+ACL_MAIL_USER="${ACL_MAIL_USER:-acl}"
+ACL_MAIL_PASSWORD="${ACL_MAIL_PASSWORD:-acl_mail_password}"
 
 # --- Required PHP extensions ---------------------------------------------
 # Laravel 13's own requirements plus pdo_mysql for MariaDB. Verified against

@@ -1,60 +1,146 @@
 #!/usr/bin/env bash
-# Start MariaDB and wait until it actually accepts connections.
+# Start ACL's backing services (MariaDB, Redis, Mailpit) and wait until each
+# actually accepts connections.
 #
-# Runs on EVERY container start (postStartCommand), not only on create, so
-# the database is up whenever you attach -- including after a codespace has
-# been stopped and resumed. Safe to run by hand at any time:
+# Runs on EVERY container start (postStartCommand), not only on create, so the
+# services are up whenever you attach -- including after a codespace has been
+# stopped and resumed, when the daemons are gone but their on-disk config is
+# not. Safe to run by hand at any time:
 #
 #     bash .devcontainer/start-services.sh
 #
-# Idempotent: starting an already-running server is a no-op.
+# Idempotent: a service already answering is left alone. Redis and Mailpit run
+# as the container user from ACL-owned files under ~/.acl -- no sudo, no distro
+# service, nothing for a permission error to trip over.
 set -uo pipefail
 
 # shellcheck source=./config.sh
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
-say() { printf '\033[36m[ACL]\033[0m %s\n' "$1"; }
-die() { printf '\033[31m[ACL] %s\033[0m\n' "$1" >&2; exit 1; }
+say()  { printf '\033[36m[ACL]\033[0m %s\n' "$1"; }
+warn() { printf '\033[33m[ACL] %s\033[0m\n' "$1"; }
 
-# `mysqladmin ping` succeeds only once the server is answering on the
-# socket. This is the check the old script was missing: `service start`
-# returns as soon as the init script has forked, several seconds before the
-# server is ready, so the very next `mysql` or `php artisan migrate` call
-# raced it and failed with "Connection refused".
+ACL_STATE_DIR="${HOME}/.acl"
+mkdir -p "$ACL_STATE_DIR"
+
+# --- MariaDB --------------------------------------------------------------
+# `mysqladmin ping` succeeds only once the server is answering on the socket:
+# `service start` returns as soon as the init script has forked, several
+# seconds before the server is ready, and the next call would otherwise race it.
 db_ready() {
   mysqladmin --protocol=socket ping >/dev/null 2>&1 \
     || mysqladmin -h "$ACL_DB_HOST" -P "$ACL_DB_PORT" --protocol=tcp ping >/dev/null 2>&1
 }
 
-if db_ready; then
-  say "MariaDB already running."
-  exit 0
-fi
-
-if ! command -v mariadbd >/dev/null 2>&1 && ! command -v mysqld >/dev/null 2>&1; then
-  die "MariaDB is not installed. Rebuild the container, or run: bash .devcontainer/install-services.sh"
-fi
-
-say "Starting MariaDB..."
-# Codespaces containers have no systemd, so `service` runs the SysV init
-# script directly. If that path is unavailable, fall back to launching the
-# daemon ourselves.
-sudo service mariadb start >/dev/null 2>&1 \
-  || sudo service mysql start >/dev/null 2>&1 \
-  || sudo -b mariadbd-safe --skip-syslog >/dev/null 2>&1 \
-  || true
-
-say "Waiting for MariaDB to accept connections..."
-for _ in $(seq 1 60); do
-  if db_ready; then
-    say "MariaDB is up."
-    exit 0
+ensure_mariadb() {
+  if db_ready; then say "MariaDB already running."; return 0; fi
+  if ! command -v mariadbd >/dev/null 2>&1 && ! command -v mysqld >/dev/null 2>&1; then
+    warn "MariaDB is not installed. Run: bash .devcontainer/install-services.sh"; return 1
   fi
-  sleep 1
-done
+  say "Starting MariaDB..."
+  # Codespaces containers have no systemd, so `service` runs the SysV init
+  # script directly; fall back to launching the daemon ourselves.
+  sudo service mariadb start >/dev/null 2>&1 \
+    || sudo service mysql start >/dev/null 2>&1 \
+    || sudo -b mariadbd-safe --skip-syslog >/dev/null 2>&1 \
+    || true
+  say "Waiting for MariaDB to accept connections..."
+  for _ in $(seq 1 60); do
+    if db_ready; then say "MariaDB is up."; return 0; fi
+    sleep 1
+  done
+  sudo tail -n 30 /var/log/mysql/error.log 2>/dev/null || true
+  warn "MariaDB did not become ready within 60s (log tail above)."
+  return 1
+}
 
-printf '\n'
-sudo tail -n 30 /var/log/mysql/error.log 2>/dev/null \
-  || sudo tail -n 30 /var/log/mysql/*.err 2>/dev/null \
-  || true
-die "MariaDB did not become ready within 60s (log tail above)."
+# --- Redis ----------------------------------------------------------------
+redis_cli()   { redis-cli --no-auth-warning -h "$ACL_REDIS_HOST" -p "$ACL_REDIS_PORT" -a "$ACL_REDIS_PASSWORD" "$@"; }
+redis_ready() { [ "$(redis_cli ping 2>/dev/null)" = "PONG" ]; }
+
+ensure_redis() {
+  command -v redis-server >/dev/null 2>&1 \
+    || { warn "redis-server not installed; SESSION/CACHE/QUEUE=redis will fail. Run install-services.sh."; return 1; }
+  if redis_ready; then say "Redis already running."; return 0; fi
+
+  local conf="${ACL_STATE_DIR}/redis.conf" data="${ACL_STATE_DIR}/redis-data"
+  mkdir -p "$data"
+  # Rewritten every start from config.sh so the password and limits can never
+  # drift from the single source of truth. save "" + appendonly no: this is a
+  # cache/session store, not a system of record -- nothing here needs to
+  # outlive a restart, and TiDB/MariaDB hold everything that does.
+  cat > "$conf" <<REDISCONF
+# Generated by .devcontainer/start-services.sh -- development container only.
+bind ${ACL_REDIS_HOST} -::1
+port ${ACL_REDIS_PORT}
+requirepass ${ACL_REDIS_PASSWORD}
+maxmemory ${ACL_REDIS_MAXMEMORY}
+maxmemory-policy ${ACL_REDIS_MAXMEMORY_POLICY}
+appendonly no
+save ""
+daemonize yes
+dir ${data}
+pidfile ${data}/redis.pid
+logfile ${data}/redis.log
+REDISCONF
+  chmod 600 "$conf"
+
+  say "Starting Redis..."
+  redis-server "$conf"
+  for _ in $(seq 1 30); do
+    if redis_ready; then say "Redis is up (maxmemory ${ACL_REDIS_MAXMEMORY}, policy ${ACL_REDIS_MAXMEMORY_POLICY})."; return 0; fi
+    sleep 1
+  done
+  tail -n 20 "${data}/redis.log" 2>/dev/null || true
+  warn "Redis did not become ready within 30s (log tail above)."
+  return 1
+}
+
+# --- Mailpit --------------------------------------------------------------
+mailpit_ready() { curl -sf "http://127.0.0.1:${ACL_MAIL_UI_PORT}/api/v1/info" >/dev/null 2>&1; }
+
+ensure_mailpit() {
+  command -v mailpit >/dev/null 2>&1 \
+    || { warn "mailpit not installed; dev mail capture unavailable. Run install-services.sh."; return 1; }
+  if mailpit_ready; then say "Mailpit already running."; return 0; fi
+
+  local auth="${ACL_STATE_DIR}/mailpit-smtp-auth"
+  # AUTH LOGIN needs a bcrypt-hashed credential file. PHP is already present, so
+  # it generates the hash -- no apache2-utils/htpasswd dependency just for this.
+  if [ ! -s "$auth" ]; then
+    local hash
+    hash="$(php -r 'echo password_hash($argv[1], PASSWORD_BCRYPT);' "$ACL_MAIL_PASSWORD" 2>/dev/null)"
+    printf '%s:%s\n' "$ACL_MAIL_USER" "$hash" > "$auth"
+    chmod 600 "$auth"
+  fi
+
+  say "Starting Mailpit..."
+  # SMTP on loopback -- only the app, from inside the container, sends mail. The
+  # web inbox binds all interfaces so the forwarded port reaches it in a browser
+  # (Codespaces mediates that access; the container is not itself internet-facing).
+  nohup mailpit \
+    --smtp "127.0.0.1:${ACL_MAIL_SMTP_PORT}" \
+    --listen "0.0.0.0:${ACL_MAIL_UI_PORT}" \
+    --smtp-auth-file "$auth" \
+    --smtp-auth-allow-insecure \
+    >>"${ACL_STATE_DIR}/mailpit.log" 2>&1 &
+  disown 2>/dev/null || true
+  for _ in $(seq 1 30); do
+    if mailpit_ready; then say "Mailpit is up (SMTP :${ACL_MAIL_SMTP_PORT}, inbox :${ACL_MAIL_UI_PORT})."; return 0; fi
+    sleep 1
+  done
+  tail -n 20 "${ACL_STATE_DIR}/mailpit.log" 2>/dev/null || true
+  warn "Mailpit did not become ready within 30s (log tail above)."
+  return 1
+}
+
+# --- Bring everything up --------------------------------------------------
+# Each service is independent: a failure in one is reported but does not stop
+# the others, so an attached container stays as usable as it can be. MariaDB is
+# the one hard requirement -- the test suite and the fallback database need it --
+# so only its failure becomes the script's exit code.
+rc=0
+ensure_mariadb || rc=1
+ensure_redis   || true
+ensure_mailpit || true
+exit "$rc"

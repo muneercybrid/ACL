@@ -12,7 +12,7 @@ rather than from a shopping cart.
 > [docs/VISION.md](docs/VISION.md) is intent, not code. This README describes only
 > what is actually in the repository.
 
-- **Stack** — Laravel 13.25 · PHP 8.4 · MariaDB 10.11 · Blade + Tailwind v4 + Alpine 3 · Vite 8
+- **Stack** — Laravel 13.25 · PHP 8.4 · MariaDB 10.11 · Redis 7 (dev) · Blade + Tailwind v4 + Alpine 3 · Vite 8
 - **Tests** — 39 feature tests, 67 assertions, all passing (`php artisan test`)
 - **Architecture decisions** — [docs/adr/](docs/adr/)
 - **Detailed state** — [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)
@@ -22,7 +22,7 @@ rather than from a shopping cart.
 ## Quick start (GitHub Codespaces or VS Code Dev Containers)
 
 The repository ships a devcontainer that installs and configures everything —
-MariaDB included — with no manual steps.
+MariaDB, Redis and Mailpit included — with no manual steps.
 
 1. Open the repo in a Codespace, or locally: **Dev Containers: Reopen in Container**.
 2. Wait for setup to finish (~2 min on a warm image).
@@ -49,9 +49,9 @@ composer run dev
 | Stage | Script | Runs |
 |---|---|---|
 | Image build | [`.devcontainer/Dockerfile`](.devcontainer/Dockerfile) | Compiles the `pdo_mysql` PHP extension (the base image ships without it) |
-| `onCreateCommand` | [`install-services.sh`](.devcontainer/install-services.sh) | Installs MariaDB server/client; verifies every required PHP extension |
-| `postCreateCommand` | [`post-create.sh`](.devcontainer/post-create.sh) | Creates schemas + least-privilege DB user, `composer install`, `npm install`, writes `.env`, migrates, seeds, `npm run build` |
-| `postStartCommand` | [`start-services.sh`](.devcontainer/start-services.sh) | Starts MariaDB and **waits until it accepts connections** — on every container start, so the DB is up again after a stop/resume |
+| `onCreateCommand` | [`install-services.sh`](.devcontainer/install-services.sh) | Installs MariaDB and Redis servers plus Mailpit; masks the distro's password-less Redis; verifies every required PHP extension |
+| `postCreateCommand` | [`post-create.sh`](.devcontainer/post-create.sh) | Creates schemas + least-privilege DB user, `composer install`, `npm install`, writes `.env` (TiDB when its secrets are present, else local MariaDB; Redis + Mailpit always), migrates, seeds, `npm run build` |
+| `postStartCommand` | [`start-services.sh`](.devcontainer/start-services.sh) | Starts MariaDB, Redis and Mailpit and **waits until each accepts connections** — on every container start, so they are all up again after a stop/resume |
 
 All four are idempotent: re-running them on an existing container changes nothing
 it does not need to change.
@@ -66,17 +66,22 @@ Change a credential in one and you must change it in the other.
 
 ### Development credentials
 
-Deliberately fixed and deliberately public. They unlock a MariaDB instance that
-exists only inside the container and is never reachable from the internet.
+Deliberately fixed and deliberately public. They unlock MariaDB, Redis and
+Mailpit instances that exist only inside the container and are never reachable
+from the internet.
 
 | | |
 |---|---|
 | Database | `acl` (tests use `acl_test`) |
-| User | `acl_user` / `acl_password` |
-| Host | `127.0.0.1:3306` |
+| DB user | `acl_user` / `acl_password` on `127.0.0.1:3306` |
+| Redis | password `acl_redis_password` on `127.0.0.1:6379` — db0 sessions/queue, db1 cache |
+| Mailpit | SMTP `acl` / `acl_mail_password` on `:1025`; inbox UI on `:8025` |
 
-Production credentials live in the deployment environment and are never committed.
-`.env` is git-ignored; [`.env.example`](.env.example) is the tracked template.
+TiDB Cloud, the optional dev *runtime* database ([ADR-0007](docs/adr/0007-tidb-cloud-dev-runtime.md)),
+is the exception: its credentials are real secrets, supplied as `ACL_TIDB_*`
+Codespaces secrets and never committed. Production credentials likewise live in
+the deployment environment and are never committed. `.env` is git-ignored;
+[`.env.example`](.env.example) is the tracked template.
 
 `mysql acl` opens a shell with no flags — `post-create.sh` writes a `0600`
 `~/.my.cnf` so passwords never appear in `ps` or shell history.
@@ -89,8 +94,8 @@ The domain is a chain of foreign keys — organization → faculty → departmen
 programme → level → semester → course → offering → enrolment → entitlement — and
 academic records need referential integrity enforced by the engine, not by
 application code. On top of that, Laravel's `database` session, cache and queue
-drivers (all three are what this project uses) are SQL-only, and Laravel has no
-first-party MongoDB support. Full reasoning:
+drivers — the portable default the project ships with, and what production runs —
+are SQL-only, and Laravel has no first-party MongoDB support. Full reasoning:
 [ADR-0005](docs/adr/0005-adopt-mariadb.md).
 
 MongoDB stays on the table as an *addition* later, under its own ADR, for
@@ -150,8 +155,9 @@ Field-level reference: [docs/database/DOMAIN_MODEL.md](docs/database/DOMAIN_MODE
 
 Named plainly so nobody goes looking: no registration or password reset, no
 authoring UI (content is created by seeders), no payments or subscriptions, no
-AI tutor, no REST/GraphQL API, no notifications or email delivery, no admin
-panel, no file/media uploads, no forums or messaging, no certificates, no
+AI tutor, no REST/GraphQL API, no notifications and no email the app sends
+(Mailpit is wired up in dev to *catch* mail, but nothing dispatches any yet), no
+admin panel, no file/media uploads, no forums or messaging, no certificates, no
 analytics, no CI pipeline. `tests/Unit` does not exist — the suite is feature
 tests only, by design.
 

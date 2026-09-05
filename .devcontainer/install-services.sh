@@ -38,7 +38,7 @@ if ! command -v apt-get >/dev/null 2>&1; then
   die "Cannot install packages here. Fix the image build and rebuild the container."
 fi
 
-say "Installing MariaDB server and client..."
+say "Installing MariaDB and Redis servers..."
 # A container built from the Dockerfile has had this done already; it matters
 # for one built straight from the base image, where the leftover unverifiable
 # apt source makes the update below exit 100 and abort this script.
@@ -47,7 +47,43 @@ sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
   mariadb-server \
   mariadb-client \
+  redis-server \
   >/dev/null
+
+# apt's redis-server postinst registers -- and may start -- a default,
+# PASSWORD-LESS redis on :6379 via the SysV init script. ACL runs its own
+# instance from an ACL-owned config WITH a password (start-services.sh), so
+# stop and disable the distro one here: two servers cannot share the port, and
+# an unauthenticated redis must never be the one that wins it. Every form is
+# tried because the container may have systemd, SysV, or neither.
+sudo service redis-server stop      >/dev/null 2>&1 || true
+sudo systemctl disable redis-server >/dev/null 2>&1 || true
+sudo systemctl mask    redis-server >/dev/null 2>&1 || true
+sudo update-rc.d redis-server disable >/dev/null 2>&1 || true
+
+# ---------------------------------------------------------------------------
+# Mailpit
+# ---------------------------------------------------------------------------
+# Development mail catcher. Not in apt, so it is installed from its official
+# release. The upstream installer detects the architecture and drops a single
+# static binary in /usr/local/bin -- there is no service, no daemon and no
+# config file to manage; start-services.sh launches it. Guarded by command -v
+# so a rebuild that kept /usr/local/bin does not re-download it.
+if ! command -v mailpit >/dev/null 2>&1; then
+  say "Installing Mailpit..."
+  if command -v curl >/dev/null 2>&1; then
+    # INSTALL_PATH is honoured by the upstream script; sudo because it writes
+    # to /usr/local/bin. A specific release can be pinned by downloading
+    # mailpit-linux-amd64.tar.gz from a chosen tag instead of using this.
+    curl -fsSL https://raw.githubusercontent.com/axllent/mailpit/develop/install.sh \
+      | sudo bash >/dev/null 2>&1 \
+      || warn "Mailpit install failed; dev mail capture will be unavailable until it is installed."
+  else
+    warn "curl not found; cannot install Mailpit. Dev mail capture will be unavailable."
+  fi
+else
+  say "Mailpit already installed ($(mailpit version 2>/dev/null | head -n1))."
+fi
 
 say "Verifying required PHP extensions..."
 

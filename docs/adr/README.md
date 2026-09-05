@@ -16,3 +16,5 @@ Future Considerations.
 | [0004](0004-frontend-stack-and-design-language.md) | Frontend stack & design language | Accepted |
 | [0005](0005-adopt-mariadb.md) | Adopt MariaDB across all environments | Accepted |
 | [0006](0006-deploy-on-render-with-docker.md) | Deploy as a container on Render, MariaDB supplied externally | Accepted |
+| [0007](0007-tidb-cloud-dev-runtime.md) | TiDB Cloud Serverless as the development runtime database | Accepted (amends 0005 for dev) |
+| [0008](0008-redis-in-development.md) | Redis for sessions, cache & queue in development | Accepted (amends 0006 for dev) |

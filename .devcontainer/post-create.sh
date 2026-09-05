@@ -23,7 +23,7 @@ die()  { printf '\033[31m[ACL] %s\033[0m\n' "$1" >&2; exit 1; }
 # ---------------------------------------------------------------------------
 # Delegated so there is exactly one implementation of "start the database and
 # wait until it is genuinely ready", shared with postStartCommand.
-say "Starting the database"
+say "Starting backing services (MariaDB, Redis, Mailpit)"
 bash "$ACL_REPO_ROOT/.devcontainer/start-services.sh"
 
 # ---------------------------------------------------------------------------
@@ -104,24 +104,71 @@ say "Configuring .env"
 if [ ! -f .env ]; then
   [ -f .env.example ] || die ".env.example is missing; cannot bootstrap .env."
   cp .env.example .env
+  ENV_CREATED=1
   info "Created .env from .env.example."
 else
-  info ".env already exists; only DB_* and URL keys will be rewritten."
+  ENV_CREATED=0
+  info ".env already exists; only container-owned keys are rewritten."
 fi
 
-set_env DB_CONNECTION mariadb
-set_env DB_HOST       "${ACL_DB_HOST}"
-set_env DB_PORT       "${ACL_DB_PORT}"
-set_env DB_DATABASE   "${ACL_DB_NAME}"
-set_env DB_USERNAME   "${ACL_DB_USER}"
-set_env DB_PASSWORD   "${ACL_DB_PASSWORD}"
+# The database the app is pointed at is chosen three ways, so a rebuild never
+# clobbers a hand-configured runtime DB:
+#   1. ACL_TIDB_* secrets present   -> TiDB Cloud over TLS (ADR-0007).
+#   2. else a freshly created .env  -> the local MariaDB (zero-config default).
+#   3. else (rebuild, .env survived)-> leave DB_* exactly as the developer left it.
+if [ -n "${ACL_TIDB_HOST:-}" ] && [ -n "${ACL_TIDB_USERNAME:-}" ]; then
+  say "Pointing the app at TiDB Cloud (ACL_TIDB_* present)"
+  set_env DB_CONNECTION mysql
+  set_env DB_HOST     "${ACL_TIDB_HOST}"
+  set_env DB_PORT     "${ACL_TIDB_PORT:-4000}"
+  set_env DB_DATABASE "${ACL_TIDB_DATABASE:-test}"
+  set_env DB_USERNAME "${ACL_TIDB_USERNAME}"
+  set_env DB_PASSWORD "${ACL_TIDB_PASSWORD}"
+  # Laravel drops ?ssl-mode= from a DB_URL, so TLS to TiDB is turned on by the
+  # CA bundle in config/database.php's mysql `options`, not by the DSN.
+  set_env MYSQL_ATTR_SSL_CA /etc/ssl/certs/ca-certificates.crt
+  DB_WRITTEN=1
+elif [ "$ENV_CREATED" = "1" ]; then
+  say "Pointing the app at the local MariaDB"
+  set_env DB_CONNECTION mariadb
+  set_env DB_HOST     "${ACL_DB_HOST}"
+  set_env DB_PORT     "${ACL_DB_PORT}"
+  set_env DB_DATABASE "${ACL_DB_NAME}"
+  set_env DB_USERNAME "${ACL_DB_USER}"
+  set_env DB_PASSWORD "${ACL_DB_PASSWORD}"
+  DB_WRITTEN=1
+else
+  info "Leaving existing DB_* untouched (no TiDB secrets, .env pre-existing)."
+  DB_WRITTEN=0
+fi
 
-# A stale DB_URL silently wins over every DB_* key above, pointing the app at
-# whatever host that URL names. Neutralise it if .env carries one.
-if grep -qE '^DB_URL=.+' .env; then
+# A stale DB_URL silently wins over every discrete DB_* key, pointing the app at
+# whatever host that URL names. Neutralise it only when we set DB_* ourselves.
+if [ "$DB_WRITTEN" = "1" ] && grep -qE '^DB_URL=.+' .env; then
   warn "DB_URL was set and overrides DB_HOST/DB_DATABASE -- blanking it."
   set_env DB_URL ""
 fi
+
+# Redis and Mailpit run inside this container in every case, so these keys are
+# always container-owned and re-asserted on each provision (ADR-0008). predis
+# is pure PHP, so `composer install` alone gives the app a Redis client -- no
+# compiled extension to match against the container's PHP build.
+set_env REDIS_CLIENT     predis
+set_env REDIS_HOST       "${ACL_REDIS_HOST}"
+set_env REDIS_PORT       "${ACL_REDIS_PORT}"
+set_env REDIS_PASSWORD   "${ACL_REDIS_PASSWORD}"
+set_env REDIS_DB         "${ACL_REDIS_DB}"
+set_env REDIS_CACHE_DB   "${ACL_REDIS_CACHE_DB}"
+set_env SESSION_DRIVER   redis
+set_env CACHE_STORE      redis
+set_env QUEUE_CONNECTION redis
+set_env MAIL_MAILER   smtp
+set_env MAIL_HOST     127.0.0.1
+set_env MAIL_PORT     "${ACL_MAIL_SMTP_PORT}"
+set_env MAIL_USERNAME "${ACL_MAIL_USER}"
+set_env MAIL_PASSWORD "${ACL_MAIL_PASSWORD}"
+# null scheme: plaintext SMTP to loopback Mailpit, which offers no STARTTLS.
+set_env MAIL_SCHEME   null
 
 # Inside a codespace the browser reaches the app over a forwarded HTTPS
 # hostname, not localhost. url()/asset() read APP_URL, so without this every
@@ -154,14 +201,13 @@ say "Running migrations"
 php artisan migrate --force
 
 # Seed only when the users table is genuinely empty, so a rebuild does not
-# duplicate rows. information_schema is queried first because `SELECT FROM
-# users` on a database without that table exits non-zero and `set -e` would
-# abort the script before it reached the guard.
-HAS_USERS_TABLE="$(mysql -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${ACL_DB_NAME}' AND table_name='users';" 2>/dev/null || echo 0)"
-USER_COUNT=0
-if [ "$HAS_USERS_TABLE" = "1" ]; then
-  USER_COUNT="$(mysql -Nse "SELECT COUNT(*) FROM \`${ACL_DB_NAME}\`.users;" 2>/dev/null || echo 0)"
-fi
+# duplicate rows. The count goes through the app's own connection (artisan),
+# not the local mysql client, so it reads whichever database DB_* now points
+# at -- the local MariaDB or TiDB Cloud -- rather than always the local one.
+# Schema::hasTable guards the pre-migration case; tr keeps only the digits so a
+# stray warning on stdout cannot corrupt the numeric compare below.
+USER_COUNT="$(php artisan tinker --execute='echo \Schema::hasTable("users") ? \DB::table("users")->count() : 0;' 2>/dev/null | tr -cd '0-9')"
+USER_COUNT="${USER_COUNT:-0}"
 
 if [ "$USER_COUNT" = "0" ]; then
   say "Seeding development data"

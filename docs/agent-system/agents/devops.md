@@ -71,8 +71,9 @@ exit path, and whether something already in the stack does the job.
 **Produces** a recommendation with the alternatives it rejected and why — the input to an
 ADR, not a substitute for one.
 **Consult** `composer.json`, `package.json`, the ADRs. ACL's bias is explicit: **boring
-beats clever**, and Laravel's database drivers for session, cache and queue are a
-decision, not an accident.
+beats clever**, and Laravel's database drivers for session, cache and queue in production
+are a decision, not an accident (the devcontainer overrides them to Redis for dev per
+ADR-0008 — equally a decision, and recorded as one).
 **Hands to** `ACL Software Architect`. Every new entry in `composer.json` or
 `package.json` needs human approval in the current conversation, because a dependency is
 permanent maintenance surface.

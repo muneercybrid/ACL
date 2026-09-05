@@ -19,8 +19,10 @@ programme, level, semester — rather than from a purchase. A department enrols 
 students by existing; entitlement is derived, not sold.
 
 - **Architecture:** modular monolith on Laravel 13 / PHP 8.4 (ADR-0001).
-- **Database:** MariaDB in every environment (ADR-0005). Session, cache and queue
-  all use Laravel's `database` drivers. There is no Redis.
+- **Database:** MariaDB for the test suite and production (ADR-0005). The dev
+  runtime is TiDB Cloud when its Codespaces secrets are present, else the local
+  MariaDB (ADR-0007). Sessions, cache and queue run on Redis in the devcontainer
+  (ADR-0008) and on Laravel's `database` drivers in production.
 - **Frontend:** Blade + Tailwind v4 + Alpine 3, built with Vite 8 (ADR-0004).
 - **Tests:** feature tests only, against the `acl_test` schema. `tests/Unit` does
   not exist, deliberately.
@@ -147,8 +149,10 @@ Human approval, in the current conversation, is required for:
   seeded data, `rm -rf`, `git reset --hard`, force pushes, dropping a table.
 - **Reversing an ADR.** Add a superseding ADR; never contradict one in code and
   leave the decision standing.
-- **New infrastructure** — Redis, a queue driver change, a search engine, a vector
-  store, a second datastore.
+- **New infrastructure** — a search engine, a vector store, a message broker, a
+  second datastore, or moving production off Laravel's `database` session, cache
+  and queue drivers. (Dev's Redis is already settled by ADR-0008; TiDB as the dev
+  runtime by ADR-0007.)
 - **New dependencies** in `composer.json` or `package.json`.
 - **The authorization model.** No `role` column on `users`; capability stays in
   `roles`, `role_permissions` and `role_assignments`.

@@ -43,8 +43,9 @@ strategy, service decomposition — behind an ACL implementation.
 **Produces** advice only.
 **Consult** the same files the ACL agent is reading.
 **Hands to** `ACL Backend Architect`, which decides. Watch for advice that assumes Redis
-or a non-database queue driver: ACL uses Laravel's **database** drivers for session,
-cache and queue, and changing that needs an ADR.
+or a non-database queue driver **in production**: production uses Laravel's **database**
+drivers for session, cache and queue (the devcontainer overrides them to Redis for dev
+per ADR-0008), and changing the production stance needs its own ADR.
 
 ### Code Reviewer
 `engineering-code-reviewer.md` · CORE
