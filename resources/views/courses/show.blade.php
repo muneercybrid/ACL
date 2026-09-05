@@ -4,43 +4,43 @@
 
 @section('header')
 <div class="flex items-center gap-4">
-    <a href="{{ route('dashboard') }}" class="font-mono text-xs text-slate-500 hover:text-glow transition">← DASHBOARD</a>
+    <a href="{{ route('dashboard') }}" class="text-sm text-muted transition hover:text-primary">&larr; Dashboard</a>
     <div>
-        <h1 class="text-lg font-bold text-white flex items-center gap-2">
-            <span class="font-mono text-terminal text-sm">{{ $offering->course->code }}</span> 
+        <h1 class="flex items-center gap-2 text-lg font-bold text-text">
+            <span class="text-sm font-semibold text-primary">{{ $offering->course->code }}</span>
             {{ $offering->course->title }}
         </h1>
-        <p class="text-[11px] font-mono text-slate-500">{{ $offering->semester->name }}</p>
+        <p class="text-xs text-muted">{{ $offering->semester->name }}</p>
     </div>
 </div>
 @endsection
 
 @section('content')
-<div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-8rem)]">
-    
-    {{-- Sidebar: Chapters & Lessons --}}
-    <aside class="w-full lg:w-80 flex-shrink-0 bg-surface border border-edge rounded-xl overflow-y-auto custom-scrollbar">
-        <div class="p-4 border-b border-edge sticky top-0 bg-surface z-10">
-            <h2 class="font-mono text-[11px] uppercase tracking-widest text-slate-400">Course Modules</h2>
+<div class="flex h-[calc(100dvh-8rem)] flex-col gap-6 lg:flex-row">
+
+    {{-- Sidebar: chapters & lessons --}}
+    <aside class="custom-scrollbar w-full flex-shrink-0 overflow-y-auto rounded-2xl border border-border bg-surface lg:w-80">
+        <div class="sticky top-0 z-10 border-b border-border bg-surface p-4">
+            <h2 class="text-xs font-semibold uppercase tracking-wide text-muted">Course modules</h2>
         </div>
-        <div class="p-2 space-y-4">
+        <div class="space-y-4 p-2">
             @foreach($offering->chapters as $chapter)
                 <div>
-                    <h3 class="px-3 py-2 text-xs font-bold text-white uppercase tracking-wide">{{ $chapter->title }}</h3>
+                    <h3 class="px-3 py-2 text-xs font-bold uppercase tracking-wide text-text">{{ $chapter->title }}</h3>
                     <ul class="space-y-1">
                         @foreach($chapter->lessons as $lesson)
                             <li>
-                                <a href="{{ route('courses.lessons.show', [$offering, $lesson]) }}" 
-                                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition
-                                          {{ $activeLesson && $activeLesson->id === $lesson->id 
-                                              ? 'bg-raised border border-glow/50 text-white' 
-                                              : 'text-slate-400 hover:bg-raised/50 hover:text-white border border-transparent' }}">
-                                    <span class="font-mono text-[10px] {{ $activeLesson && $activeLesson->id === $lesson->id ? 'text-terminal' : 'text-slate-600' }}">
+                                <a href="{{ route('courses.lessons.show', [$offering, $lesson]) }}"
+                                   class="flex items-center gap-3 rounded-lg border px-3 py-2 text-sm transition
+                                          {{ $activeLesson && $activeLesson->id === $lesson->id
+                                              ? 'border-primary/50 bg-raised text-text'
+                                              : 'border-transparent text-muted hover:bg-raised hover:text-text' }}">
+                                    <span class="text-[10px] {{ $activeLesson && $activeLesson->id === $lesson->id ? 'text-primary' : 'text-muted' }}">
                                         {{ str_pad($loop->iteration, 2, '0', STR_PAD_LEFT) }}
                                     </span>
                                     <span class="truncate">{{ $lesson->title }}</span>
                                     @if($completedLessonIds->contains($lesson->id))
-                                        <span class="ml-auto text-terminal">✓</span>
+                                        <span class="ml-auto text-primary" aria-label="Completed">&check;</span>
                                     @endif
                                 </a>
                             </li>
@@ -51,53 +51,52 @@
         </div>
     </aside>
 
-    {{-- Main Content Area --}}
-    <main class="flex-1 bg-surface border border-edge rounded-xl overflow-y-auto custom-scrollbar p-6 lg:p-10">
+    {{-- Main content --}}
+    <main class="custom-scrollbar flex-1 overflow-y-auto rounded-2xl border border-border bg-surface p-6 lg:p-10">
         @if($activeLesson)
-            <header class="mb-8 pb-6 border-b border-edge">
-                <div class="font-mono text-[11px] text-slate-500 mb-2">
-                    {{ $activeLesson->chapter->title }} / LESSON {{ str_pad($activeLesson->position, 2, '0', STR_PAD_LEFT) }}
+            <header class="mb-8 border-b border-border pb-6">
+                <div class="mb-2 text-xs text-muted">
+                    {{ $activeLesson->chapter->title }} / Lesson {{ str_pad($activeLesson->position, 2, '0', STR_PAD_LEFT) }}
                 </div>
-                <h2 class="text-3xl font-extrabold text-white tracking-tight">{{ $activeLesson->title }}</h2>
+                <h2 class="text-3xl font-extrabold tracking-tight text-text">{{ $activeLesson->title }}</h2>
             </header>
 
-            <article class="prose prose-invert max-w-none space-y-6 text-slate-300 leading-relaxed">
+            <article class="max-w-none space-y-6 leading-relaxed text-text">
                 @foreach($activeLesson->blocks as $block)
                     @if($block->type === 'text')
                         <p class="text-base">{{ $block->data['content'] ?? '' }}</p>
                     @elseif($block->type === 'video')
-                        <div class="rounded-xl overflow-hidden border border-edge bg-abyss aspect-video">
-                            <iframe src="{{ $block->data['url'] ?? '' }}" class="w-full h-full" allowfullscreen></iframe>
+                        <div class="aspect-video overflow-hidden rounded-xl border border-border bg-bg">
+                            <iframe src="{{ $block->data['url'] ?? '' }}" class="h-full w-full" allowfullscreen title="{{ $block->data['title'] ?? 'Lesson video' }}"></iframe>
                         </div>
-                        @if(isset($block->data['title']))
-                            <p class="text-xs font-mono text-slate-500 text-center -mt-4">{{ $block->data['title'] }}</p>
-                        @endif
+                        @isset($block->data['title'])
+                            <p class="-mt-4 text-center text-xs text-muted">{{ $block->data['title'] }}</p>
+                        @endisset
                     @elseif($block->type === 'image')
-                        <img src="{{ $block->data['url'] ?? '' }}" alt="{{ $block->data['alt'] ?? '' }}" class="rounded-xl border border-edge">
+                        <img src="{{ $block->data['url'] ?? '' }}" alt="{{ $block->data['alt'] ?? '' }}" class="rounded-xl border border-border">
                     @elseif($block->type === 'link')
-                        <a href="{{ $block->data['url'] ?? '#' }}" target="_blank" class="inline-flex items-center gap-2 font-mono text-sm text-glow hover:underline">
-                            → {{ $block->data['title'] ?? 'External Resource' }}
+                        <a href="{{ $block->data['url'] ?? '#' }}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-sm font-semibold text-info hover:underline">
+                            &rarr; {{ $block->data['title'] ?? 'External resource' }}
                         </a>
                     @endif
                 @endforeach
             </article>
 
-            {{-- Completion Action --}}
-            <div class="mt-12 pt-6 border-t border-edge flex justify-end">
+            <div class="mt-12 flex justify-end border-t border-border pt-6">
                 @if($completedLessonIds->contains($activeLesson->id))
-                    <button disabled class="px-6 py-3 rounded-lg bg-terminal/10 border border-terminal/30 text-terminal font-mono text-sm font-bold tracking-widest">
-                        ✓ COMPLETED
+                    <button disabled class="rounded-lg border border-primary/30 bg-primary/10 px-6 py-3 text-sm font-semibold text-primary">
+                        &check; Completed
                     </button>
                 @else
-                    <button id="complete-lesson-btn" 
+                    <button id="complete-lesson-btn"
                             onclick="completeLesson({{ $activeLesson->id }})"
-                            class="press px-6 py-3 rounded-lg bg-brand hover:bg-brand/90 text-white font-mono text-sm font-bold tracking-widest transition shadow-[0_0_20px_rgba(255,46,77,0.3)]">
-                        MARK AS COMPLETE
+                            class="press rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-fg transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring">
+                        Mark as complete
                     </button>
                 @endif
             </div>
         @else
-            <div class="flex items-center justify-center h-full text-slate-500 font-mono">
+            <div class="flex h-full items-center justify-center text-muted">
                 Select a lesson from the sidebar to begin.
             </div>
         @endif
@@ -108,9 +107,8 @@
 async function completeLesson(lessonId) {
     const btn = document.getElementById('complete-lesson-btn');
     btn.disabled = true;
-    btn.innerText = 'SYNCING...';
-    btn.classList.add('opacity-50');
-
+    btn.innerText = 'Saving…';
+    btn.classList.add('opacity-60');
     try {
         const response = await fetch(`/lessons/${lessonId}/complete`, {
             method: 'POST',
@@ -120,20 +118,19 @@ async function completeLesson(lessonId) {
                 'Accept': 'application/json'
             }
         });
-        
         if (response.ok) {
-            btn.innerText = '✓ COMPLETED';
-            btn.classList.remove('bg-brand', 'hover:bg-brand/90', 'shadow-[0_0_20px_rgba(255,46,77,0.3)]', 'opacity-50');
-            btn.classList.add('bg-terminal/10', 'border', 'border-terminal/30', 'text-terminal');
-            
-            // HTB-style reaction flash
+            btn.innerText = '✓ Completed';
+            btn.classList.remove('bg-primary', 'text-primary-fg', 'opacity-60');
+            btn.classList.add('border', 'border-primary/30', 'bg-primary/10', 'text-primary');
             document.querySelector('main').classList.add('flash-success');
-            setTimeout(() => location.reload(), 800);
+            setTimeout(() => location.reload(), 700);
+        } else {
+            throw new Error('Request failed');
         }
     } catch (e) {
         btn.disabled = false;
-        btn.innerText = 'MARK AS COMPLETE';
-        btn.classList.remove('opacity-50');
+        btn.innerText = 'Mark as complete';
+        btn.classList.remove('opacity-60');
     }
 }
 </script>

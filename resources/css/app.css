@@ -1,78 +1,106 @@
 @import 'tailwindcss';
 
-@theme {
-    --color-abyss: #0b1120;
-    --color-surface: #0f1a2e;
-    --color-raised: #16223c;
-    --color-edge: #1f2c4a;
-    --color-brand: #ff2e4d;
-    --color-terminal: #9fef00;
-    --color-glow: #22d3ee;
+/* Manual light/dark: a `.dark` class on <html> drives every `dark:` utility.
+   The initial class is set by partials/theme-script.blade.php before paint. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tokens are emitted `inline` so the utilities resolve the runtime CSS
+   variables below — flipping :root ⇄ .dark reskins the whole app with no
+   rebuild. Legacy aliases keep older markup rendering on the new palette. */
+@theme inline {
+    --color-bg: var(--bg);
+    --color-surface: var(--surface);
+    --color-raised: var(--raised);
+    --color-border: var(--border);
+    --color-text: var(--text);
+    --color-muted: var(--muted);
+    --color-primary: var(--primary);
+    --color-primary-fg: var(--primary-fg);
+    --color-accent: var(--accent);
+    --color-ring: var(--ring);
+    --color-info: var(--info);
+
+    --color-abyss: var(--bg);
+    --color-edge: var(--border);
+    --color-brand: var(--primary);
+    --color-terminal: var(--accent);
+    --color-glow: var(--info);
 
     --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
 
-html {
+/* Light — warm light-yellow canvas, green interface. */
+:root {
+    --bg: #fdf9e7;
+    --surface: #ffffff;
+    --raised: #f4f7e8;
+    --border: #e4e2c4;
+    --text: #14210a;
+    --muted: #5a6a4a;
+    --primary: #15803d;   /* green-700: white text clears 4.5:1 */
+    --primary-fg: #ffffff;
+    --accent: #166534;    /* green-800 for on-light text/icons */
+    --ring: #15803d;
+    --info: #0e7490;      /* teal-700 secondary accent */
+    color-scheme: light;
+}
+
+/* Dark — deep canvas, lighter green interface. */
+.dark {
+    --bg: #0a0f1c;
+    --surface: #111a2e;
+    --raised: #17223a;
+    --border: #263349;
+    --text: #e8f0e3;
+    --muted: #93a3b5;
+    --primary: #22c55e;   /* green-500 */
+    --primary-fg: #05210f;
+    --accent: #4ade80;    /* green-400 for on-dark text/icons */
+    --ring: #22c55e;
+    --info: #22d3ee;      /* cyan secondary accent */
     color-scheme: dark;
 }
 
 body {
-    background-color: var(--color-abyss);
+    background-color: var(--color-bg);
+    color: var(--color-text);
 }
 
+[x-cloak] { display: none !important; }
+
 ::selection {
-    background: var(--color-terminal);
-    color: var(--color-abyss);
+    background: var(--color-primary);
+    color: var(--color-primary-fg);
 }
 
 * {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-edge) transparent;
+    scrollbar-color: var(--color-border) transparent;
 }
 
-/* --- Micro-interactions (HTB-style reactions) --- */
-.press:active {
-    transform: scale(0.97);
-}
+/* --- Micro-interactions --- */
+.press:active { transform: scale(0.98); }
 
 @keyframes flash-success {
-    0% { box-shadow: 0 0 0 0 rgba(159, 239, 0, 0.45); }
-    100% { box-shadow: 0 0 0 14px rgba(159, 239, 0, 0); }
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 45%, transparent); }
+    100% { box-shadow: 0 0 0 14px transparent; }
 }
+.flash-success { animation: flash-success 0.5s ease-out; }
 
-.flash-success {
-    animation: flash-success 0.5s ease-out;
-}
-
-@keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
-}
-
-.cursor-blink {
-    animation: blink 1s step-end infinite;
-}
+/* Scroll-reveal for the Vision/Mission cards. JS-gated so content is never
+   hidden when JavaScript is unavailable; an observer adds .is-in in view. */
+.reveal { transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
+.js .reveal { opacity: 0; transform: translateY(16px); }
+.js .reveal.is-in { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
     .press:active,
-    .flash-success,
-    .cursor-blink {
-        animation: none;
-        transform: none;
-    }
+    .flash-success { animation: none; transform: none; }
+    .js .reveal, .js .reveal.is-in { opacity: 1; transform: none; transition: none; }
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: var(--color-abyss);
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: var(--color-edge);
-    border-radius: 3px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-glow);
-}
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: var(--color-bg); }
+.custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--color-border); border-radius: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: var(--color-primary); }

@@ -4,41 +4,42 @@
 
 @section('content')
 <div class="w-full max-w-md">
-    <div class="text-center mb-8">
-        <div class="font-mono text-terminal text-sm mb-3">~/anyone-can-learn $ ./login <span class="cursor-blink">▊</span></div>
-        <h1 class="text-3xl font-extrabold text-white tracking-tight">ACL <span class="text-brand">//</span> ACCESS</h1>
-        <p class="text-slate-400 text-sm mt-2">Learn anything. Anywhere. Anyone.</p>
+    <div class="mb-8 text-center">
+        <h1 class="text-2xl font-extrabold tracking-tight text-text">Welcome back</h1>
+        <p class="mt-2 text-sm text-muted">Sign in to reach your courses and pick up where you left off.</p>
     </div>
 
     <form method="POST" action="{{ route('login') }}"
-          class="bg-surface/80 border border-edge rounded-xl p-6 backdrop-blur shadow-[0_0_50px_rgba(34,211,238,0.07)]">
+          class="rounded-2xl border border-border bg-surface p-6 shadow-sm">
         @csrf
 
         @error('email')
-            <p class="mb-4 text-xs font-mono text-brand">[!] {{ $message }}</p>
+            <p class="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary" role="alert">{{ $message }}</p>
         @enderror
 
-        <label class="block mb-4">
-            <span class="text-[11px] font-mono uppercase tracking-widest text-slate-400">Email</span>
-            <input type="email" name="email" value="{{ old('email') }}" required autofocus
-                   class="mt-1 w-full rounded-lg bg-abyss border border-edge px-3 py-2.5 text-sm text-white placeholder-slate-600 transition focus:outline-none focus:border-terminal focus:ring-1 focus:ring-terminal/60">
+        <label class="mb-4 block">
+            <span class="text-sm font-medium text-text">Email</span>
+            <input type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="email"
+                   class="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-text placeholder-muted transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring">
         </label>
 
-        <label class="block mb-5">
-            <span class="text-[11px] font-mono uppercase tracking-widest text-slate-400">Password</span>
-            <input type="password" name="password" required
-                   class="mt-1 w-full rounded-lg bg-abyss border border-edge px-3 py-2.5 text-sm text-white placeholder-slate-600 transition focus:outline-none focus:border-terminal focus:ring-1 focus:ring-terminal/60">
+        <label class="mb-5 block">
+            <span class="text-sm font-medium text-text">Password</span>
+            <input type="password" name="password" required autocomplete="current-password"
+                   class="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-text placeholder-muted transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring">
         </label>
 
-        <label class="flex items-center gap-2 mb-5 text-xs text-slate-400">
-            <input type="checkbox" name="remember" value="1" class="rounded border-edge bg-abyss accent-[#9fef00]">
-            Keep session alive
+        <label class="mb-5 flex items-center gap-2 text-sm text-muted">
+            <input type="checkbox" name="remember" value="1" class="rounded border-border text-primary focus:ring-ring">
+            Remember me
         </label>
 
         <button type="submit"
-                class="press w-full rounded-lg bg-brand hover:bg-brand/90 text-white font-bold py-2.5 text-sm tracking-widest transition">
-            INITIALISE SESSION
+                class="press w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-fg transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring">
+            Login
         </button>
     </form>
+
+    <p class="mt-6 text-center text-xs text-muted">Access is provided through your institution.</p>
 </div>
 @endsection
