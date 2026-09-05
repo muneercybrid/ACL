@@ -1,0 +1,78 @@
+@import 'tailwindcss';
+
+@theme {
+    --color-abyss: #0b1120;
+    --color-surface: #0f1a2e;
+    --color-raised: #16223c;
+    --color-edge: #1f2c4a;
+    --color-brand: #ff2e4d;
+    --color-terminal: #9fef00;
+    --color-glow: #22d3ee;
+
+    --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+
+html {
+    color-scheme: dark;
+}
+
+body {
+    background-color: var(--color-abyss);
+}
+
+::selection {
+    background: var(--color-terminal);
+    color: var(--color-abyss);
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-edge) transparent;
+}
+
+/* --- Micro-interactions (HTB-style reactions) --- */
+.press:active {
+    transform: scale(0.97);
+}
+
+@keyframes flash-success {
+    0% { box-shadow: 0 0 0 0 rgba(159, 239, 0, 0.45); }
+    100% { box-shadow: 0 0 0 14px rgba(159, 239, 0, 0); }
+}
+
+.flash-success {
+    animation: flash-success 0.5s ease-out;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+.cursor-blink {
+    animation: blink 1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .press:active,
+    .flash-success,
+    .cursor-blink {
+        animation: none;
+        transform: none;
+    }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--color-abyss);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--color-edge);
+    border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-glow);
+}

@@ -1,0 +1,74 @@
+# What must not enter the build context.
+#
+# .env is first and is the only entry here whose absence is a security
+# requirement rather than a size or cache optimisation: the image is built from
+# this directory, and anything left in the context can end up in a layer.
+
+# --- Secrets ---------------------------------------------------------------
+.env
+.env.backup
+.env.production
+.env.docker
+auth.json
+*.pem
+*.key
+storage/*.key
+
+# --- Built or installed artefacts, rebuilt inside the image ----------------
+vendor
+node_modules
+public/build
+public/hot
+public/storage
+bootstrap/cache/*.php
+storage/logs
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+storage/pail
+
+# --- History and tooling the runtime never reads ---------------------------
+.git
+.gitattributes
+.gitignore
+.github
+.devcontainer
+.claude
+.ai
+.idea
+.vscode
+.zed
+.nova
+.cursor
+.codex
+.editorconfig
+.phpactor.json
+.phpunit.result.cache
+.phpunit.cache
+
+# --- Development-only code -------------------------------------------------
+# composer install --no-dev drops the test *dependencies*; it does not drop
+# this directory. Production has no reason to carry it.
+tests
+phpunit.xml
+pint.json
+
+# --- Documentation --------------------------------------------------------
+docs
+README.md
+CLAUDE.md
+scripts
+
+# --- Docker's own files ---------------------------------------------------
+Dockerfile
+.dockerignore
+render.yaml
+
+# --- Noise ----------------------------------------------------------------
+*.log
+.DS_Store
+Thumbs.db
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+npm-debug.log*

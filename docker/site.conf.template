@@ -1,0 +1,78 @@
+# ACL virtual host.
+#
+# Rendered at container start by docker/entrypoint.sh, which runs envsubst with
+# an explicit allow-list of '${PORT}' -- nginx's own $uri, $query_string and
+# $realpath_root must survive substitution untouched.
+
+server {
+    # The platform chooses the port and passes it in as PORT.
+    listen       ${PORT} default_server;
+    server_name  _;
+
+    root   /var/www/html/public;
+    index  index.php;
+
+    charset      utf-8;
+    absolute_redirect off;
+
+    # A few headers that cost nothing. Content-Security-Policy is deliberately
+    # absent: Vite's output and Alpine's behaviour decide what a correct policy
+    # is, so it belongs with the frontend work rather than guessed at here.
+    add_header X-Content-Type-Options  "nosniff"        always;
+    add_header X-Frame-Options         "SAMEORIGIN"     always;
+    add_header Referrer-Policy         "same-origin"    always;
+
+    # Laravel's front controller: anything that is not a real file is a route.
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # Vite writes content-hashed filenames into public/build, so a changed asset
+    # always gets a new URL and an immutable year-long cache is safe.
+    location /build/ {
+        access_log off;
+        expires    1y;
+        add_header Cache-Control "public, immutable";
+        try_files  $uri =404;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; expires 7d; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    # The platform's health check. Kept out of the access log so it does not
+    # bury real traffic at one request every few seconds.
+    location = /up {
+        access_log off;
+        try_files  $uri /index.php?$query_string;
+    }
+
+    # Only the front controller is ever executed. This block is listed before
+    # the catch-all below because nginx tries regex locations in order.
+    location ~ ^/index\.php$ {
+        fastcgi_pass    127.0.0.1:9000;
+        fastcgi_index   index.php;
+        include         fastcgi_params;
+        fastcgi_param   SCRIPT_FILENAME  $realpath_root$fastcgi_script_name;
+        fastcgi_param   DOCUMENT_ROOT    $realpath_root;
+        fastcgi_hide_header X-Powered-By;
+
+        fastcgi_read_timeout 60s;
+        fastcgi_buffer_size  32k;
+        fastcgi_buffers      16 16k;
+    }
+
+    # Any other .php under public/ is not a thing this application has, so
+    # refuse rather than hand it to the interpreter.
+    location ~ \.php$ {
+        deny all;
+    }
+
+    # public/ can never contain .env -- it is not the document root's parent and
+    # .dockerignore excludes it from the image entirely -- but "cannot happen"
+    # is a poor reason to serve dotfiles.
+    location ~ /\. {
+        deny all;
+        access_log    off;
+        log_not_found off;
+    }
+}
