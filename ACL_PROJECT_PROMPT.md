@@ -73,12 +73,12 @@ ornate UI; it means the following are non-negotiable and enforced:
 | Language | **PHP 8.4** | Strict, typed, modern. |
 | Framework | **Laravel 13** | Modular monolith (ADR-0001). |
 | Dev runtime DB | **TiDB Cloud Serverless** (MySQL 8.0 wire) | `DB_CONNECTION=mysql`, TLS on :4000 (ADR-0007). |
-| Test & prod DB | **MariaDB** | Suite runs on local `acl_test`; prod is external MariaDB (ADR-0005, ADR-0006). |
+| Test / prod-engine DB | **MariaDB** | Suite runs on local `acl_test`; MariaDB is the mandated engine for any production tier (ADR-0005). No separate prod tier runs today — the served Codespace uses the dev runtime DB. |
 | Runtime store | **Redis 7** via `predis` (pure-PHP) | Sessions, cache, queue in dev (ADR-0008). |
 | Mail (dev) | **Mailpit** | Catches all outbound mail; SMTP :1025, inbox :8025. |
 | Frontend | **Blade + Tailwind v4 + Alpine 3**, built with **Vite 8** | Server-rendered; Alpine for light interactivity (ADR-0004). |
 | Dev environment | **GitHub Codespace** via `.devcontainer/` | One-command reproducible; MariaDB, Redis, Mailpit provisioned automatically. |
-| Deployment (designed) | **Docker image on Render**, MariaDB external | nginx + php-fpm + supervisor (ADR-0006). |
+| Serving | **Codespace via Cloudflare Tunnel** at `app.aclacademy.me` (ADR-0009) | A dev server made reachable, not a production tier. The `Dockerfile` + `docker/` image is retained as a platform-neutral option (ADR-0006, superseded). |
 | Tests | **Feature tests only**, against MariaDB `acl_test` | No `tests/Unit` by design. |
 
 **Deliberate divergence to know about:** dev *runtime* is TiDB (MySQL-family)
@@ -177,9 +177,12 @@ fresh clone recovers it with no setup. This is unusual and deliberate.
 - **Redis** (loopback, password-protected, `noeviction`) backing sessions, cache
   and queue via `predis`.
 - **Mailpit** capturing outbound mail (SMTP :1025 with AUTH, inbox on :8025).
-- **Deployability** — a `Dockerfile`, `docker/` config and `render.yaml` exist so
-  ACL can build as a container on Render behind an external MariaDB (ADR-0006).
-  Note: an end-to-end production deploy has **not** been proven green.
+- **Serving path** — ACL is served from the GitHub Codespace through a Cloudflare
+  Tunnel at `app.aclacademy.me` (ADR-0009); the procedure is
+  `docs/deployment/DOMAIN_SETUP.md`. This is a development server made reachable,
+  not a production tier. A `Dockerfile` and `docker/` config are **retained** as a
+  portable, platform-neutral container image for a future production tier (ADR-0006,
+  superseded by 0009); `render.yaml` has been removed.
 - **Devcontainer hardening** — Redis and Mailpit are provisioned by
   `.devcontainer/` so they survive a codespace stop/resume and a full rebuild,
   rather than being hand-started.
@@ -188,13 +191,16 @@ fresh clone recovers it with no setup. This is unusual and deliberate.
 
 1. Working Laravel skeleton: identity, hierarchy, RBAC, entitlement, dashboard,
    course viewer, lesson completion — each with feature tests.
-2. Architectural decisions recorded as ADRs 0001–0006 (modular monolith,
-   application layout, frontend stack, MariaDB, Render/Docker deployment).
+2. Architectural decisions recorded as ADRs 0001–0009 (modular monolith,
+   application layout, frontend stack, MariaDB, the retained container image, the
+   TiDB dev runtime, dev Redis, and serving from the Codespace via a Cloudflare
+   Tunnel).
 3. A reproducible GitHub Codespace via `.devcontainer/` that provisions the
    database, the app and assets with one command and reports its own health.
 4. An in-repo agent system and governance documents so the engineering method
    travels with the code.
-5. Deployment *designed* (not improvised): container image + `render.yaml`, with
+5. Serving *designed* (not improvised): a retained, platform-neutral container
+   image, and serving from the Codespace via a Cloudflare Tunnel (ADR-0009), with
    secrets kept out of the repo.
 6. Dev infrastructure upgraded for realism and speed: TiDB (ADR-0007), Redis
    (ADR-0008) and Mailpit — then hardened into the devcontainer so they are
@@ -218,11 +224,13 @@ do.
 - **Content authoring** — structured lessons, chapters and content-block types.
 - **Gamification** — XP and streaks (the dashboard already reserves space for
   them, showing `0`).
-- **Delivery hardening** — a CI pipeline (`.github/` does not exist; `main`
-  currently reaches Render unverified), a Content-Security-Policy header,
-  production-safe seeding (no `admin@acl.local` on a real database), and a proven
-  green production deploy.
-- **Production launch** on a real domain behind a proxy (Cloudflare / Render).
+- **Delivery hardening** — a CI pipeline (`.github/` does not exist; nothing runs
+  the test suite or Pint automatically before the served Codespace is updated), a
+  Content-Security-Policy header, production-safe seeding (no `admin@acl.local` on
+  an exposed instance), and — if an always-on production tier is ever stood up — a
+  proven green deploy of the retained container image.
+- **A production tier** — an always-on host for the retained container image (its
+  own ADR), as distinct from today's Codespace-behind-a-tunnel dev serving.
 
 ## 10. Non-goals and guardrails (do not cross without an ADR + human approval)
 

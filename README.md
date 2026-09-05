@@ -161,13 +161,16 @@ admin panel, no file/media uploads, no forums or messaging, no certificates, no
 analytics, no CI pipeline. `tests/Unit` does not exist — the suite is feature
 tests only, by design.
 
-There **is** now a container image and a Render blueprint
-([`Dockerfile`](Dockerfile), [`render.yaml`](render.yaml), ADR-0006). As of
-2026-09-03 the image builds on Render and the container starts, but it has never
-served a request: the first deploy stopped at the entrypoint's `APP_KEY` guard,
-and no environment is live. Treat
-[docs/deployment/README.md](docs/deployment/README.md) as the procedure, not as a
-record of a running system.
+ACL is served from its **GitHub Codespace through a Cloudflare Tunnel**, at the
+Namecheap domain **`app.aclacademy.me`** (ADR-0009) — a development server made
+reachable, not a production tier. A container image is **retained** but is not the
+serving path: [`Dockerfile`](Dockerfile) plus [`docker/`](docker/) build a
+platform-neutral image (ADR-0006, superseded by 0009); as of 2026-09-03 it builds
+and the container starts, but it has never served a request — the first boot
+stopped at the entrypoint's `APP_KEY` guard. `render.yaml` has been removed. See
+[docs/deployment/README.md](docs/deployment/README.md) for the serving path and
+[docs/deployment/DOMAIN_SETUP.md](docs/deployment/DOMAIN_SETUP.md) for the domain
+procedure — treat both as procedures, not as a record of a running system.
 
 ---
 

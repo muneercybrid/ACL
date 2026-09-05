@@ -24,9 +24,12 @@ _Last updated: 2026-09-05. Maintain this file at every milestone._
 - Cache / queue / session: Laravel `database` drivers in production and in a
   plain clone; the devcontainer overrides all three to Redis via the pure-PHP
   `predis` client (ADR-0008). Redis is now settled for dev — no longer "later".
-- Deployment: a container image plus a Render blueprint exist
-  (`Dockerfile`, `render.yaml`, ADR-0006). The image **builds on Render** and the
-  container starts; it has **not yet served a request** — see §9.
+- Serving: ACL is served from the Codespace through a Cloudflare Tunnel at
+  `app.aclacademy.me` (ADR-0009) — a dev server made reachable, not a production
+  tier; procedure in `docs/deployment/DOMAIN_SETUP.md`. A container image
+  (`Dockerfile`, `docker/`, ADR-0006 superseded by 0009) is **retained** as a
+  platform-neutral option; it builds and the container starts but has **not yet
+  served a request** — see §9. `render.yaml` was removed.
 
 ## 3. Implemented in code (verified in the codespace — see §9)
 - Laravel 13 foundation; default tables (users, cache, jobs, sessions).
@@ -56,9 +59,9 @@ _Last updated: 2026-09-05. Maintain this file at every milestone._
   keeps the `database` drivers. Putting Redis into production is a new-
   infrastructure decision that would need its own ADR.
 - Models in `app/Models`; domain folders only when populated (ADR-0003).
-- Deployed as a container ACL owns, on Render, with MariaDB supplied by a
-  managed provider outside Render (ADR-0006). Render has no managed
-  MySQL/MariaDB; ADR-0005 is unchanged, not reversed.
+- Served from the Codespace via a Cloudflare Tunnel (ADR-0009, superseding
+  ADR-0006's Render decision). The container image ACL owns is retained as a
+  platform-neutral option, not the current host; ADR-0005 (MariaDB) is unchanged.
 - AI is optional/pluggable; never a hard dependency.
 - No bulk schema generation: schema follows the domain model, slice by slice.
 
@@ -70,8 +73,9 @@ Slice 5.
 ## 6. Next Steps (in order)
 1. UI pass (dashboard + course viewer) per the ADR-0004 design language, and
    feature-test the dashboard listing that the suite currently does not reach.
-2. Deploy: build the image, provision MariaDB, apply `render.yaml`, attach the
-   Namecheap domain — procedure in `docs/deployment/README.md`.
+2. Serve the app: follow `docs/deployment/DOMAIN_SETUP.md` to publish the
+   Codespace at the Namecheap domain `app.aclacademy.me` through a Cloudflare
+   Tunnel (ADR-0009), neutralising the seeded admin before exposing it.
 3. A CI pipeline. There is still no `.github/` directory, so nothing runs the
    suite or Pint automatically.
 4. Slice 5: authentication hardening (2FA for staff) + audit-logging
@@ -112,16 +116,22 @@ Slice 5.
   brought MariaDB, Redis and Mailpit all up and `php artisan test` has been
   re-run in the codespace and its output recorded here. The 39-passing result
   above predates this change and does not cover it.
-- **Verified on Render, 2026-09-03:** the image **builds** — all stages complete,
+- **Observed during the Render build attempt, 2026-09-03** (Render is no longer
+  ACL's host — ADR-0009 — but this stays the record of what was proven about the
+  now-retained container image): the image **builds** — all stages complete,
   layers pushed. The container **starts**: `docker/entrypoint.sh` renders
   `/etc/nginx/conf.d/default.conf` from `$PORT` and `nginx -t` reports the
   configuration valid. The `APP_KEY` guard then refused to boot and the deploy
   exited 1, which is the guard working as designed on a service whose
   environment variables had not yet been set.
-- **Still not verified:** anything past that guard. No database connection, no
-  migration, no request served, no health check passed. php-fpm has never
-  started. Do not describe the deployment path as working until a service has
-  actually answered `/up`.
+- **Still not verified (container image):** anything past that guard. No database
+  connection, no migration, no request served, no health check passed. php-fpm has
+  never started. Do not describe the container-image serving path as working until a
+  container has actually answered `/up`.
+- **Still not verified (current serving path):** the Codespace-via-Cloudflare-Tunnel
+  path (ADR-0009, `docs/deployment/DOMAIN_SETUP.md`) has **not** been stood up or
+  reached end-to-end. `app.aclacademy.me` is not yet live; the procedure is written
+  but unproven.
 - The dashboard is exercised by only one assertion (a guest is redirected to
   `/login`). Its listing logic never executes in the suite.
 

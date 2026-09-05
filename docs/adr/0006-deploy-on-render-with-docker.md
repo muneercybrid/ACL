@@ -2,7 +2,15 @@
 
 ## Status
 
-Accepted. Does not supersede any ADR; in particular
+**Superseded by [ADR-0009](0009-serve-from-codespace-via-cloudflare-tunnel.md)**
+(2026-09-05). Render is no longer ACL's host: the application is served from the
+GitHub Codespace through a Cloudflare Tunnel, and `render.yaml` has been removed.
+The container image this ADR introduced (`Dockerfile`, `docker/`) is **retained**
+as a portable, platform-neutral option for a future production tier. Everything
+below is kept unchanged as the record of why the Render path was chosen and what
+it proved.
+
+Originally Accepted 2026-09-03. Did not supersede any ADR; in particular
 [ADR-0005](0005-adopt-mariadb.md) stands unchanged.
 Date: 2026-09-03
 

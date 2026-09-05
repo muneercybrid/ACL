@@ -14,11 +14,15 @@
 #     docker build -t acl:local .
 #     docker run --rm -p 8000:8000 -e PORT=8000 --env-file .env.docker acl:local
 #
-# PARTIALLY VERIFIED (2026-09-03): this image builds successfully on Render, and
-# the container starts, renders its nginx config and passes `nginx -t`. It has
-# not yet served a request, connected to a database or run a migration -- the
-# first deploy stopped at the entrypoint's APP_KEY guard, by design. There is no
-# Docker on the development laptop. See docs/PROJECT_STATUS.md section 9.
+# PARTIALLY VERIFIED (2026-09-03): this image builds and the container starts,
+# renders its nginx config and passes `nginx -t`. It has not yet served a
+# request, connected to a database or run a migration -- the first boot stopped
+# at the entrypoint's APP_KEY guard, by design. There is no Docker on the
+# development laptop. See docs/PROJECT_STATUS.md section 9.
+#
+# This image is a RETAINED, platform-neutral option, not the current serving
+# path: ACL is served from the GitHub Codespace via a Cloudflare Tunnel. See
+# ADR-0009 and docs/deployment/DOMAIN_SETUP.md.
 
 # ---------------------------------------------------------------------------
 # Stage 1 -- PHP dependencies
@@ -137,8 +141,8 @@ RUN set -eux; \
     chown -R www-data:www-data storage bootstrap/cache; \
     chmod -R ug+rwX storage bootstrap/cache
 
-# Render injects PORT and overrides this. 10000 is Render's own default and
-# makes `docker run` without -e PORT work the same way.
+# Many container platforms inject PORT and override this. 10000 is a common
+# default and makes `docker run` without -e PORT work the same way.
 ENV PORT=10000
 
 EXPOSE 10000
