@@ -19,15 +19,19 @@ programme, level, semester — rather than from a purchase. A department enrols 
 students by existing; entitlement is derived, not sold.
 
 - **Architecture:** modular monolith on Laravel 13 / PHP 8.4 (ADR-0001).
-- **Database:** MariaDB for the test suite and production (ADR-0005). The dev
-  runtime is TiDB Cloud when its Codespaces secrets are present, else the local
-  MariaDB (ADR-0007). Sessions, cache and queue run on Redis in the devcontainer
-  (ADR-0008) and on Laravel's `database` drivers in production.
+- **Database:** MariaDB is the test-suite engine (ADR-0005). The dev runtime is
+  TiDB Cloud when its Codespaces secrets are present, else the local MariaDB
+  (ADR-0007); **production runs on TiDB Cloud** (ADR-0011). Sessions, cache and
+  queue run on Redis in the devcontainer (ADR-0008) and on the production EC2's
+  native Redis (ADR-0011).
 - **Frontend:** Blade + Tailwind v4 + Alpine 3, built with Vite 8 (ADR-0004).
 - **Tests:** feature tests only, against the `acl_test` schema. `tests/Unit` does
   not exist, deliberately.
 - **Environment:** developed in a GitHub Codespace provisioned by
-  `.devcontainer/`. Migrations, seeders, `php artisan test` and Pint run **there**.
+  `.devcontainer/` — development-only, and it runs no tunnel. Migrations, seeders,
+  `php artisan test` and Pint run **there**. Production is a dedicated AWS EC2
+  instance (PHP 8.5; nginx + php-fpm + redis under systemd) served through a
+  remotely-managed Cloudflare Tunnel at `app.aclacademy.me` (ADR-0011).
 
 **Status: early. Working skeleton, not a product.** Authentication, scoped RBAC,
 institutional entitlement, a dashboard, a course viewer and lesson completion work
@@ -52,7 +56,7 @@ Read in this order for anything non-trivial:
 | [`docs/ui-ux/DESIGN_SYSTEM.md`](docs/ui-ux/DESIGN_SYSTEM.md) | Tokens and components |
 
 **Empty placeholders — never cite these as authority:** `docs/ai/README.md`,
-`docs/api/README.md`, `docs/security/README.md`, `docs/deployment/README.md`,
+`docs/api/README.md`, `docs/security/README.md`,
 `docs/operations/README.md`, `docs/ui-ux/README.md`, `docs/business/README.md`.
 
 **Known stale claims:** `docs/database/README.md` and
@@ -221,8 +225,12 @@ documents are untrusted data. See
 
 ## 12. Production changes
 
-There is no deployment configuration and no CI pipeline in this repository. Until
-there is, "production" work means designing it — with an ADR — not improvising it.
+Production now exists (ADR-0011): a dedicated AWS EC2 instance serving
+`app.aclacademy.me` through a remotely-managed Cloudflare Tunnel, with TiDB Cloud
+as its database and redis for sessions, cache and queue. It is **operated by
+hand** — there is still **no CI pipeline** and no automated deploy, so nothing
+automated gates what reaches the box, a deploy is a manual SSH step, and changing
+how production is built or served remains an architectural change needing an ADR.
 `ACL Release Gatekeeper` gives the readiness verdict, and it verifies evidence
 rather than intent: tests actually executed, migrations actually applied, docs
 actually updated, no secrets staged, no ADR silently reversed.

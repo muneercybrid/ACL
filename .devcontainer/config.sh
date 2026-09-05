@@ -71,24 +71,11 @@ ACL_MAIL_SMTP_PORT="${ACL_MAIL_SMTP_PORT:-1025}"
 ACL_MAIL_USER="${ACL_MAIL_USER:-acl}"
 ACL_MAIL_PASSWORD="${ACL_MAIL_PASSWORD:-acl_mail_password}"
 
-# --- Cloudflare Tunnel: public serving (ADR-0009) -------------------------
-# Publishes the local app at a public hostname across codespace stop/resume
-# and rebuild. Uses a LOCALLY-MANAGED tunnel: `cloudflared tunnel login`
-# authenticates against the ordinary Cloudflare dashboard, so -- unlike a
-# remotely-managed (token) tunnel -- it needs no Cloudflare Zero Trust
-# onboarding and therefore no payment method on the free plan.
-#
-# The tunnel's credentials JSON is a genuine SECRET: it authorises running the
-# tunnel. Exactly like the ACL_TIDB_* block above, no default is set here --
-# the contract is the variable name, and the value lives ONLY in a GitHub
-# Codespaces secret, base64-encoded, never committed:
-#   CLOUDFLARE_TUNNEL_CREDENTIALS_B64   # base64 of ~/.cloudflared/<UUID>.json
-#
-# The public hostname and the internal metrics port ARE fixed values, so they
-# live here. The metrics port is loopback-only (cloudflared's /ready probe),
-# not an app port, so it is deliberately absent from forwardPorts.
-ACL_TUNNEL_HOSTNAME="${ACL_TUNNEL_HOSTNAME:-app.aclacademy.me}"
-ACL_TUNNEL_METRICS_PORT="${ACL_TUNNEL_METRICS_PORT:-60123}"
+# The Codespace is development-only and runs no tunnel (ADR-0011). Production
+# is served from a dedicated AWS EC2 instance through a remotely-managed
+# Cloudflare Tunnel that runs on that host, not from here; the connector token
+# and public-hostname ingress live in the Cloudflare Zero Trust dashboard and
+# on the EC2, never in this repository. See docs/deployment/DOMAIN_SETUP.md.
 
 # --- Required PHP extensions ---------------------------------------------
 # Laravel 13's own requirements plus pdo_mysql for MariaDB. Verified against
