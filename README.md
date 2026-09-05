@@ -127,11 +127,18 @@ and [`LessonPolicy`](app/Policies/LessonPolicy.php): unenrolled students,
 expired or withdrawn enrolments, draft lessons and cross-offering lesson IDs are
 all rejected server-side.
 
+**Public UI** — a guest landing page at `/` (hero, how-it-works, an animated
+vision & mission, faculty teasers) with a public header and footer, plus a
+**light / dark / system** theme toggle applied before first paint. The interface
+uses a warm-green palette driven by semantic design tokens shared across light and
+dark; see [docs/ui-ux/DESIGN_SYSTEM.md](docs/ui-ux/DESIGN_SYSTEM.md). This is
+presentation only — no new routes, tables or dependencies.
+
 ### Routes
 
 | Method | URI | Name |
 |---|---|---|
-| GET | `/` | → `dashboard` or `login` |
+| GET | `/` | `home` — landing (guest) / → `dashboard` (authenticated) |
 | GET / POST | `/login` | `login` |
 | POST | `/logout` | `logout` |
 | GET | `/dashboard` | `dashboard` |
@@ -206,7 +213,7 @@ app/
 database/
   migrations/           24 migrations
   seeders/              DatabaseSeeder, DevelopmentSeeder, RbacSeeder
-resources/views/        5 Blade views
+resources/views/        11 Blade files — 4 pages, 3 layouts, 3 components, 1 partial
 tests/Feature/          4 test classes, 39 tests
 docs/                   ADRs, domain model, design system, project status
 .ai/guidelines/ACL.md   engineering rules that changes must follow
