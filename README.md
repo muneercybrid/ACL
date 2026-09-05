@@ -12,7 +12,7 @@ rather than from a shopping cart.
 > [docs/VISION.md](docs/VISION.md) is intent, not code. This README describes only
 > what is actually in the repository.
 
-- **Stack** — Laravel 13.25 · PHP 8.4 · MariaDB 10.11 · Redis 7 (dev) · Blade + Tailwind v4 + Alpine 3 · Vite 8
+- **Stack** — Laravel 13.25 · PHP 8.4 (8.5 on the production host) · MariaDB (test suite) · TiDB Cloud (dev runtime + production) · Redis · Blade + Tailwind v4 + Alpine 3 · Vite 8
 - **Tests** — 39 feature tests, 67 assertions, all passing (`php artisan test`)
 - **Architecture decisions** — [docs/adr/](docs/adr/)
 - **Detailed state** — [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)
@@ -94,8 +94,8 @@ The domain is a chain of foreign keys — organization → faculty → departmen
 programme → level → semester → course → offering → enrolment → entitlement — and
 academic records need referential integrity enforced by the engine, not by
 application code. On top of that, Laravel's `database` session, cache and queue
-drivers — the portable default the project ships with, and what production runs —
-are SQL-only, and Laravel has no first-party MongoDB support. Full reasoning:
+drivers — the portable default a plain clone ships with — are SQL-only, and
+Laravel has no first-party MongoDB support. Full reasoning:
 [ADR-0005](docs/adr/0005-adopt-mariadb.md).
 
 MongoDB stays on the table as an *addition* later, under its own ADR, for
@@ -161,16 +161,18 @@ admin panel, no file/media uploads, no forums or messaging, no certificates, no
 analytics, no CI pipeline. `tests/Unit` does not exist — the suite is feature
 tests only, by design.
 
-ACL is served from its **GitHub Codespace through a Cloudflare Tunnel**, at the
-Namecheap domain **`app.aclacademy.me`** (ADR-0009) — a development server made
-reachable, not a production tier. A container image is **retained** but is not the
-serving path: [`Dockerfile`](Dockerfile) plus [`docker/`](docker/) build a
-platform-neutral image (ADR-0006, superseded by 0009); as of 2026-09-03 it builds
-and the container starts, but it has never served a request — the first boot
-stopped at the entrypoint's `APP_KEY` guard. `render.yaml` has been removed. See
+ACL is served in production from a **dedicated AWS EC2 instance** through a
+**remotely-managed Cloudflare Tunnel**, at the Namecheap domain
+**`app.aclacademy.me`** (ADR-0011, superseding the earlier "serve from the
+Codespace" decisions 0009 and 0010). The GitHub Codespace is development-only and
+runs no tunnel. It is a real always-on tier but **operated by hand** — no CI, no
+automated deploy, reboot recovery not yet drilled. A container image is **retained
+as a portable fallback**, not the serving path: [`Dockerfile`](Dockerfile) plus
+[`docker/`](docker/) build a platform-neutral image (ADR-0006, superseded);
+`render.yaml` has been removed. See
 [docs/deployment/README.md](docs/deployment/README.md) for the serving path and
-[docs/deployment/DOMAIN_SETUP.md](docs/deployment/DOMAIN_SETUP.md) for the domain
-procedure — treat both as procedures, not as a record of a running system.
+[docs/deployment/DOMAIN_SETUP.md](docs/deployment/DOMAIN_SETUP.md) for the setup
+procedure.
 
 ---
 
