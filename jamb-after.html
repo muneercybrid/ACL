@@ -1,0 +1,349 @@
+<!DOCTYPE html><html lang="en"><!--<![endif]--><!-- BEGIN HEAD --><head><meta charset="utf-8"><title>
+	Matriculation List...
+</title><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta http-equiv="Content-type" content="text/html; charset=utf-8"><meta name="description"><meta name="author">
+    <!-- BEGIN GLOBAL MANDATORY STYLES -->
+    <link href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700&amp;subset=all" rel="stylesheet" type="text/css"><link href="assets/global/plugins/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"><link href="assets/global/plugins/simple-line-icons/simple-line-icons.min.css" rel="stylesheet" type="text/css"><link href="assets/global/plugins/bootstrap/css/bootstrap.min.css" rel="stylesheet" type="text/css"><link href="assets/global/plugins/uniform/css/uniform.default.css" rel="stylesheet" type="text/css">
+    <!-- END GLOBAL MANDATORY STYLES -->
+    <!-- BEGIN PAGE LEVEL STYLES -->
+    <link href="assets/global/plugins/select2/select2.css" rel="stylesheet" type="text/css"><link href="assets/admin/pages/css/login-soft.css" rel="stylesheet" type="text/css">
+    <!-- END PAGE LEVEL SCRIPTS -->
+    <!-- BEGIN THEME STYLES -->
+    <link id="style_components" href="assets/global/css/components.css" rel="stylesheet" type="text/css"><link href="assets/global/css/plugins.css" rel="stylesheet" type="text/css"><link href="assets/admin/css/layout.css" rel="stylesheet" type="text/css"><link id="style_color" href="assets/admin/css/themes/darkblue.css" rel="stylesheet" type="text/css"><link href="assets/admin/css/custom.css" rel="stylesheet" type="text/css"><link rel="stylesheet" type="text/css" href="assets/global/plugins/clockface/css/clockface.css"><link rel="stylesheet" type="text/css" href="assets/global/plugins/bootstrap-datepicker/css/bootstrap-datepicker3.min.css"><link rel="stylesheet" type="text/css" href="assets/admin/pages/css/profile-old.css">
+    <script src="assets/global/plugins/select2/String.Handling.js"></script>
+    <!-- END THEME STYLES -->
+    <link rel="shortcut icon" href="Account/favicon.ico"></head>
+<!-- END HEAD -->
+<!-- BEGIN BODY -->
+<body class="login">
+    <!-- BEGIN LOGO -->
+    <div class="logo">
+        <a href="Login">
+            <img src="assets/admin/img/logo_big.png" alt="logo">
+        </a>
+    </div>
+    <div class="col-md-8  col-md-offset-2">
+        <div class="account">
+            <div id="dvform" class="row">
+                <!-- BEGIN LOGIN FORM -->
+                <form method="post" action="./CheckMatriculationList" onsubmit="javascript:return WebForm_OnSubmit();" id="ctl23">
+<div class="aspNetHidden">
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="">
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="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">
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['ctl23'];
+if (!theForm) {
+    theForm = document.ctl23;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+<script src="/WebResource.axd?d=pynGkmcFUV13He1Qd6_TZFauuowHd8EY7cmLDSY5LHe-0Wum3JHcTa0SomqfT02QTZfMsO9UVma6gETVCOjkdw2&amp;t=639190869291376328" type="text/javascript"></script>
+
+
+<script src="/WebResource.axd?d=x2nkrMJGXkMELz33nwnakD0BM5RFhAjhPfXyM0AR1TZfi7HhnvfncGvHcSndNst79Enlbvtq-5riQzWAAQCm9Pb_QkbZq5rDYcQOKDAurOc1&amp;t=639190869291376328" type="text/javascript"></script>
+<script type="text/javascript">
+//<![CDATA[
+function WebForm_OnSubmit() {
+if (typeof(ValidatorOnSubmit) == "function" && ValidatorOnSubmit() == false) return false;
+return true;
+}
+//]]>
+</script>
+
+<div class="aspNetHidden">
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="54E68CC8">
+	<input type="hidden" name="__SCROLLPOSITIONX" id="__SCROLLPOSITIONX" value="0">
+	<input type="hidden" name="__SCROLLPOSITIONY" id="__SCROLLPOSITIONY" value="0">
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="Ra0YB4KRPiLChVDRAWiIP5A2nn4yUJXW1LETHIgBKRrO61vSNgjMDj7CkK8YA2GNipmF5s88G7eUpmu8RRzUFUe28ejPSpmPMHpJYMovXp9fO7p2bvLSWOPyZibuaNY0KRi15YqAplgDXJXRm0g8jQXwD7NJUrEL4gEhrttY3B5mjCORjc4RoRbe3hFkCHae7qlT+yXNtYGKTLyswTLqaMdSB00IN0Tjw2fGuE8onnB/X/cxc04h04trYHER9HO4RzF80ao5pCYKiK8o5d1X8JyktQkNDyFEtg9a4Lzl3+gMZRNylojJ2adD4RPJWpXrzs6RBzGQmzyLXq49ZAG2TRhyZnP0F8RbJYCwpZjHfVXSkYVGatdIJ97SY81ZjCBAifsqHTs9mRE9OzuDjHqi6QvR+A1UYw+3Q5yqp6XKE23O5rEg5iT2KQHDdg3vMovPZjoESHqLIfCNvTcDLyEWqVoaKoVT8ijYdmzAwPEQwAxG/uJk6vTuEYaxgW2vjsr8YSWJ6gY1J0trsTWYW3lI8CZWsnuUvX1a03VdVPFPjohq0EUEQvFEl7lI59HjDECmCmHZUU3BMdjQHmfqpvL6BD5YntQxc6PhvkFPsoNLyRdCEBh/yM1v3YrT+ps/NaoePqot7PSkqvB/W/gMrd7AQh+pj3J+fpk+dnDeBxSdLiCtS0tU1i/QvVmMKLHoOP7YD5/+FF77v2L1jcPQrinn+qOLpgH8a96RImfXV/51uD+uyo9WUHo02OD+h7wqQl9xhdSL3mDI458Y1o90SqDjFklVK6//HhkYRk/4VNDdR+znsCvOC0PrcnTW8aVj+7arEQu9V+qxY0H1Sppmc34hdEoIdqx9f6384sU4rHbsgEEw8frq4HZBHYYE9JCMUvUZZzzfcAx9DLWC1nBUwEdQrCnmJp2fxDn/Gb30RbiyaLa6S38CGO0SpfqOxZdIlmm3">
+</div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h3>Check Matriculation List...</h3>
+                            <div class="form-group">
+                                <label class="control-label visible-ie8 visible-ie9">Examination</label>
+                                <select name="ddlExamination" id="ddlExamination" disabled="disabled" class="aspNetDisabled select2 form-control">
+	<option value="0">Select Examination...</option>
+	<option value="40">2026 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option selected="selected" value="38">2025 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="36">2024 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="35">2023 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="34">2022 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="33">2021 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="32">2020 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="31">2019 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="30">2018 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="20">2017 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="19">2016 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="17">2015 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="16">2014 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="15">2013 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="9">2012 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="8">2011 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="3">2010 Unified Tertiary Matriculation Examination (UTME)</option>
+	<option value="1">2009 University Matriculation Examination (UME)</option>
+	<option value="2">2009 Monotechnic, Polytechnic and Colleges of Education Examination (MPCE)</option>
+	<option value="4">2008 University Matriculation Examination (UME)</option>
+	<option value="5">2008 Monotechnic, Polytechnic and Colleges of Education Examination (MPCE)</option>
+	<option value="6">2007 University Matriculation Examination (UME)</option>
+	<option value="10">2007 Monotechnic, Polytechnic and Colleges of Education Examination (MPCE)</option>
+	<option value="7">2006 University Matriculation Examination (UME)</option>
+	<option value="11">2006 Monotechnic, Polytechnic and Colleges of Education Examination (MPCE)</option>
+	<option value="13">2005 University Matriculation Examination (UME)</option>
+	<option value="12">2005 Monotechnic, Polytechnic and Colleges of Education Examination (MPCE)</option>
+	<option value="14">2004 University Matriculation Examination (UME)</option>
+	<option value="18">2004 Monotechnic, Polytechnic and Colleges of Education Examination (MPCE)</option>
+	<option value="37">2003 University Matriculation Examination (UME)</option>
+	<option value="21">2002 University Matriculation Examination (UME)</option>
+	<option value="22">2001 University Matriculation Examination (UME)</option>
+	<option value="23">2000 University Matriculation Examination (UME)</option>
+	<option value="24">1999 University Matriculation Examination (UME)</option>
+	<option value="25">1998 University Matriculation Examination (UME)</option>
+	<option value="27">1996 University Matriculation Examination (UME)</option>
+	<option value="28">1995 University Matriculation Examination (UME)</option>
+
+</select>
+                            </div>
+                            <div class="form-group block">
+                                <span><b>Reg Number</b></span><br>
+                                <input name="txtRegNumber" type="text" value="202551494080CF" id="txtRegNumber" disabled="disabled" class="aspNetDisabled form-control" placeholder="Reg Number" onkeyup="return Upper(this)">
+                                <span id="RequiredFieldValidator2" title="Keyword is required." style="color:Red;font-size:Medium;visibility:hidden;">*</span>
+                            </div>
+                            
+
+                            <div class="row" style="font-family: 'Bell MT'; font-size: medium; color: #6c0e0e; border: solid 1px #808080; background: #f8f0f0; margin: 7px; padding: 5px;">
+
+                                <p>It is important that you confirm your name from the matriculation list. Only candidates whose names are on this list are recognised as bonafide students from the various accredited institutions. </p>
+                                <p>By implication, if your name is not on this list, your application to NYSC scheme for the one year National service shall be declined.</p>
+
+                                <h4 style="font-family: 'Bell MT'; font-size: medium; color: burlywood; font-weight: 700">To qualify to be on the Matriculation List:</h4>
+                                <ul>
+                                    <li>Print your Admission Letter Online from the e-Facility Platform</li>
+                                    <li>Print your Result Slip Online from the e-Facility Platform</li>
+                                    <li>Verify the two documents with the admission officer in your Institution</li>
+                                </ul>
+                            </div>
+
+                            <div class="form-group block">
+                                <a id="lnkSearch" class="btn btn-primary" href="javascript:__doPostBack('lnkSearch','')">
+                    Fetch My Details <i class="fa fa-search m-icon-white"></i></a>
+                                <a href="login" style="display: none" class=" btn btn-success pull-right"><i class="m-icon-swapleft"></i>Back To Login </a>
+                            </div>
+                            <br>
+                        </div>
+                    </div>
+                    <div id="dvdisplay" class="row">
+                        <div class="pull-right"><a href="CheckMatriculationList" class=" btn btn-sm btn-default">Check Another Candidate</a></div>
+                        <h1 style="text-align: center">JAMB Matriculation List</h1>
+                        <div class="row profile">
+                            <div class="col-md-12">
+                                <!--BEGIN TABS-->
+                                <div class="tabbable-line tabbable-full-width">
+                                    <ul class="nav nav-tabs">
+                                        <li class="active">
+                                            <a href="#tab_1_1" data-toggle="tab">Your Personal And Admission Details </a>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content">
+                                        <div class="tab-pane active" id="tab_1_1">
+                                            
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <ul class="list-unstyled profile-nav">
+                                                        <li>
+                                                            <a href="javascript:;">Institution:
+                                                                <span>Northwest University, Kano, Kano State</span></a>
+                                                        </li>
+                                                        <li>
+                                                            <a href="javascript:;">Programme:
+                                                              <span>Cyber Security</span></a>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="row">
+                                                        <div class="col-md-12 profile-info">
+                                                            <h1>Muhammad Munir Abbas</h1>
+                                                            <p>
+                                                                <strong>Status: </strong>
+                                                                <b style="color: green">Congratulations, you are on the Matriculation List  </b>
+                                                            </p>
+                                                        </div>
+                                                        <!--end col-md-8-->
+                                                    </div>
+                                                    <!--end row-->
+                                                </div>
+                                            </div>
+                                            
+                                        </div>
+                                        <!--end tab-pane-->
+                                    </div>
+                                </div>
+                                <!--END TABS-->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <br>
+                    
+                       
+                    </form></div>
+                
+<script type="text/javascript">
+//<![CDATA[
+var Page_Validators =  new Array(document.getElementById("RequiredFieldValidator2"));
+//]]>
+</script>
+
+<script type="text/javascript">
+//<![CDATA[
+var RequiredFieldValidator2 = document.all ? document.all["RequiredFieldValidator2"] : document.getElementById("RequiredFieldValidator2");
+RequiredFieldValidator2.controltovalidate = "txtRegNumber";
+RequiredFieldValidator2.errormessage = "Keyword is required.";
+RequiredFieldValidator2.validationGroup = "A";
+RequiredFieldValidator2.evaluationfunction = "RequiredFieldValidatorEvaluateIsValid";
+RequiredFieldValidator2.initialvalue = "";
+//]]>
+</script>
+
+
+<script type="text/javascript">
+//<![CDATA[
+
+var Page_ValidationActive = false;
+if (typeof(ValidatorOnLoad) == "function") {
+    ValidatorOnLoad();
+}
+
+function ValidatorOnSubmit() {
+    if (Page_ValidationActive) {
+        return ValidatorCommonOnSubmit();
+    }
+    else {
+        return true;
+    }
+}
+        
+theForm.oldSubmit = theForm.submit;
+theForm.submit = WebForm_SaveScrollPositionSubmit;
+
+theForm.oldOnSubmit = theForm.onsubmit;
+theForm.onsubmit = WebForm_SaveScrollPositionOnSubmit;
+
+theForm.oldOnLoad = window.onload;
+window.onload = WebForm_RestoreScrollPosition;
+//]]>
+</script>
+
+                <!-- END REGISTRATION FORM -->
+            </div>
+        </div> 
+    
+    <div class="row">
+        <div class="col-md-8  col-md-offset-2">
+            <div class="copyright" style="color: #235b2b;">
+                2026 © Joint Admissions and Matriculation Board (JAMB)
+            </div>
+        </div>
+    </div>
+  
+    <script src="assets/global/plugins/jquery.min.js" type="text/javascript"></script>
+    <script src="assets/global/plugins/jquery-migrate.min.js" type="text/javascript"></script>
+    <script src="assets/global/plugins/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
+    <script src="assets/global/plugins/jquery.blockui.min.js" type="text/javascript"></script>
+    <script src="assets/global/plugins/uniform/jquery.uniform.min.js" type="text/javascript"></script>
+    <script src="assets/global/plugins/jquery.cokie.min.js" type="text/javascript"></script>
+
+    <script src="assets/global/plugins/jquery-validation/js/jquery.validate.min.js" type="text/javascript"></script>
+    <script src="assets/global/plugins/backstretch/jquery.backstretch.min.js" type="text/javascript"></script>
+    <script type="text/javascript" src="assets/global/plugins/select2/select2.min.js"></script>
+
+    <script src="assets/global/scripts/metronic.js" type="text/javascript"></script>
+    <script src="assets/admin/scripts/layout.js" type="text/javascript"></script>
+    <script src="assets/admin/scripts/demo.js" type="text/javascript"></script>
+    <script src="assets/admin/pages/scripts/login-soft.js" type="text/javascript"></script>
+    <script src="assets/global/plugins/bootstrap-datepicker/js/bootstrap-datepicker.min.js"></script>
+    <script src="assets/admin/pages/scripts/components-pickers.js"></script>
+
+
+    <script src="assets/global/plugins/bootbox/bootbox.min.js" type="text/javascript"></script>
+    <script src="assets/pages/scripts/ui-bootbox.min.js" type="text/javascript"></script>
+    <!-- END JAVASCRIPTS -->
+
+    <script type="text/javascript">
+        function PrintElem(elem) {
+            // Popup($(elem).html());
+            //var d = $('#' + elem).html(); 
+            Popup($('#' + elem).html());
+        }
+
+        function Popup(data) {
+            var mywindow = window.open('', 'new div', 'height=400,width=600');
+            mywindow.document.write('<html><head><title></title>');
+            mywindow.document.write("<link rel=\"stylesheet\" href=\"style.css\" type=\"text/css\" media=\"all\"/>");
+            mywindow.document.write('</head><body >');
+            mywindow.document.write(data);
+            mywindow.document.write('</body></html>');
+
+            //mywindow.print();
+            //mywindow.close();
+
+            return true;
+        }
+
+        function printDiv(divID) {
+            //Get the HTML of div
+            var divElements = document.getElementById(divID).innerHTML;
+            //Get the HTML of whole page
+            var oldPage = document.body.innerHTML;
+
+            //Reset the page's HTML with div's HTML only
+            document.body.innerHTML =
+                "<html><head><title></title></head><body>" +
+                divElements + "</body>";
+
+            //Print Page
+            window.print();
+
+            //Restore orignal HTML
+            document.body.innerHTML = oldPage;
+            location.reload();
+
+        }
+    </script>
+    <script>
+        jQuery(document).ready(function () {
+            Metronic.init(); // init metronic core components
+            Layout.init(); // init current layout
+            Login.init();
+            Demo.init();
+            ComponentsPickers.init();
+            // init background slide images
+            $.backstretch([
+                //"../assets/admin/pages/media/bg/sidmachofficenight.png",
+                "assets/admin/pages/media/bg/3.jpg",
+                "assets/admin/pages/media/bg/4.jpg"
+            ], {
+                    fade: 1000,
+                    duration: 8000
+                }
+            );
+        });
+    </script>
+
+
+
+
+<div class="backstretch" style="left: 0px; top: 0px; overflow: hidden; margin: 0px; padding: 0px; height: 945px; width: 1905px; z-index: -999999; position: fixed;"><img src="assets/admin/pages/media/bg/3.jpg" style="position: absolute; margin: 0px; padding: 0px; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; width: 1905px; height: 1428.75px; max-height: none; max-width: none; z-index: -999999; left: 0px; top: -241.875px;"></div></body><!-- END BODY --></html>
