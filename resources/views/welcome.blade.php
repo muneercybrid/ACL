@@ -6,6 +6,33 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'ACL — Anyone Can Learn')</title>
     <meta name="description" content="@yield('description', 'ACL — Anyone Can Learn. An educational ecosystem connecting learners, courses, tutors, and universities.')">
+        <meta name="description" content="@yield('description', 'ACL connects learners, educators, courses, resources, and universities in one structured learning ecosystem.')">
+        $audiences = [
+            ['label' => 'Students', 'title' => 'Learn alongside your academic journey.', 'copy' => 'Follow courses connected to your programme, level, and semester, then keep your progress in one place.', 'tone' => 'bg-primary/10 text-primary'],
+            ['label' => 'External learners', 'title' => 'Explore at your own pace.', 'copy' => 'Build a learning path around a subject, a new skill, or a question you are ready to pursue.', 'tone' => 'bg-info/10 text-info'],
+            ['label' => 'Tutors', 'title' => 'Help someone move forward.', 'copy' => 'Share practical guidance, answer questions, and make difficult ideas easier to approach.', 'tone' => 'bg-accent/10 text-accent'],
+            ['label' => 'Lecturers', 'title' => 'Teach with structure.', 'copy' => 'Build courses, organise resources, and guide learners through a clear academic experience.', 'tone' => 'bg-primary/10 text-primary'],
+            ['label' => 'Universities', 'title' => 'Connect learning across the institution.', 'copy' => 'Bring academic structures and digital learning together without losing the shape of the institution.', 'tone' => 'bg-info/10 text-info'],
+        ];
+
+        $courses = [
+            ['name' => 'Human Anatomy', 'field' => 'Health sciences', 'tone' => 'bg-[#e4efe2]'],
+            ['name' => 'Introduction to Economics', 'field' => 'Social sciences', 'tone' => 'bg-[#f4ebc9]'],
+            ['name' => 'Agricultural Science', 'field' => 'Agriculture', 'tone' => 'bg-[#dcebe4]'],
+            ['name' => 'Business Management', 'field' => 'Management', 'tone' => 'bg-[#eee3d6]'],
+            ['name' => 'Mathematics', 'field' => 'Sciences', 'tone' => 'bg-[#e5e5ef]'],
+            ['name' => 'Digital Marketing', 'field' => 'Professional skills', 'tone' => 'bg-[#f1e4d8]'],
+        ];
+
+        $journey = [
+            ['step' => '01', 'name' => 'Discover', 'copy' => 'Find a course, a learning path, or a question worth following.'],
+            ['step' => '02', 'name' => 'Learn', 'copy' => 'Move through lessons and resources with a clear sense of what comes next.'],
+            ['step' => '03', 'name' => 'Practice', 'copy' => 'Use exercises and assessments to turn understanding into confidence.'],
+            ['step' => '04', 'name' => 'Improve', 'copy' => 'Ask for help, review your progress, and keep building from where you are.'],
+            ['step' => '05', 'name' => 'Achieve', 'copy' => 'Recognise the work you have completed with a meaningful learning record.'],
+        ];
+    @endphp
+
     @include('partials.theme-script')
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
