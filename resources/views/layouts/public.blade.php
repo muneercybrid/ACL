@@ -6,6 +6,14 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'ACL — Anyone Can Learn')</title>
     <meta name="description" content="@yield('description', 'ACL — Anyone Can Learn. Open learning for Nigerian institutions. Your courses follow your enrolment, not your wallet.')">
+    <link rel="canonical" href="{{ url()->current() }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="@yield('title', 'ACL — Anyone Can Learn')">
+    <meta property="og:description" content="@yield('description', 'ACL connects learners, educators, courses, resources, and universities in one structured learning ecosystem.')">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="@yield('title', 'ACL — Anyone Can Learn')">
+    <meta name="twitter:description" content="@yield('description', 'ACL connects learners, educators, courses, resources, and universities in one structured learning ecosystem.')">
     @include('partials.theme-script')
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
