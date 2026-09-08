@@ -111,11 +111,13 @@ else
   info ".env already exists; only container-owned keys are rewritten."
 fi
 
-# The database the app is pointed at is chosen three ways, so a rebuild never
-# clobbers a hand-configured runtime DB:
+# The database the app is pointed at is chosen three ways:
 #   1. ACL_TIDB_* secrets present   -> TiDB Cloud over TLS (ADR-0007).
 #   2. else a freshly created .env  -> the local MariaDB (zero-config default).
-#   3. else (rebuild, .env survived)-> leave DB_* exactly as the developer left it.
+#   3. else (rebuild, .env survived)-> keep a valid local MariaDB config, or
+#      repair stale remote values to the local fallback. A remote runtime DB
+#      must be supplied through ACL_TIDB_* so its credentials are not silently
+#      reused after a codespace is rebuilt.
 if [ -n "${ACL_TIDB_HOST:-}" ] && [ -n "${ACL_TIDB_USERNAME:-}" ]; then
   say "Pointing the app at TiDB Cloud (ACL_TIDB_* present)"
   set_env DB_CONNECTION mysql
@@ -128,7 +130,17 @@ if [ -n "${ACL_TIDB_HOST:-}" ] && [ -n "${ACL_TIDB_USERNAME:-}" ]; then
   # CA bundle in config/database.php's mysql `options`, not by the DSN.
   set_env MYSQL_ATTR_SSL_CA /etc/ssl/certs/ca-certificates.crt
   DB_WRITTEN=1
-elif [ "$ENV_CREATED" = "1" ]; then
+elif [ "$ENV_CREATED" = "1" ] \
+  || ! grep -qE "^DB_CONNECTION=mariadb$" .env \
+  || ! grep -qE "^DB_HOST=${ACL_DB_HOST}$" .env \
+  || ! grep -qE "^DB_PORT=${ACL_DB_PORT}$" .env \
+  || ! grep -qE "^DB_DATABASE=${ACL_DB_NAME}$" .env \
+  || ! grep -qE "^DB_USERNAME=${ACL_DB_USER}$" .env \
+  || ! grep -qE "^DB_PASSWORD=${ACL_DB_PASSWORD}$" .env \
+  || ! grep -qE '^DB_URL=$' .env 2>/dev/null; then
+  if [ "$ENV_CREATED" != "1" ]; then
+    warn "Existing DB_* values are not the local MariaDB and no ACL_TIDB_* secrets are present; switching to local MariaDB."
+  fi
   say "Pointing the app at the local MariaDB"
   set_env DB_CONNECTION mariadb
   set_env DB_HOST     "${ACL_DB_HOST}"

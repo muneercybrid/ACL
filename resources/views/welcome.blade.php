@@ -1,143 +1,80 @@
 @extends('layouts.public')
 
 @section('title', 'ACL — Anyone Can Learn')
+@section('description', 'ACL connects learners, educators, courses, resources, and universities in one structured learning ecosystem.')
+
+@php
+    $audiences = [
+        ['label' => 'Students', 'title' => 'Learn alongside your academic journey.', 'copy' => 'Follow courses connected to your programme, level, and semester, then keep your progress in one place.', 'icon' => 'academic-cap'],
+        ['label' => 'External learners', 'title' => 'Explore at your own pace.', 'copy' => 'Build a learning path around a subject, a new skill, or a question you are ready to pursue.', 'icon' => 'book-open'],
+        ['label' => 'Tutors', 'title' => 'Help someone move forward.', 'copy' => 'Share practical guidance, answer questions, and make difficult ideas easier to approach.', 'icon' => 'user-group'],
+        ['label' => 'Lecturers', 'title' => 'Teach with structure.', 'copy' => 'Build courses, organise resources, and guide learners through a clear academic experience.', 'icon' => 'clipboard-document-check'],
+        ['label' => 'Universities', 'title' => 'Connect learning across the institution.', 'copy' => 'Bring academic structures and digital learning together without losing the shape of the institution.', 'icon' => 'rectangle-stack'],
+    ];
+
+    $courses = [
+        ['name' => 'Human Anatomy', 'field' => 'Health sciences', 'tone' => 'bg-raised'],
+        ['name' => 'Introduction to Economics', 'field' => 'Social sciences', 'tone' => 'bg-primary/10'],
+        ['name' => 'Agricultural Science', 'field' => 'Agriculture', 'tone' => 'bg-accent/10'],
+        ['name' => 'Business Management', 'field' => 'Management', 'tone' => 'bg-info/10'],
+        ['name' => 'Mathematics', 'field' => 'Sciences', 'tone' => 'bg-raised'],
+        ['name' => 'Digital Marketing', 'field' => 'Professional skills', 'tone' => 'bg-primary/10'],
+    ];
+
+    $journey = [
+        ['step' => '01', 'name' => 'Discover', 'copy' => 'Find a course, a learning path, or a question worth following.'],
+        ['step' => '02', 'name' => 'Learn', 'copy' => 'Move through lessons and resources with a clear sense of what comes next.'],
+        ['step' => '03', 'name' => 'Practice', 'copy' => 'Use exercises and assessments to turn understanding into confidence.'],
+        ['step' => '04', 'name' => 'Improve', 'copy' => 'Ask for help, review your progress, and keep building from where you are.'],
+        ['step' => '05', 'name' => 'Achieve', 'copy' => 'Recognise the work you have completed with a meaningful learning record.'],
+    ];
+@endphp
 
 @section('content')
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-primary-fg">Skip to content</a>
 
-{{-- Hero --}}
-<section class="relative overflow-hidden">
-    <div class="pointer-events-none absolute inset-0 -z-10"
-         style="background:
-            radial-gradient(60% 50% at 15% 0%, color-mix(in srgb, var(--color-primary) 14%, transparent), transparent 70%),
-            radial-gradient(50% 40% at 100% 10%, color-mix(in srgb, var(--color-info) 12%, transparent), transparent 70%);">
-    </div>
-    <div class="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
-        <div>
-            <span class="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-muted">
-                <span class="h-1.5 w-1.5 rounded-full bg-primary"></span>
-                Open learning for Nigerian institutions
-            </span>
-            <h1 class="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-text sm:text-5xl">
-                Anyone can learn.<br>
-                <span class="text-primary">Your courses follow your enrolment.</span>
-            </h1>
-            <p class="mt-5 max-w-xl text-lg text-muted">
-                Sign in and every course your programme, level and semester entitle you to is already waiting — no purchase, no hunting. Learn at your pace and track every lesson.
-            </p>
-            <div class="mt-8 flex flex-wrap items-center gap-3">
-                <a href="{{ route('login') }}"
-                   class="press rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-fg transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring">
-                    Login to your dashboard
-                </a>
-                <a href="#courses"
-                   class="press rounded-lg border border-border bg-surface px-6 py-3 text-sm font-semibold text-text transition hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-ring">
-                    Explore courses
-                </a>
-            </div>
-            <p class="mt-4 text-xs text-muted">Federal, state &amp; private universities, polytechnics and colleges of education.</p>
-        </div>
-        {{-- Illustration. Swap for a real photo: drop public/images/hero-students.jpg and use <img> here. --}}
-        <div class="relative">
-            <div class="mx-auto aspect-[4/3] w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-sm">
-                <svg viewBox="0 0 400 300" class="h-full w-full" role="img" aria-label="Students learning together">
-                    <rect width="400" height="300" rx="16" fill="var(--color-raised)"/>
-                    <circle cx="200" cy="120" r="70" fill="color-mix(in srgb, var(--color-primary) 18%, transparent)"/>
-                    <path d="M120 120 L200 92 L280 120 L200 148 Z" fill="var(--color-primary)"/>
-                    <path d="M160 134 L160 168 Q200 190 240 168 L240 134" fill="none" stroke="var(--color-accent)" stroke-width="6"/>
-                    <line x1="280" y1="120" x2="280" y2="160" stroke="var(--color-accent)" stroke-width="4"/>
-                    <circle cx="280" cy="164" r="6" fill="var(--color-info)"/>
-                    <rect x="120" y="210" width="160" height="16" rx="3" fill="var(--color-primary)"/>
-                    <rect x="132" y="226" width="136" height="14" rx="3" fill="var(--color-info)"/>
-                    <rect x="144" y="240" width="112" height="12" rx="3" fill="var(--color-accent)"/>
-                </svg>
-            </div>
-        </div>
-    </div>
-</section>
-
-{{-- How it works --}}
-<section id="how" class="border-t border-border bg-surface/40">
-    <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <h2 class="text-center text-2xl font-bold tracking-tight text-text sm:text-3xl">How ACL works</h2>
-        <p class="mx-auto mt-3 max-w-2xl text-center text-muted">Access is derived from your institutional record — not sold.</p>
-        <div class="mt-10 grid gap-6 sm:grid-cols-3">
-            @foreach ([
-                ['1', 'Enrol at your institution', 'Your department registers you by programme, level and semester — the way it already does.'],
-                ['2', 'Your courses appear', 'ACL derives your entitlements from that record. The right courses are simply there when you sign in.'],
-                ['3', 'Learn and track', 'Work through lessons at your pace; ACL remembers what you have completed.'],
-            ] as [$n, $t, $d])
-                <div class="reveal rounded-2xl border border-border bg-surface p-6" style="transition-delay: {{ $loop->index * 90 }}ms">
-                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 font-bold text-primary">{{ $n }}</span>
-                    <h3 class="mt-4 font-semibold text-text">{{ $t }}</h3>
-                    <p class="mt-2 text-sm text-muted">{{ $d }}</p>
+    <div id="main-content">
+        <section class="relative overflow-hidden border-b border-border bg-bg">
+            <div class="mx-auto grid max-w-6xl gap-14 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:gap-16 lg:pb-28 lg:pt-24">
+                <div class="relative z-10">
+                    <p class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-primary"><span class="h-2 w-2 rounded-full bg-primary"></span>Anyone can learn</p>
+                    <h1 class="mt-6 max-w-xl text-5xl font-extrabold leading-[1.02] tracking-tight text-text sm:text-6xl lg:text-7xl">A better way to learn, teach, and grow.</h1>
+                    <p class="mt-7 max-w-xl text-lg leading-8 text-muted sm:text-xl">Learning should not depend on where you are, what you study, or who you know. ACL brings courses, people, resources, and progress into one connected learning ecosystem.</p>
+                    <div class="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <a href="{{ route('login') }}" class="press inline-flex min-h-12 items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-fg transition hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-bg">Start learning <x-ui.icon name="chevron-right" class="ml-2 h-4 w-4" /></a>
+                        <a href="#what-is-acl" class="press inline-flex min-h-12 items-center justify-center rounded-lg border border-border bg-surface px-6 py-3 text-sm font-semibold text-text transition hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-bg">Explore ACL</a>
+                    </div>
+                    <p class="mt-5 text-sm text-muted">Access follows your learning context, not your wallet.</p>
                 </div>
-            @endforeach
-        </div>
-    </div>
-</section>
-{{-- Vision & Mission (animated cards) --}}
-<section id="vision" class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-    <div class="grid gap-6 md:grid-cols-2">
-        <article class="reveal group relative overflow-hidden rounded-2xl border border-border bg-surface p-8">
-            <div class="absolute right-0 top-0 h-24 w-24 -translate-y-8 translate-x-8 rounded-full bg-primary/10 transition group-hover:scale-125"></div>
-            <span class="text-xs font-semibold uppercase tracking-widest text-primary">Our Vision</span>
-            <h3 class="mt-3 text-xl font-bold text-text">Learning that belongs to everyone</h3>
-            <p class="mt-3 text-muted">A Nigeria where every enrolled student — in any institution, in any town — opens their courses the moment they belong to a programme, with nothing between them and the material.</p>
-        </article>
-        <article class="reveal group relative overflow-hidden rounded-2xl border border-border bg-surface p-8" style="transition-delay: 120ms">
-            <div class="absolute right-0 top-0 h-24 w-24 -translate-y-8 translate-x-8 rounded-full bg-info/10 transition group-hover:scale-125"></div>
-            <span class="text-xs font-semibold uppercase tracking-widest text-info">Our Mission</span>
-            <h3 class="mt-3 text-xl font-bold text-text">Tie access to enrolment, not to money</h3>
-            <p class="mt-3 text-muted">To build open, institution-aware learning infrastructure that derives a student's courses from their real academic record — and to keep it free, transparent and owned by the community it serves.</p>
-        </article>
-    </div>
-</section>
 
-{{-- Courses teaser --}}
-<section id="courses" class="border-t border-border bg-surface/40">
-    <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <div class="flex items-end justify-between gap-4">
-            <div>
-                <h2 class="text-2xl font-bold tracking-tight text-text sm:text-3xl">Built for every faculty</h2>
-                <p class="mt-2 text-muted">Not just computing — the sciences, arts, management, engineering, health and more.</p>
-            </div>
-            <a href="{{ route('login') }}" class="hidden shrink-0 text-sm font-semibold text-primary hover:underline sm:inline">Sign in to view yours &rarr;</a>
-        </div>
-        <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            @foreach (['Sciences', 'Arts & Humanities', 'Management', 'Engineering', 'Health Sciences', 'Education', 'Law', 'Agriculture'] as $i => $cat)
-                <div class="reveal rounded-xl border border-border bg-surface p-5" style="transition-delay: {{ $i * 60 }}ms">
-                    <div class="h-1.5 w-10 rounded-full bg-primary"></div>
-                    <p class="mt-4 font-semibold text-text">{{ $cat }}</p>
-                    <p class="mt-1 text-xs text-muted">Courses by semester &amp; level</p>
+                <div class="relative min-h-104 sm:min-h-124" aria-label="A visual map of connected learning" role="img">
+                    <div class="absolute right-0 top-0 h-56 w-56 rounded-full bg-primary/10 blur-3xl" aria-hidden="true"></div>
+                    <div class="absolute bottom-4 left-0 h-40 w-40 rounded-full bg-info/10 blur-3xl" aria-hidden="true"></div>
+                    <div class="absolute inset-x-3 top-6 -rotate-3 rounded-4xl border border-border bg-surface p-5 shadow-lg sm:inset-x-8 sm:p-7">
+                        <div class="flex items-center justify-between border-b border-border pb-4"><div><p class="text-xs font-bold uppercase tracking-[0.16em] text-primary">Your learning space</p><p class="mt-1 text-sm font-semibold text-text">A clear next step, every time.</p></div><span class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-fg">A</span></div>
+                        <div class="mt-6 grid grid-cols-[1fr_0.8fr] gap-4"><div class="rounded-xl bg-raised p-4"><div class="flex items-center justify-between text-xs text-muted"><span>Current course</span><span class="font-mono text-primary">68%</span></div><p class="mt-4 max-w-48 text-lg font-bold leading-tight text-text">Introduction to Economics</p><div class="mt-7 h-2 rounded-full bg-border"><div class="h-2 w-[68%] rounded-full bg-primary"></div></div><p class="mt-2 text-xs text-muted">Module 3 of 5</p></div><div class="flex flex-col justify-between rounded-xl bg-primary/10 p-4 text-accent"><x-ui.icon name="book-open" class="h-7 w-7" /><p class="text-sm font-bold leading-tight">Keep your curiosity close.</p></div></div>
+                        <div class="mt-4 grid grid-cols-3 gap-3">@foreach ([['05', 'Courses'], ['12', 'Lessons'], ['04', 'Checks']] as $stat)<div class="rounded-xl border border-border p-3"><p class="text-xl font-bold text-text">{{ $stat[0] }}</p><p class="mt-1 text-[0.65rem] uppercase tracking-wider text-muted">{{ $stat[1] }}</p></div>@endforeach</div>
+                    </div>
+                    <div class="absolute bottom-4 right-0 w-56 rotate-3 rounded-2xl border border-border bg-accent/10 p-5 text-accent shadow-lg sm:bottom-0 sm:right-2 sm:w-64"><div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-[0.14em]">A learning path</span><x-ui.icon name="chevron-right" class="h-4 w-4" /></div><p class="mt-8 text-2xl font-extrabold leading-none">Small steps.<br>Real progress.</p><div class="mt-6 flex -space-x-2" aria-hidden="true"><span class="h-8 w-8 rounded-full border-2 border-surface bg-primary"></span><span class="h-8 w-8 rounded-full border-2 border-surface bg-info"></span><span class="h-8 w-8 rounded-full border-2 border-surface bg-accent"></span></div></div>
                 </div>
-            @endforeach
-        </div>
-    </div>
-</section>
-{{-- Closing CTA --}}
-<section class="mx-auto max-w-6xl px-4 py-20 text-center sm:px-6">
-    <h2 class="text-3xl font-extrabold tracking-tight text-text">Ready when you are.</h2>
-    <p class="mx-auto mt-3 max-w-xl text-muted">Sign in with the details your institution issued and pick up where your programme left off.</p>
-    <a href="{{ route('login') }}"
-       class="press mt-8 inline-block rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-primary-fg transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring">
-        Login
-    </a>
-</section>
+            </div>
+            <div class="mx-auto max-w-6xl px-4 pb-8 sm:px-6"><p class="border-t border-border pt-5 text-xs font-medium uppercase tracking-[0.16em] text-muted">For students, educators, tutors, universities, and the curious.</p></div>
+        </section>
 
-{{-- Reveal-on-scroll (progressive enhancement). .js hid the cards; reveal on view. --}}
-<script>
-    (function () {
-        var els = document.querySelectorAll('.reveal');
-        if (!('IntersectionObserver' in window) || !els.length) {
-            els.forEach(function (el) { el.classList.add('is-in'); });
-            return;
-        }
-        var io = new IntersectionObserver(function (entries) {
-            entries.forEach(function (entry) {
-                if (entry.isIntersecting) { entry.target.classList.add('is-in'); io.unobserve(entry.target); }
-            });
-        }, { rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
-        els.forEach(function (el) { io.observe(el); });
-    })();
-</script>
+        <section id="what-is-acl" class="bg-surface py-20 sm:py-28"><div class="mx-auto max-w-6xl px-4 sm:px-6"><div class="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-start"><div><p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">What is ACL?</p><h2 class="mt-4 max-w-md text-4xl font-extrabold leading-tight tracking-tight text-text sm:text-5xl">Learning is bigger than a classroom.</h2></div><div><p class="max-w-2xl text-lg leading-8 text-muted">Students learn from lectures, notes, practical work, tutors, discussions, assessments, and independent exploration. ACL connects those experiences so the path feels less fragmented and more possible to follow.</p><div class="mt-10 grid gap-3 sm:grid-cols-7 sm:items-start">@foreach (['Learners', 'Courses', 'Modules', 'Chapters', 'Resources', 'Assessments', 'Progress'] as $index => $item)<div class="flex items-center gap-3 sm:block"><div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full {{ $index === 6 ? 'bg-primary text-primary-fg' : 'bg-raised text-primary' }} text-sm font-bold">{{ str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) }}</div><p class="mt-0 text-sm font-semibold text-text sm:mt-3">{{ $item }}</p>@if ($index < 6)<span class="hidden text-muted sm:mt-2 sm:block" aria-hidden="true">→</span>@endif</div>@endforeach</div></div></div></div></section>
+
+        <section class="border-y border-border bg-bg py-20 sm:py-28"><div class="mx-auto max-w-6xl px-4 sm:px-6"><div class="max-w-2xl"><p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">One ecosystem, many starting points</p><h2 class="mt-4 text-4xl font-extrabold leading-tight tracking-tight text-text sm:text-5xl">Built for the people who make learning happen.</h2></div><div class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">@foreach ($audiences as $audience)<article class="reveal flex min-h-64 flex-col rounded-2xl border border-border bg-surface p-5 transition duration-300 hover:-translate-y-1 hover:border-primary/50"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><x-ui.icon name="{{ $audience['icon'] }}" class="h-5 w-5" /></span><p class="mt-8 text-xs font-bold uppercase tracking-[0.14em] text-muted">{{ $audience['label'] }}</p><h3 class="mt-2 text-xl font-bold leading-tight text-text">{{ $audience['title'] }}</h3><p class="mt-3 text-sm leading-6 text-muted">{{ $audience['copy'] }}</p></article>@endforeach</div></div></section>
+
+        <section id="how" class="bg-surface py-20 sm:py-28"><div class="mx-auto max-w-6xl px-4 sm:px-6"><div class="grid gap-12 lg:grid-cols-[0.72fr_1.28fr]"><div><p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">The learning experience</p><h2 class="mt-4 max-w-md text-4xl font-extrabold leading-tight tracking-tight text-text sm:text-5xl">A journey with room to grow.</h2><p class="mt-6 max-w-md text-base leading-7 text-muted">ACL is designed around the complete learning process, not simply a place to store course files.</p></div><ol class="divide-y divide-border border-y border-border">@foreach ($journey as $item)<li class="reveal grid gap-3 py-5 sm:grid-cols-[4rem_10rem_1fr] sm:items-center"><span class="font-mono text-sm text-primary">{{ $item['step'] }}</span><h3 class="text-lg font-bold text-text">{{ $item['name'] }}</h3><p class="text-sm leading-6 text-muted">{{ $item['copy'] }}</p></li>@endforeach</ol></div></div></section>
+
+        <section id="courses" class="border-y border-border bg-bg py-20 sm:py-28"><div class="mx-auto max-w-6xl px-4 sm:px-6"><div class="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Across disciplines</p><h2 class="mt-4 text-4xl font-extrabold leading-tight tracking-tight text-text sm:text-5xl">Learning should not be one-shaped.</h2></div><p class="max-w-sm text-sm leading-6 text-muted">From academic foundations to professional skills, structure helps people find their way through a subject.</p></div><div class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">@foreach ($courses as $course)<article class="reveal overflow-hidden rounded-2xl border border-border bg-surface"><div class="h-24 {{ $course['tone'] }} p-5"><span class="inline-flex rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-text">{{ $course['field'] }}</span></div><div class="p-5"><h3 class="text-lg font-bold text-text">{{ $course['name'] }}</h3><p class="mt-2 text-sm text-muted">Course · Modules · Chapters</p></div></article>@endforeach</div></div></section>
+
+        <section class="bg-surface py-20 sm:py-28"><div class="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:items-center"><div><p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Built for real learning</p><h2 class="mt-4 max-w-xl text-4xl font-extrabold leading-tight tracking-tight text-text sm:text-5xl">Designed for the way people actually learn.</h2><p class="mt-6 max-w-xl text-lg leading-8 text-muted">Whether you are learning from a phone, working with limited bandwidth, balancing a degree, or building a new skill, ACL keeps the experience clear, flexible, and grounded.</p></div><div class="grid gap-3 sm:grid-cols-2">@foreach ([['title' => 'Mobile access', 'copy' => 'A focused experience that works wherever you begin.'], ['title' => 'Low-bandwidth awareness', 'copy' => 'Fast, purposeful pages without heavy media getting in the way.'], ['title' => 'Human educators', 'copy' => 'Tutors and lecturers remain part of the learning relationship.'], ['title' => 'Intelligent assistance', 'copy' => 'Helpful tools support understanding and remain subject to human review.']] as $item)<div class="rounded-2xl border border-border bg-bg p-5"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><x-ui.icon name="check" class="h-4 w-4" /></span><h3 class="mt-5 font-bold text-text">{{ $item['title'] }}</h3><p class="mt-2 text-sm leading-6 text-muted">{{ $item['copy'] }}</p></div>@endforeach</div></div></section>
+
+        <section id="universities" class="bg-primary py-20 text-primary-fg sm:py-28"><div class="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_0.9fr] lg:items-center"><div><p class="text-xs font-bold uppercase tracking-[0.18em] text-primary-fg/70">For universities</p><h2 class="mt-4 max-w-2xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">A digital learning layer for modern universities.</h2><p class="mt-6 max-w-xl text-lg leading-8 text-primary-fg/80">Connect University, Faculty, Department, Level, Courses, Modules, Chapters, and Students in a learning environment that respects the institution's structure.</p><a href="mailto:hello@aclacademy.me" class="press mt-8 inline-flex min-h-12 items-center rounded-lg bg-surface px-6 py-3 text-sm font-semibold text-text transition hover:bg-raised focus:outline-none focus:ring-2 focus:ring-primary-fg">For universities <span class="ml-2" aria-hidden="true">→</span></a></div><div class="rounded-2xl border border-primary-fg/20 bg-primary-fg/10 p-5 sm:p-7"><p class="text-xs font-bold uppercase tracking-[0.16em] text-primary-fg/70">A connected structure</p><div class="mt-6 space-y-3 text-sm font-semibold"><div class="rounded-lg bg-surface/15 p-3">University</div><div class="ml-5 rounded-lg bg-surface/15 p-3">Faculty · Department</div><div class="ml-10 rounded-lg bg-surface/15 p-3">Level · Courses</div><div class="ml-16 rounded-lg bg-surface p-3 text-text">Modules · Chapters · Students</div></div></div></div></section>
+
+        <section class="bg-bg py-20 sm:py-28"><div class="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-center"><div><p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Technology in its place</p><h2 class="mt-4 text-4xl font-extrabold leading-tight tracking-tight text-text sm:text-5xl">Technology should help you learn, not replace learning.</h2></div><div class="grid gap-6 sm:grid-cols-2"><p class="text-lg leading-8 text-muted">Intelligent tools can help explain difficult concepts, summarise material, generate practice questions, and help educators prepare. The learning stays human, and generated content can remain subject to review.</p><div class="rounded-2xl border border-border bg-surface p-6"><span class="text-4xl font-extrabold text-primary">01</span><p class="mt-10 text-sm font-bold text-text">Assist understanding.</p><p class="mt-2 text-sm leading-6 text-muted">Keep curiosity moving when a difficult idea needs another explanation.</p></div></div></div></section>
+
+        <section class="border-t border-border bg-surface py-24 sm:py-32"><div class="mx-auto max-w-3xl px-4 text-center sm:px-6"><p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Begin anywhere</p><h2 class="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-text sm:text-6xl">There is always something new to learn.</h2><p class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-muted">Whether you are studying for a degree, teaching a course, building a skill, or simply curious about something new, ACL gives you a place to begin.</p><div class="mt-9 flex flex-col justify-center gap-3 sm:flex-row"><a href="{{ route('login') }}" class="press inline-flex min-h-12 items-center justify-center rounded-lg bg-primary px-7 py-3 text-sm font-semibold text-primary-fg transition hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring">Start learning <x-ui.icon name="chevron-right" class="ml-2 h-4 w-4" /></a><a href="#courses" class="press inline-flex min-h-12 items-center justify-center rounded-lg border border-border px-7 py-3 text-sm font-semibold text-text transition hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring">Explore courses</a></div></div></section>
+    </div>
 @endsection

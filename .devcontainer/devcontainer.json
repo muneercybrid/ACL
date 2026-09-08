@@ -1,12 +1,10 @@
 {
   "name": "ACL — Anyone Can Learn",
-
   "//image": "Built from .devcontainer/Dockerfile rather than used directly: the base image compiles PHP without pdo_mysql, so MariaDB is unreachable until that extension is built against it. See .devcontainer/build-pdo-mysql.sh.",
   "build": {
     "dockerfile": "Dockerfile",
     "context": "."
   },
-
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "24",
@@ -19,7 +17,6 @@
     },
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
-
   "//": "Fixed development-only values. The services they unlock (MariaDB, Redis, Mailpit) exist only inside this container and are never reachable from the internet. Production credentials live in the deployment environment, never in this repo. Keep in sync with .devcontainer/config.sh.",
   "containerEnv": {
     "ACL_DB_HOST": "127.0.0.1",
@@ -42,27 +39,34 @@
     "ACL_MAIL_USER": "acl",
     "ACL_MAIL_PASSWORD": "acl_mail_password"
   },
-
   "//onCreate": "System packages; runs once per container build.",
   "onCreateCommand": "bash .devcontainer/install-services.sh",
-
   "//postCreate": "Application setup; idempotent, safe to re-run on rebuild.",
-  "postCreateCommand": "bash .devcontainer/post-create.sh",
-
+  "postCreateCommand": "bash .devcontainer/post-create.sh && npm config set allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs --location=user && npm install -g @deepseek-ai/dsh",
   "//postStart": "Starts MariaDB, Redis and Mailpit and waits until each accepts connections. Runs on EVERY start, so the backing services are up after a codespace is stopped and resumed, not only on first create.",
   "postStartCommand": "bash .devcontainer/start-services.sh",
-
   "waitFor": "postCreateCommand",
-
-  "forwardPorts": [8000, 5173, 8025],
+  "forwardPorts": [
+    8000,
+    5173,
+    8025,
+    3080
+  ],
   "portsAttributes": {
-    "8000": { "label": "ACL app", "onAutoForward": "notify" },
-    "5173": { "label": "Vite dev server", "onAutoForward": "silent" },
-    "8025": { "label": "Mailpit inbox", "onAutoForward": "silent" }
+    "5173": {
+      "label": "Vite dev server",
+      "onAutoForward": "silent"
+    },
+    "8000": {
+      "label": "ACL app",
+      "onAutoForward": "notify"
+    },
+    "8025": {
+      "label": "Mailpit inbox",
+      "onAutoForward": "silent"
+    }
   },
-
   "remoteUser": "vscode",
-
   "customizations": {
     "vscode": {
       "extensions": [
@@ -79,8 +83,12 @@
       "settings": {
         "files.eol": "\n",
         "intelephense.environment.phpVersion": "8.4.0",
-        "emmet.includeLanguages": { "blade": "html" },
-        "files.associations": { "*.blade.php": "blade" },
+        "emmet.includeLanguages": {
+          "blade": "html"
+        },
+        "files.associations": {
+          "*.blade.php": "blade"
+        },
         "sqltools.connections": [
           {
             "name": "ACL (dev)",
