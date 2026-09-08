@@ -1,0 +1,37 @@
+{
+  "url": "https://efacility2.jamb.gov.ng/CheckMatriculationList",
+  "browserHtml": true,
+  "actions": [
+    {
+      "action": "select",
+      "selector": {
+        "type": "css",
+        "value": "#ddlExamination"
+      },
+      "values": ["38"]
+    },
+    {
+      "action": "type",
+      "selector": {
+        "type": "css",
+        "value": "#txtRegNumber"
+      },
+      "text": "202551494080CF"
+    },
+    {
+      "action": "click",
+      "selector": {
+        "type": "css",
+        "value": "#lnkSearch"
+      }
+    },
+    {
+      "action": "waitForSelector",
+      "selector": {
+        "type": "css",
+        "value": "#dvdisplay .profile-info h1"
+      },
+      "timeout": 10
+    }
+  ]
+}
