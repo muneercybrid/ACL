@@ -55,8 +55,6 @@ class User extends Authenticatable
                          ->where('entity_id', $entity->id);
                   });
             });
-        } else {
-            $query->whereNull('entity_type');
         }
 
         return $query->exists();
@@ -75,8 +73,6 @@ class User extends Authenticatable
                          ->where('entity_id', $entity->id);
                   });
             });
-        } else {
-            $query->whereNull('entity_type');
         }
 
         return $query->exists();
