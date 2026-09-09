@@ -216,14 +216,13 @@ database/
 resources/views/        11 Blade files — 4 pages, 3 layouts, 3 components, 1 partial
 tests/Feature/          4 test classes, 39 tests
 docs/                   ADRs, domain model, design system, project status
-.ai/guidelines/ACL.md   engineering rules that changes must follow
 .devcontainer/          the environment described above
 ```
 
 ## Contributing
 
-Read [`.ai/guidelines/ACL.md`](.ai/guidelines/ACL.md) first — it is binding on
-every change. In particular: authorization is enforced server-side and never in
+Read the project constitution and specification before making significant
+changes. In particular: authorization is enforced server-side and never in
 Blade alone; migrations stay portable; new dependencies need justification; and
 documentation must describe what exists, not what is planned.
 
