@@ -27,7 +27,46 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'default_model' => env('ACLI_MODEL', 'deepseek-ai/deepseek-v4-pro-0813'),
+    'default_model' => env('ACLI_MODEL', 'nvidia/nemotron-3-super-120b-a12b'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Model Routing
+    |--------------------------------------------------------------------------
+    |
+    | Models are ordered by preference. The first model is the primary
+    | model and subsequent models may be used as fallbacks when routing
+    | permits it.
+    |
+    */
+
+    'models' => [
+        'primary' => env('ACLI_PRIMARY_MODEL', 'nvidia/nemotron-3-super-120b-a12b'),
+
+        'fallbacks' => array_values(array_filter(
+            array_map(
+                'trim',
+                explode(',', env(
+                    'ACLI_FALLBACK_MODELS',
+                    'deepseek-ai/deepseek-v4-pro-0813'
+                ))
+            )
+        )),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Model Providers
+    |--------------------------------------------------------------------------
+    |
+    | Explicitly maps each ACLi model to the provider responsible for it.
+    |
+    */
+
+    'model_providers' => [
+        'nvidia/nemotron-3-super-120b-a12b' => 'nvidia',
+        'deepseek-ai/deepseek-v4-pro-0813' => 'nvidia',
+    ],
 
     /*
     |--------------------------------------------------------------------------
