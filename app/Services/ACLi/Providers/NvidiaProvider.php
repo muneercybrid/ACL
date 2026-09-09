@@ -5,16 +5,21 @@ namespace App\Services\ACLi\Providers;
 use App\Services\ACLi\Contracts\AIProvider;
 use App\Services\ACLi\DTO\AIRequest;
 use App\Services\ACLi\DTO\AIResponse;
+use App\Services\ACLi\Exceptions\ProviderException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
 
 final class NvidiaProvider implements AIProvider
 {
     public function chat(AIRequest $request): AIResponse
     {
         if (! $this->isAvailable()) {
-            throw new RuntimeException('NVIDIA provider is not configured.');
+            throw new ProviderException(
+                'NVIDIA provider is not configured.',
+                provider: $this->name(),
+                retryable: false,
+            );
         }
 
         $payload = [
@@ -43,13 +48,28 @@ final class NvidiaProvider implements AIProvider
             $payload = array_replace_recursive($payload, $request->options);
         }
 
-        $response = $this->http()->post('/chat/completions', $payload);
+        try {
+            $response = $this->http()->post('/chat/completions', $payload);
+        } catch (ConnectionException $exception) {
+            throw new ProviderException(
+                'NVIDIA API connection failed.',
+                provider: $this->name(),
+                retryable: true,
+                previous: $exception,
+            );
+        }
 
         if ($response->failed()) {
             $status = $response->status();
 
-            throw new RuntimeException(
-                "NVIDIA API request failed with HTTP status {$status}."
+            throw new ProviderException(
+                "NVIDIA API request failed with HTTP status {$status}.",
+                provider: $this->name(),
+                status: $status,
+                retryable: $status === 408
+                    || $status === 425
+                    || $status === 429
+                    || $status >= 500,
             );
         }
 
@@ -58,8 +78,10 @@ final class NvidiaProvider implements AIProvider
         $content = data_get($data, 'choices.0.message.content');
 
         if (! is_string($content)) {
-            throw new RuntimeException(
-                'NVIDIA API returned an invalid chat completion response.'
+            throw new ProviderException(
+                'NVIDIA API returned an invalid chat completion response.',
+                provider: $this->name(),
+                retryable: true,
             );
         }
 
