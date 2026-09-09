@@ -14,9 +14,6 @@ class User extends Authenticatable
     protected $fillable = ['name', 'email', 'password'];
     protected $hidden = ['password', 'remember_token'];
 
-    /** Memoised result of {@see isPlatformAdministrator()} for this instance. */
-    protected ?bool $platformAdministrator = null;
-
     protected function casts(): array
     {
         return [
@@ -85,17 +82,4 @@ class User extends Authenticatable
         return $query->exists();
     }
 
-    /**
-     * Whether this user holds a platform-wide administrative role.
-     *
-     * Consumed by the Gate::before() bypass, so it runs on every
-     * authorization check -- memoised to keep that to one pair of queries
-     * per user instance rather than one pair per check.
-     */
-    public function isPlatformAdministrator(): bool
-    {
-        return $this->platformAdministrator ??= (
-            $this->hasRole('super.admin') || $this->hasRole('platform.admin')
-        );
-    }
 }
