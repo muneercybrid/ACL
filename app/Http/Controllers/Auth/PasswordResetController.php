@@ -38,7 +38,7 @@ class PasswordResetController extends Controller
         if (RateLimiter::tooManyAttempts($key, 5)) {
             $seconds = RateLimiter::availableIn($key);
 
-            return back()
+            return back(fallback: route('password.request'))
                 ->withInput($request->only('email'))
                 ->withErrors([
                     'email' => 'Too many reset requests. Please try again in '.ceil($seconds / 60).' minute(s).',
@@ -51,7 +51,7 @@ class PasswordResetController extends Controller
             'email' => $request->string('email'),
         ]);
 
-        return back()->with(
+        return back(fallback: route('password.request'))->with(
             'status',
             'If an account exists for that email address, a password reset link has been sent.'
         );
