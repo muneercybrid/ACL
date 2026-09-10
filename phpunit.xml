@@ -43,6 +43,12 @@
         <env name="DB_PASSWORD" value="acl_password"/>
         <!-- Blanked so a DB_URL in .env cannot redirect tests at a real database. -->
         <env name="DB_URL" value=""/>
+        <!--
+            Blanked so the TiDB Cloud TLS CA in .env cannot force SSL onto the
+            loopback MariaDB the suite runs on; array_filter() in
+            config/database.php drops the empty option.
+        -->
+        <env name="MYSQL_ATTR_SSL_CA" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
