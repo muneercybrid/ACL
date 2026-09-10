@@ -200,24 +200,29 @@ class CourseAccessTest extends TestCase
         ]);
     }
 
-    // --- Administrator bypass ----------------------------------------------
+    // --- No administrator bypass ---------------------------------------------
 
-    public function test_platform_admin_can_view_any_offering_without_enrolling(): void
+    /**
+     * The Gate::before() platform-administrator bypass was removed together
+     * with the roles that fed it. Course access now has exactly one gate --
+     * a live enrollment -- for administrators and students alike.
+     */
+    public function test_administrator_without_enrollment_cannot_view_an_offering(): void
     {
         $this->assertSame(0, $this->admin->enrollments()->count());
 
         $this->actingAs($this->admin)
             ->get(route('courses.show', $this->foreignOffering))
-            ->assertOk();
+            ->assertForbidden();
     }
 
-    public function test_platform_admin_can_view_a_draft_lesson(): void
+    public function test_administrator_without_enrollment_cannot_view_a_draft_lesson(): void
     {
         $draft = $this->makeLesson($this->enrolledOffering, 'draft');
 
         $this->actingAs($this->admin)
             ->get(route('courses.lessons.show', [$this->enrolledOffering, $draft]))
-            ->assertOk();
+            ->assertForbidden();
     }
 
     // --- Authentication ----------------------------------------------------

@@ -39,8 +39,12 @@ class User extends Authenticatable
 
     /**
      * Enterprise-grade scoped permission check.
-     * Platform roles (entity_type = null) apply everywhere.
-     * Scoped roles only apply to their specific entity.
+     *
+     * Scope rule (pinned by RbacScopingTest): a role assignment with a null
+     * entity_type is platform-wide and applies everywhere; an assignment
+     * carrying an entity applies only to that exact entity -- and asking
+     * without an entity asks about platform scope only, which a scoped
+     * assignment must never satisfy.
      */
     public function hasPermission(string $permissionSlug, $entity = null): bool
     {
@@ -55,6 +59,8 @@ class User extends Authenticatable
                          ->where('entity_id', $entity->id);
                   });
             });
+        } else {
+            $query->whereNull('entity_type');
         }
 
         return $query->exists();
@@ -73,6 +79,8 @@ class User extends Authenticatable
                          ->where('entity_id', $entity->id);
                   });
             });
+        } else {
+            $query->whereNull('entity_type');
         }
 
         return $query->exists();
