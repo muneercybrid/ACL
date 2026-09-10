@@ -14,6 +14,20 @@ return [
     |
     */
 
+    'zyte' => [
+        'api_key' => env('ZYTE_API_KEY'),
+        'base_url' => env('ZYTE_BASE_URL', 'https://api.zyte.com/v1'),
+    ],
+
+    'jamb' => [
+        'matriculation_url' => env(
+            'JAMB_MATRICULATION_URL',
+            'https://efacility.jamb.gov.ng/CheckMatriculationList'
+        ),
+        'minimum_year' => (int) env('JAMB_MINIMUM_EXAM_YEAR', 1995),
+        'exam_type' => env('JAMB_EXAM_TYPE', 'UTME'),
+    ],
+
     'nvidia' => [
         'api_key' => env('NVIDIA_API_KEY'),
         'base_url' => env('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1'),

@@ -19,7 +19,7 @@
             <a href="{{ route('login') }}" class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-text transition hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring sm:inline-flex">
                 Sign in
             </a>
-            <a href="{{ route('login') }}" class="press hidden rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-fg transition hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring sm:inline-flex">Get started</a>
+            <a href="{{ route('register') }}" class="press hidden rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-fg transition hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring sm:inline-flex">Get started</a>
             <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-controls="public-mobile-nav" aria-label="Toggle navigation" class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border text-text transition hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring md:hidden">
                 <x-ui.icon name="bars-3" x-show="!open" class="h-5 w-5" />
                 <x-ui.icon name="x-mark" x-show="open" x-cloak class="h-5 w-5" />
@@ -35,7 +35,7 @@
             <a @click="open = false" href="#what-is-acl" class="rounded-lg px-3 py-3 hover:bg-raised hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring">About</a>
             <div class="mt-2 flex gap-2 border-t border-border pt-3 sm:hidden">
                 <a href="{{ route('login') }}" class="flex-1 rounded-lg border border-border px-3 py-3 text-center hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring">Sign in</a>
-                <a href="{{ route('login') }}" class="press flex-1 rounded-lg bg-primary px-3 py-3 text-center text-primary-fg hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring">Get started</a>
+                <a href="{{ route('register') }}" class="press flex-1 rounded-lg bg-primary px-3 py-3 text-center text-primary-fg hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring">Get started</a>
             </div>
         </nav>
     </div>
