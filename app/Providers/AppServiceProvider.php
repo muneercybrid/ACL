@@ -40,5 +40,4 @@ class AppServiceProvider extends ServiceProvider
 
         URL::forceRootUrl($scheme.'://'.$host);
     }
-
 }

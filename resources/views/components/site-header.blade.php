@@ -2,7 +2,9 @@
 <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-border bg-bg/90 backdrop-blur">
     <div class="mx-auto flex min-h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
         <a href="{{ url('/') }}" class="flex shrink-0 items-center gap-2" aria-label="ACL home">
-            <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-extrabold text-primary-fg">A</span>
+            <span class="inline-flex h-8 w-8 overflow-hidden rounded-lg bg-primary">
+                <img src="{{ asset('images/logo.svg') }}" alt="ACL Logo" class="h-full w-full object-contain">
+            </span>
             <span class="text-lg font-extrabold tracking-tight text-text">ACL</span>
             <span class="hidden text-xs font-medium text-muted sm:inline">Anyone Can Learn</span>
         </a>

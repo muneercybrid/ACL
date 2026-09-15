@@ -3,7 +3,9 @@
         <div class="flex flex-col gap-8 md:flex-row md:justify-between">
             <div class="max-w-sm">
                 <div class="flex items-center gap-2">
-                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-extrabold text-primary-fg">A</span>
+                    <span class="inline-flex h-8 w-8 overflow-hidden rounded-lg bg-primary">
+                        <img src="{{ asset('images/logo.svg') }}" alt="ACL Logo" class="h-full w-full object-contain">
+                    </span>
                     <span class="text-lg font-extrabold tracking-tight text-text">ACL</span>
                 </div>
                 <p class="mt-3 max-w-sm text-sm leading-6 text-muted">Anyone Can Learn — a connected learning ecosystem for students, educators, tutors, universities, and the curious.</p>

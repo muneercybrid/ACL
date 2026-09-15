@@ -1,0 +1,34 @@
+/* resources/css/acl-wizard.css */
+
+/* 1. Step slide: Alpine adds enter-start → enter-end over 300ms.
+   Only transform/opacity animate → GPU-composited, no layout thrash. */
+.enter-forward, .enter-back { transition: transform .3s cubic-bezier(.22,1,.36,1), opacity .3s ease; }
+
+/* 2. Progress fill: width transitions with an ease-out curve so it decelerates into place. */
+.progress-fill { transition: width .5s cubic-bezier(.22,1,.36,1); }
+
+/* 3. Spinner: rotating dashed circle. stroke-dasharray creates the gap;
+   rotation is a transform → cheap to animate. */
+@keyframes acl-spin { to { transform: rotate(360deg); } }
+.acl-spinner { animation: acl-spin .8s linear infinite; transform-origin: center; }
+
+/* 4. Success check: stroke-dashoffset draw-on effect (path length ≈ 24). */
+.acl-check path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: acl-draw .45s .1s ease forwards; }
+@keyframes acl-draw { to { stroke-dashoffset: 0; } }
+
+/* 5. Error shake: horizontal translate keyframes; class added for 450ms on invalid step. */
+@keyframes acl-shake { 10%,90% { transform: translateX(-2px); } 20%,80% { transform: translateX(4px); } 30%,50%,70% { transform: translateX(-6px); } 40%,60% { transform: translateX(6px); } }
+.acl-shake { animation: acl-shake .45s cubic-bezier(.36,.07,.19,.97) both; }
+
+/* 6. Hooray confetti: 24 spans, per-piece custom props (--x drift, --r rotation, --d delay).
+   Pure CSS; pieces fall via translateY(110vh) with rotation. */
+@keyframes acl-confetti { to { transform: translate3d(var(--x), 110vh, 0) rotate(var(--r)); opacity: 0; } }
+.acl-confetti span { position: fixed; top: -10px; width: 8px; height: 14px; opacity: 1;
+  animation: acl-confetti var(--t, 2.6s) var(--d, 0s) cubic-bezier(.25,.46,.45,.94) forwards; }
+
+/* 7. Reduced motion: kill all decorative motion, keep state changes instant. */
+@media (prefers-reduced-motion: reduce) {
+  .enter-forward, .enter-back, .progress-fill, .acl-spinner, .acl-check path, .acl-shake, .acl-confetti span {
+    animation: none !important; transition: none !important;
+  }
+}

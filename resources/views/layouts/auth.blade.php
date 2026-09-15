@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'ACL — Anyone Can Learn')</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/logo.svg') }}">
     @include('partials.theme-script')
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,7 +17,9 @@
     <div class="flex min-h-dvh flex-col">
         <div class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
             <a href="{{ url('/') }}" class="flex items-center gap-2">
-                <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-extrabold text-primary-fg">A</span>
+                <span class="inline-flex h-8 w-8 overflow-hidden rounded-lg bg-primary">
+                    <img src="{{ asset('images/logo.svg') }}" alt="ACL Logo" class="h-full w-full object-contain">
+                </span>
                 <span class="text-lg font-extrabold tracking-tight text-text">ACL</span>
             </a>
             <x-theme-toggle />
