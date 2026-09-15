@@ -14,19 +14,24 @@ class StudentDashboardController extends Controller
 
     /**
      * Student dashboard home - categorized profile sections with a
-     * "My Courses" tab showing programme curriculum courses.
+     * "My Courses" section showing enrolled courses and programme
+     * curriculum courses.
      */
     public function index(Request $request): View
     {
         $user = Auth::user();
         $student = $user->student;
 
+        $enrollments = collect();
         $programmeCourses = collect();
         $enrolledOfferingIds = [];
 
         if ($student) {
+            $enrollments = $this->dashboard->activeEnrollments($user);
             $programmeCourses = $this->dashboard->programmeCourses($student);
             $enrolledOfferingIds = $this->dashboard->enrolledCourseIds($user);
+        } else {
+            $enrollments = $this->dashboard->activeEnrollments($user);
         }
 
         return view('student.dashboard', [
@@ -35,6 +40,7 @@ class StudentDashboardController extends Controller
             'verification' => $student ? $this->dashboard->latestVerification($student) : null,
             'academicProgramme' => $student ? $this->dashboard->academicProgramme($student) : null,
             'institutionRecord' => $student ? $this->dashboard->institutionRecord($student) : null,
+            'enrollments' => $enrollments,
             'programmeCourses' => $programmeCourses,
             'enrolledOfferingIds' => $enrolledOfferingIds,
         ]);
@@ -60,13 +66,15 @@ class StudentDashboardController extends Controller
 
     /**
      * My Courses page - programme curriculum split into enrolled and
-     * available courses.
+     * available courses. Enrolled courses (ground truth) are shown even
+     * when the programme curriculum is not yet mapped.
      */
     public function myCourses(Request $request): View
     {
         $user = Auth::user();
         $student = $user->student;
 
+        $enrollments = $this->dashboard->activeEnrollments($user);
         $programmeCourses = collect();
         $enrolledOfferingIds = [];
 
@@ -85,6 +93,7 @@ class StudentDashboardController extends Controller
         return view('student.my-courses', [
             'user' => $user,
             'student' => $student,
+            'enrollments' => $enrollments,
             'academicProgramme' => $student ? $this->dashboard->academicProgramme($student) : null,
             'programmeCourses' => $programmeCourses,
             'activeEnrollments' => $activeEnrollments,

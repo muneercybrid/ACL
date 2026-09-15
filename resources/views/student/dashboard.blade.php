@@ -37,16 +37,86 @@
         </div>
     </div>
 
-    <!-- Navigation Tabs -->
-    <div class="mb-6 flex gap-1 overflow-x-auto rounded-xl bg-surface p-1 shadow-sm border border-border">
-        <a href="#biodata" onclick="showSection('biodata')" class="tab-btn flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-text transition hover:bg-raised focus:outline-none focus:ring-2 focus:ring-ring whitespace-nowrap bg-primary text-primary-fg shadow-sm" id="tab-biodata">Biodata</a>
-        <a href="#academic" onclick="showSection('academic')" class="tab-btn flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-text transition hover:bg-raised focus:outline-none focus:ring-2 focus:ring-ring whitespace-nowrap" id="tab-academic">Academic Status</a>
-        <a href="#security" onclick="showSection('security')" class="tab-btn flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-text transition hover:bg-raised focus:outline-none focus:ring-2 focus:ring-ring whitespace-nowrap" id="tab-security">Security</a>
-        <a href="{{ route('student.my-courses') }}" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-text transition hover:bg-raised focus:outline-none focus:ring-2 focus:ring-ring whitespace-nowrap">My Courses →</a>
+    <!-- Stat Cards (active, no "coming soon") -->
+    <div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <x-ui.stat-card label="Enrolled courses" :value="$enrollments->count()" icon="book-open" hint="Currently active" />
+        <x-ui.stat-card label="Programme courses" :value="$programmeCourses->count()" tone="primary" icon="academic-cap" :hint="$academicProgramme ? $academicProgramme->name : 'Not linked yet'" />
+        <x-ui.stat-card label="Institution" value="{{ isset($institutionRecord) && $institutionRecord?->organization?->name ? $institutionRecord->organization->name : '—' }}" tone="info" icon="building-library" hint="{{ isset($institutionRecord) && $institutionRecord?->matric_number ? $institutionRecord->matric_number : 'No matric number' }}" />
     </div>
 
+    <!-- Navigation Tabs -->
+    <div class="mb-6 flex gap-1 overflow-x-auto rounded-xl bg-surface p-1 shadow-sm border border-border">
+        <a href="#courses" onclick="showSection('courses')" class="tab-btn flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-text transition hover:bg-raised focus:outline-none focus:ring-2 focus:ring-ring whitespace-nowrap bg-primary text-primary-fg shadow-sm" id="tab-courses">My Courses</a>
+        <a href="#biodata" onclick="showSection('biodata')" class="tab-btn flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-text transition hover:bg-raised focus:outline-none focus:ring-2 focus:ring-ring whitespace-nowrap" id="tab-biodata">Biodata</a>
+        <a href="#academic" onclick="showSection('academic')" class="tab-btn flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-text transition hover:bg-raised focus:outline-none focus:ring-2 focus:ring-ring whitespace-nowrap" id="tab-academic">Academic Status</a>
+        <a href="#security" onclick="showSection('security')" class="tab-btn flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-text transition hover:bg-raised focus:outline-none focus:ring-2 focus:ring-ring whitespace-nowrap" id="tab-security">Security</a>
+        <a href="{{ route('student.my-courses') }}" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-raised focus:outline-none focus:ring-2 focus:ring-ring whitespace-nowrap">Full course list →</a>
+    </div>
+
+    <!-- MY COURSES SECTION (default visible) -->
+    <section id="section-courses" class="profile-section mb-8 rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
+        <div class="border-b border-border bg-raised/30 px-6 py-4">
+            <h3 class="text-lg font-extrabold text-text">My Courses</h3>
+            <p class="mt-0.5 text-xs text-muted">Click any course to open chapters and outline</p>
+        </div>
+        <div class="p-6">
+            @if ($enrollments->count() > 0)
+                <h4 class="mb-3 text-xs font-bold uppercase tracking-wider text-muted">Enrolled</h4>
+                <div class="mb-8 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                    @foreach ($enrollments as $enrollment)
+                        <a href="{{ route('courses.show', $enrollment->courseOffering) }}"
+                           class="group block rounded-xl border border-emerald-300/60 bg-emerald-50/40 p-5 transition hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring">
+                            <div class="flex items-start justify-between gap-3">
+                                <h4 class="font-bold text-text group-hover:text-primary transition">{{ $enrollment->courseOffering->course->title }}</h4>
+                                <span class="inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">Enrolled</span>
+                            </div>
+                            <p class="mt-2 text-sm text-muted">{{ $enrollment->courseOffering->course->description ?? 'No description available.' }}</p>
+                            <div class="mt-4 flex items-center gap-3 text-xs text-muted">
+                                <span>{{ $enrollment->courseOffering->course->credit_units ?? '-' }} credits</span>
+                                <span aria-hidden="true">•</span>
+                                <span>{{ $enrollment->courseOffering->semester?->name ?? 'Current semester' }}</span>
+                            </div>
+                            <div class="mt-4 text-sm font-semibold text-primary">Open course →</div>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+
+            @if ($programmeCourses->count() > 0)
+                <h4 class="mb-3 text-xs font-bold uppercase tracking-wider text-muted">{{ $academicProgramme ? 'Programme curriculum' : 'Curriculum courses' }}</h4>
+                <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                    @foreach ($programmeCourses as $cc)
+                        <a href="{{ route('student.course.show', $cc->id) }}"
+                           class="group block rounded-xl border border-border bg-bg/60 p-5 transition hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring">
+                            <div class="flex items-start justify-between gap-3">
+                                <h4 class="font-bold text-text group-hover:text-primary transition">{{ $cc->course->title }}</h4>
+                                <span class="inline-flex rounded-full border border-border bg-raised px-2.5 py-0.5 text-[10px] font-semibold text-muted uppercase tracking-wide">{{ $cc->course->code ?? 'N/A' }}</span>
+                            </div>
+                            <p class="mt-2 text-sm text-muted">{{ $cc->course->description ?? 'No description available.' }}</p>
+                            <div class="mt-4 flex items-center gap-3 text-xs text-muted">
+                                <span>{{ $cc->course->credit_units ?? '-' }} credits</span>
+                                <span aria-hidden="true">•</span>
+                                <span>{{ $cc->current_offering?->semester?->name ?? 'Available' }}</span>
+                            </div>
+                            <div class="mt-4 text-sm font-semibold text-primary">View course →</div>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+
+            @if ($enrollments->count() === 0 && $programmeCourses->count() === 0)
+                <div class="rounded-xl border border-dashed border-border bg-raised/40 p-8 text-center">
+                    <svg class="mx-auto h-10 w-10 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    <h4 class="mt-4 text-base font-semibold text-text">No courses available yet</h4>
+                    <p class="mt-1 text-sm text-muted">Once your institution enrols you for the semester, your courses will appear here automatically.</p>
+                    <a href="{{ route('student.my-courses') }}" class="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline">Browse your programme</a>
+                </div>
+            @endif
+        </div>
+    </section>
+
     <!-- BIODATA SECTION -->
-    <section id="section-biodata" class="profile-section mb-8 rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
+    <section id="section-biodata" class="profile-section mb-8 hidden rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
         <div class="border-b border-border bg-raised/30 px-6 py-4">
             <h3 class="text-lg font-extrabold text-text">Biodata</h3>
             <p class="mt-0.5 text-xs text-muted">Your personal identification and registration information</p>
@@ -150,7 +220,7 @@
 
     <script>
         function showSection(sectionId) {
-            ['biodata', 'academic', 'security'].forEach(function(id) {
+            ['courses', 'biodata', 'academic', 'security'].forEach(function(id) {
                 document.getElementById('section-' + id).classList.add('hidden');
                 document.getElementById('tab-' + id).classList.remove('bg-primary', 'text-primary-fg', 'shadow-sm');
                 document.getElementById('tab-' + id).classList.add('text-text');
