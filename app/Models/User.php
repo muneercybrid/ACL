@@ -11,7 +11,8 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password'];
+    protected $fillable = ['name', 'email', 'password', 'jamb_registration_number_hash'];
+
     protected $hidden = ['password', 'remember_token'];
 
     protected function casts(): array
@@ -49,15 +50,15 @@ class User extends Authenticatable
     public function hasPermission(string $permissionSlug, $entity = null): bool
     {
         $query = $this->roleAssignments()
-            ->whereHas('role.permissions', fn($q) => $q->where('slug', $permissionSlug));
+            ->whereHas('role.permissions', fn ($q) => $q->where('slug', $permissionSlug));
 
         if ($entity) {
-            $query->where(function($q) use ($entity) {
+            $query->where(function ($q) use ($entity) {
                 $q->whereNull('entity_type')
-                  ->orWhere(function($q2) use ($entity) {
-                      $q2->where('entity_type', get_class($entity))
-                         ->where('entity_id', $entity->id);
-                  });
+                    ->orWhere(function ($q2) use ($entity) {
+                        $q2->where('entity_type', get_class($entity))
+                            ->where('entity_id', $entity->id);
+                    });
             });
         } else {
             $query->whereNull('entity_type');
@@ -69,15 +70,15 @@ class User extends Authenticatable
     public function hasRole(string $roleSlug, $entity = null): bool
     {
         $query = $this->roleAssignments()
-            ->whereHas('role', fn($q) => $q->where('slug', $roleSlug));
+            ->whereHas('role', fn ($q) => $q->where('slug', $roleSlug));
 
         if ($entity) {
-            $query->where(function($q) use ($entity) {
+            $query->where(function ($q) use ($entity) {
                 $q->whereNull('entity_type')
-                  ->orWhere(function($q2) use ($entity) {
-                      $q2->where('entity_type', get_class($entity))
-                         ->where('entity_id', $entity->id);
-                  });
+                    ->orWhere(function ($q2) use ($entity) {
+                        $q2->where('entity_type', get_class($entity))
+                            ->where('entity_id', $entity->id);
+                    });
             });
         } else {
             $query->whereNull('entity_type');
@@ -85,5 +86,4 @@ class User extends Authenticatable
 
         return $query->exists();
     }
-
 }

@@ -50,7 +50,7 @@ return new class extends Migration
             $table->char('jamb_registration_number_hash', 64)->index('jamb_reg_hash_idx');
 
             /*
-             * Information returned by JAMB/Zyte.
+             * Information returned by JAMB's Matriculation List.
              */
             $table->string('verified_name')->nullable();
             $table->text('verified_institution')->nullable();

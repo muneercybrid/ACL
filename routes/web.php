@@ -31,6 +31,12 @@ Route::middleware('guest')->group(function () {
     Route::post('/register/student/confirm', [StudentRegistrationController::class, 'continueToSchoolRegistration'])
         ->name('register.student.confirm.continue');
 
+    Route::get('/register/student/school', [StudentRegistrationController::class, 'completeForm'])
+        ->name('register.student.school');
+
+    Route::post('/register/student/complete', [StudentRegistrationController::class, 'complete'])
+        ->name('register.student.complete');
+
     Route::get('/register/external', [ExternalLearnerRegistrationController::class, 'create'])
         ->name('register.external');
 

@@ -28,6 +28,7 @@ class StudentRegistrationVerification extends Model
         'academic_program_id',
         'verification_metadata',
         'verified_at',
+        'manual_review_requested_at',
         'expires_at',
     ];
 
@@ -43,6 +44,7 @@ class StudentRegistrationVerification extends Model
             'jamb_registration_number' => 'encrypted',
             'verification_metadata' => 'array',
             'verified_at' => 'datetime',
+            'manual_review_requested_at' => 'datetime',
             'expires_at' => 'datetime',
         ];
     }

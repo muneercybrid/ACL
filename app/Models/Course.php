@@ -24,4 +24,9 @@ class Course extends Model
     {
         return $this->hasMany(CourseOffering::class);
     }
+    public function curriculumCourses(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(\App\Models\Curriculum\CurriculumCourse::class); }
+    public function chapters(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(\App\Models\Curriculum\CourseChapter::class)->orderBy('position'); }
+    public function outlines(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(\App\Models\Curriculum\CourseOutline::class); }
+    public function assessments(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(\App\Models\Curriculum\Assessment::class); }
+    public function disciplines(): \Illuminate\Database\Eloquent\Relations\BelongsToMany { return $this->belongsToMany(\App\Models\Curriculum\NucDiscipline::class, 'course_disciplines'); }
 }

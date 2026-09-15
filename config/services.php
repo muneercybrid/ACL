@@ -14,18 +14,17 @@ return [
     |
     */
 
-    'zyte' => [
-        'api_key' => env('ZYTE_API_KEY'),
-        'base_url' => env('ZYTE_BASE_URL', 'https://api.zyte.com/v1'),
-    ],
-
     'jamb' => [
         'matriculation_url' => env(
             'JAMB_MATRICULATION_URL',
-            'https://efacility.jamb.gov.ng/CheckMatriculationList'
+            'https://efacility2.jamb.gov.ng/CheckMatriculationList'
         ),
         'minimum_year' => (int) env('JAMB_MINIMUM_EXAM_YEAR', 1995),
         'exam_type' => env('JAMB_EXAM_TYPE', 'UTME'),
+
+        // Direct HTTP connection (no browser automation).
+        'connect_timeout' => (float) env('JAMB_CONNECT_TIMEOUT', 5),
+        'request_timeout' => (float) env('JAMB_REQUEST_TIMEOUT', 30),
     ],
 
     'nvidia' => [

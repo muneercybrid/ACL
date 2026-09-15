@@ -7,7 +7,8 @@
 
     <div class="mx-auto mb-10 max-w-2xl text-center">
         <div class="mx-auto mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-xl font-extrabold text-primary-fg shadow-sm">
-            A
+            <img src="{{ asset('images/logo.svg') }}" alt="ACL Logo" class="h-full w-full" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <span class="hidden text-xl font-extrabold text-primary-fg">A</span>
         </div>
 
         <h1 class="text-3xl font-extrabold tracking-tight text-text sm:text-4xl">

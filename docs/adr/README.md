@@ -23,3 +23,4 @@ Future Considerations.
 | [0011](0011-ec2-production-tier-and-remote-tunnel.md) | Promote a dedicated AWS EC2 instance to the production tier, served via a remotely-managed Cloudflare Tunnel | Accepted (supersedes 0009 & 0010; amends 0005, extends 0007) |
 | [0012](0012-doppler-secrets-source-of-truth.md) | Doppler as the secrets source of truth | Accepted (amends 0007 & 0011 for secret delivery) |
 | [0013](0013-honeybadger-error-and-uptime-monitoring.md) | Honeybadger for error & uptime monitoring | Accepted (depends on 0012; partially satisfies 0011's monitoring follow-up) |
+| [0014](0014-jamb-verification-boundary.md) | Normalize JAMB verification behind an ACL-owned boundary | Accepted |
