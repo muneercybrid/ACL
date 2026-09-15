@@ -2,22 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
-use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
 
 class DashboardController extends Controller
 {
-    public function index(): View
+    /**
+     * The /dashboard URL now serves the dedicated student dashboard.
+     *
+     * The previous placeholder dashboard (with "coming soon" stat cards)
+     * is replaced by the data-driven student experience: categorized
+     * profile sections and programme curriculum courses.
+     */
+    public function index(): RedirectResponse
     {
-        $user = Auth::user();
-
-        $enrollments = $user->enrollments()
-            ->with(['courseOffering.course', 'courseOffering.semester'])
-            ->orderByDesc('enrolled_at')
-            ->get();
-
-        return view('dashboard', [
-            'enrollments' => $enrollments,
-        ]);
+        return redirect()->route('student.dashboard');
     }
 }

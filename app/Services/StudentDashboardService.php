@@ -57,29 +57,106 @@ class StudentDashboardService
 
     /**
      * The NUC curriculum programme that matches the student's academic
-     * programme. Matches by exact programme name first, then falls back
-     * to a direct id match for data that uses aligned identifiers.
+     * programme.
+     *
+     * Resolution chain (in order):
+     *  1. Institution record's academic_program_id, name-matched against
+     *     the NUC programme list.
+     *  2. JAMB verified programme from the latest verification, matched
+     *     loosely (normalised name) so "Mass Communication" resolves to
+     *     "B.Sc. Mass Communication".
+     *  3. Direct identifier match for datasets with aligned ids.
+     *
+     * Returns null only when no linkage exists yet.
      */
     public function curriculumProgramme(Student $student): ?Programme
     {
         $academic = $this->academicProgramme($student);
 
-        if (! $academic) {
-            return null;
+        if ($academic) {
+            $byName = Programme::where('status', 'active')
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower($academic->name)])
+                ->first();
+
+            if ($byName) {
+                return $byName;
+            }
+
+            // Aligned identifiers (legacy/demo datasets).
+            $byId = Programme::where('status', 'active')
+                ->whereKey($academic->id)
+                ->first();
+
+            if ($byId) {
+                return $byId;
+            }
         }
 
-        $byName = Programme::where('status', 'active')
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower($academic->name)])
-            ->first();
+        // JAMB verified programme, matched loosely by normalised name.
+        $verification = $this->latestVerification($student);
 
-        if ($byName) {
-            return $byName;
+        if ($verification?->verified_programme) {
+            $needle = $this->normaliseName($verification->verified_programme);
+
+            return Programme::where('status', 'active')
+                ->get()
+                ->filter(function (Programme $p) use ($needle) {
+                    $haystack = $this->normaliseName($p->name);
+                    // "mass communication" ─⊂─ "b sc mass communication"
+                    return $needle !== ''
+                        && (str_contains($haystack, $needle) || str_contains($needle, $haystack));
+                })
+                ->first();
         }
 
-        // Fallback: aligned identifiers (legacy/demo datasets).
-        return Programme::where('status', 'active')
-            ->whereKey($academic->id)
-            ->first();
+        return null;
+    }
+
+    /**
+     * Normalise a programme name for loose comparison: lowercase, strip
+     * degree prefixes and punctuation, collapse whitespace.
+     */
+    private function normaliseName(string $name): string
+    {
+        $prefixes = [
+            'b.sc.',
+            'b.sc',
+            'b.a.',
+            'b.a',
+            'b.eng.',
+            'b.eng',
+            'b.ed.',
+            'b.ed',
+            'b.agr.',
+            'b.agr',
+            'b.mls.',
+            'b.nsc.',
+            'b.sc.ed.',
+            'b.sc.ed',
+            'b.pharm.',
+            'b.pharm',
+            'll.b.',
+            'll.b',
+            'm.b.b.s.',
+            'd.v.m.',
+            'b.tech.',
+            'b.tech',
+        ];
+
+        $normalised = mb_strtolower(trim($name));
+
+        foreach ($prefixes as $prefix) {
+            if (str_starts_with($normalised, $prefix)) {
+                $normalised = trim(substr($normalised, strlen($prefix)));
+                break;
+            }
+        }
+
+        // Strip punctuation and collapse whitespace.
+        $normalised = preg_replace('/[^a-z0-9 ]+/u', ' ', $normalised);
+        $normalised = preg_replace('/\s+/u', ' ', $normalised);
+
+        return trim($normalised);
     }
 
     /**
