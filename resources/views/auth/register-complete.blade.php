@@ -105,7 +105,7 @@
         <div class="mt-6 border-t border-border pt-6">
             <div class="rounded-xl border border-border bg-raised/40 p-5">
                 <p class="text-xs font-bold uppercase tracking-wider text-muted mb-3">Alternative sign in</p>
-                <a href="#" onclick="alert('Google OAuth not configured. Please add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and redirect URI to .env'); return false;"
+                <a href="{{ route('google.redirect') }}"
                    class="inline-flex items-center gap-2 rounded-xl border border-border bg-bg px-4 py-2.5 text-sm font-semibold text-text shadow-sm transition hover:border-primary/30 hover:shadow focus:outline-none focus:ring-2 focus:ring-ring">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0-5.523-4.477-10-10-10S1 4.477 1 10s4.477 10 10 10 10-4.477 10-10z"/><path d="M1 10h20"/><path d="M6 10a9 9 0 0112 0"/></svg>
                     Sign in with Google

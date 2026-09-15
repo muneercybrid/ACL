@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -42,6 +43,10 @@ Route::middleware('guest')->group(function () {
         ->name('register.external');
 
 
+
+    // Google OAuth
+    Route::get('/auth/google/redirect', [GoogleController::class, 'redirect'])->name('google.redirect');
+    Route::get('/auth/google/callback', [GoogleController::class, 'callback'])->name('google.callback');
 
     Route::get('/forgot-password', [PasswordResetController::class, 'create'])
         ->name('password.request');
