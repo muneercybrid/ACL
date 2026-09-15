@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\StudentRegistrationController;
 use App\Http\Controllers\Auth\ExternalLearnerRegistrationController;
 use App\Http\Controllers\CourseViewerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\StudentDashboardController;
 use Illuminate\Support\Facades\Route;
 
 // Public landing for guests; authenticated users go straight to their dashboard.
@@ -58,6 +59,14 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+    // Student Dashboard
+    Route::prefix('student')->name('student.')->group(function () {
+        Route::get('/', [StudentDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/profile', [StudentDashboardController::class, 'profile'])->name('profile');
+        Route::get('/my-courses', [StudentDashboardController::class, 'myCourses'])->name('my-courses');
+        Route::get('/course/{curriculumCourse}', [StudentDashboardController::class, 'showCourse'])->name('course.show');
+    });
 
     // Course Viewer
     Route::get('/courses/{courseOffering}', [CourseViewerController::class, 'show'])->name('courses.show');

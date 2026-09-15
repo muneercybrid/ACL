@@ -297,8 +297,16 @@ class StudentRegistrationController extends Controller
             'nationality' => ['required', 'string', 'max:80'],
             'state_id' => ['required', 'exists:states,id'],
             'lga_id' => ['required', 'exists:lgas,id'],
+            'school_registration_number' => ['nullable', 'string', 'max:100'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
+
+        // Update the school registration number if provided.
+        if (! empty($validated['school_registration_number'])) {
+            $verification->update([
+                'school_registration_number' => $validated['school_registration_number'],
+            ]);
+        }
 
         DB::transaction(function () use ($verification, $validated) {
             $user = User::create([
