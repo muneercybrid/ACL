@@ -22,7 +22,17 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard'));
+        $user = Auth::user();
+
+        if ($user && $user->isSuperadmin()) {
+            return redirect()->intended(route('superadmin.dashboard'));
+        }
+
+        if ($user && $user->isInstitutionAdmin()) {
+            return redirect()->intended(route('dashboard'));
+        }
+
+        return redirect()->intended(route('student.dashboard'));
     }
 
     public function destroy(Request $request): RedirectResponse
