@@ -15,40 +15,54 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Default Provider
+    | AI Gateway
     |--------------------------------------------------------------------------
+    |
+    | ACLi uses OmniRoute as the AI gateway. OmniRoute handles provider
+    | routing and model selection via model=auto.
+    |
     */
 
-    'default_provider' => env('ACLI_PROVIDER', 'nvidia'),
+    'gateway' => [
+        'base_url' => env('ACLI_AI_BASE_URL', 'http://127.0.0.1:20128/v1'),
+        'api_key' => env('ACLI_AI_API_KEY'),
+        'model' => env('ACLI_AI_MODEL', 'auto'),
+        'timeout' => (int) env('ACLI_REQUEST_TIMEOUT', 120),
+        'connect_timeout' => (int) env('ACLI_CONNECT_TIMEOUT', 10),
+        'max_retries' => (int) env('ACLI_MAX_RETRIES', 2),
+    ],
 
     /*
     |--------------------------------------------------------------------------
-    | Default Model
+    | Default Provider (legacy - kept for backward compatibility)
     |--------------------------------------------------------------------------
     */
 
-    'default_model' => env('ACLI_MODEL', 'nvidia/nemotron-3-super-120b-a12b'),
+    'default_provider' => env('ACLI_PROVIDER', 'omniroute'),
 
     /*
     |--------------------------------------------------------------------------
-    | Model Routing
+    | Default Model (legacy - kept for backward compatibility)
     |--------------------------------------------------------------------------
-    |
-    | Models are ordered by preference. The first model is the primary
-    | model and subsequent models may be used as fallbacks when routing
-    | permits it.
-    |
+    */
+
+    'default_model' => env('ACLI_MODEL', 'auto'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Model Routing (legacy - kept for backward compatibility)
+    |--------------------------------------------------------------------------
     */
 
     'models' => [
-        'primary' => env('ACLI_PRIMARY_MODEL', 'nvidia/nemotron-3-super-120b-a12b'),
+        'primary' => env('ACLI_PRIMARY_MODEL', 'auto'),
 
         'fallbacks' => array_values(array_filter(
             array_map(
                 'trim',
                 explode(',', env(
                     'ACLI_FALLBACK_MODELS',
-                    'deepseek-ai/deepseek-v4-pro-0813'
+                    ''
                 ))
             )
         )),
@@ -56,16 +70,12 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Model Providers
+    | Model Providers (legacy - kept for backward compatibility)
     |--------------------------------------------------------------------------
-    |
-    | Explicitly maps each ACLi model to the provider responsible for it.
-    |
     */
 
     'model_providers' => [
-        'nvidia/nemotron-3-super-120b-a12b' => 'nvidia',
-        'deepseek-ai/deepseek-v4-pro-0813' => 'nvidia',
+        'auto' => 'omniroute',
     ],
 
     /*
@@ -75,7 +85,7 @@ return [
     */
 
     'request' => [
-        'timeout' => (int) env('ACLI_REQUEST_TIMEOUT', 60),
+        'timeout' => (int) env('ACLI_REQUEST_TIMEOUT', 120),
         'connect_timeout' => (int) env('ACLI_CONNECT_TIMEOUT', 10),
         'max_retries' => (int) env('ACLI_MAX_RETRIES', 2),
     ],
@@ -103,6 +113,75 @@ return [
 
     'conversation' => [
         'max_messages' => (int) env('ACLI_MAX_CONVERSATION_MESSAGES', 30),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Capability Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'capabilities' => [
+        'student_chat' => [
+            'name' => 'Student Chat',
+            'slug' => 'student.chat',
+            'description' => 'General AI chat for students',
+            'permission' => 'acli.student.chat',
+        ],
+        'student_tutor' => [
+            'name' => 'Student Tutor',
+            'slug' => 'student.tutor',
+            'description' => 'Course-aware tutoring for students',
+            'permission' => 'acli.student.tutor',
+        ],
+        'student_quiz' => [
+            'name' => 'Student Quiz Generation',
+            'slug' => 'student.quiz',
+            'description' => 'Generate practice quizzes from course content',
+            'permission' => 'acli.student.quiz',
+        ],
+        'student_flashcard' => [
+            'name' => 'Student Flashcard Generation',
+            'slug' => 'student.flashcard',
+            'description' => 'Generate flashcards from course content',
+            'permission' => 'acli.student.flashcard',
+        ],
+        'student_study_plan' => [
+            'name' => 'Student Study Plan',
+            'slug' => 'student.study_plan',
+            'description' => 'Generate personalized study plans',
+            'permission' => 'acli.student.study_plan',
+        ],
+        'academic_content_generate' => [
+            'name' => 'Academic Content Generation',
+            'slug' => 'academic.content_generate',
+            'description' => 'Generate academic content drafts (chapters, lessons, etc.)',
+            'permission' => 'acli.academic.content_generate',
+        ],
+        'academic_quiz_generate' => [
+            'name' => 'Academic Quiz Generation',
+            'slug' => 'academic.quiz_generate',
+            'description' => 'Generate quiz questions for question banks',
+            'permission' => 'acli.academic.quiz_generate',
+        ],
+        'academic_assessment_generate' => [
+            'name' => 'Academic Assessment Generation',
+            'slug' => 'academic.assessment_generate',
+            'description' => 'Generate assessment drafts',
+            'permission' => 'acli.academic.assessment_generate',
+        ],
+        'admin_analytics' => [
+            'name' => 'Admin Analytics',
+            'slug' => 'admin.analytics',
+            'description' => 'Institution-level analytics queries',
+            'permission' => 'acli.admin.analytics',
+        ],
+        'superadmin_platform' => [
+            'name' => 'Super Admin Platform Statistics',
+            'slug' => 'superadmin.platform',
+            'description' => 'Platform-wide operational queries',
+            'permission' => 'acli.superadmin.platform',
+        ],
     ],
 
 ];
