@@ -43,6 +43,16 @@ class User extends Authenticatable
         return $this->hasOne(Student::class);
     }
 
+    public function superadminAuditLogsAsActor(): HasMany
+    {
+        return $this->hasMany(SuperadminAuditLog::class, 'actor_id');
+    }
+
+    public function superadminAuditLogsAsTarget(): HasMany
+    {
+        return $this->hasMany(SuperadminAuditLog::class, 'target_user_id');
+    }
+
     /**
      * Enterprise-grade scoped permission check.
      *
@@ -90,5 +100,52 @@ class User extends Authenticatable
         }
 
         return $query->exists();
+    }
+
+    /**
+     * Get the highest priority role slug for the user.
+     * Platform-wide roles (null entity) take precedence.
+     * Priority: superadmin > institution.admin > moderator > level.coordinator > tutor > student > external.learner
+     */
+    public function getHighestRoleSlug(): ?string
+    {
+        $priority = [
+            'superadmin' => 100,
+            'institution.admin' => 90,
+            'moderator' => 80,
+            'level.coordinator' => 70,
+            'tutor' => 60,
+            'student' => 50,
+            'external.learner' => 40,
+        ];
+
+        $assignments = $this->roleAssignments()
+            ->with('role')
+            ->get()
+            ->sortBy(fn ($a) => -($priority[$a->role->slug] ?? 0))
+            ->first();
+
+        return $assignments?->role?->slug;
+    }
+
+    /**
+     * Check if user is a Superadmin (platform-wide).
+     */
+    public function isSuperadmin(): bool
+    {
+        return $this->hasRole('superadmin');
+    }
+
+    /**
+     * Check if user is an Institution Admin for a specific organization.
+     * Without an organization, checks for platform-wide institution admin only.
+     */
+    public function isInstitutionAdmin(?Organization $organization = null): bool
+    {
+        if ($organization) {
+            return $this->hasRole('institution.admin', $organization);
+        }
+
+        return $this->hasRole('institution.admin');
     }
 }

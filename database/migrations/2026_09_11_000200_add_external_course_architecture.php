@@ -20,7 +20,11 @@ return new class extends Migration
             Schema::create('course_disciplines', function (Blueprint $t) {
                 $t->id();
                 $t->foreignId('course_id')->constrained()->cascadeOnDelete();
-                $t->foreignId('nuc_discipline_id')->constrained()->cascadeOnDelete();
+                // Loose reference: nuc_disciplines is created by a later
+                // migration (2026_09_12_000300), so a hard FK here would break
+                // fresh-database migrations. The relationship is enforced by
+                // Eloquent's belongsToMany and the unique pair below.
+                $t->unsignedBigInteger('nuc_discipline_id')->index();
                 $t->unique(['course_id', 'nuc_discipline_id']);
             });
         }
