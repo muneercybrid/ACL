@@ -3,9 +3,9 @@
 @section('title', 'ACLi — AI Assistant')
 
 @section('content')
-<div class="mx-auto flex h-[calc(100vh-4rem)] max-w-6xl flex-col px-4 sm:px-6">
+<div class="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl flex-col px-4 sm:px-6">
     <!-- Header -->
-    <div class="mb-4 flex items-center justify-between border-b border-border py-4">
+    <div class="mb-4 flex items-center justify-between border-b border-border py-4 shrink-0">
         <div class="flex items-center gap-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-500 shadow-md overflow-hidden">
                 <img src="{{ asset('images/logo.svg') }}" alt="ACL" class="h-6 w-6 object-contain filter brightness-0 invert">
@@ -21,12 +21,12 @@
     </div>
 
     @if ($errors->any())
-        <div class="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div class="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 shrink-0">
             {{ $errors->first() }}
         </div>
     @endif
 
-    <div class="flex flex-1 gap-4 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+    <div class="flex flex-1 gap-4 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm min-h-0">
         <!-- Sidebar -->
         <aside class="hidden w-64 shrink-0 flex-col border-r border-border bg-surface sm:flex">
             <div class="p-3">
@@ -46,9 +46,9 @@
         </aside>
 
         <!-- Chat area -->
-        <main class="flex flex-1 flex-col">
+        <main class="flex flex-1 flex-col min-h-0">
             <!-- Messages -->
-            <div id="messages" class="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+            <div id="messages" class="flex flex-1 flex-col gap-3 overflow-y-auto p-4 min-h-0">
                 @empty
                     <div class="flex flex-1 items-center justify-center text-center">
                         <div>

@@ -30,11 +30,20 @@
                 ];
             @endphp
             @foreach ($cards as $card)
+                @php
+                    // Icon chip styling: full literal class strings (Tailwind JIT safe).
+                    $chipClass = match ($card['tone']) {
+                        'warn'     => 'bg-warning-bg text-warning',
+                        'info'     => 'bg-info/10 text-info',
+                        'accent'   => 'bg-accent/10 text-accent',
+                        default    => 'bg-primary/10 text-primary',
+                    };
+                @endphp
                 <a href="{{ $card['label']==='Institutions' ? route('superadmin.institutions') : ($card['label']==='Students' ? '#' : ($card['label']==='Staff' ? route('superadmin.staff') : ($card['label']==='Courses' ? '#' : ($card['label']==='Programmes' ? route('superadmin.academic') : ($card['label']==='Onboarding' ? route('superadmin.onboarding') : '#'))))) }}"
                    class="group relative rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30">
                     <div class="flex items-start justify-between">
-                        <div class="rounded-xl bg-{{ $card['tone']=='primary' ? 'primary/10' : ($card['tone']=='warn' ? 'amber-50' : ($card['tone']=='info' ? 'sky-50' : 'emerald-50')) }} p-2.5">
-                            <x-ui.icon name="{{ $card['icon'] }}" class="h-5 w-5 text-{{ $card['tone']=='primary' ? 'primary' : ($card['tone']=='warn' ? 'amber-600' : 'emerald-600') }}" />
+                        <div class="rounded-xl p-2.5 {{ $chipClass }}">
+                            <x-ui.icon name="{{ $card['icon'] }}" class="h-5 w-5" />
                         </div>
                         <span class="text-2xl font-extrabold text-text leading-none">{{ $card['value'] }}</span>
                     </div>
@@ -91,9 +100,17 @@
                 </div>
                 <div class="p-6 space-y-4">
                     @foreach ($health as $label => $info)
+                        @php
+                            $dotClass = match ($info['status']) {
+                                'healthy'  => 'bg-success',
+                                'degraded' => 'bg-warning',
+                                'warning'  => 'bg-warning',
+                                default    => 'bg-danger',
+                            };
+                        @endphp
                         <div class="flex items-center justify-between rounded-xl bg-raised px-4 py-3">
                             <div class="flex items-center gap-3">
-                                <span class="h-2.5 w-2.5 rounded-full bg-{{ $info['status']==='healthy' ? 'emerald-500' : ($info['status']==='degraded' ? 'amber-500' : ($info['status']==='warning' ? 'amber-500' : 'red-500')) }}"></span>
+                                <span class="h-2.5 w-2.5 rounded-full {{ $dotClass }}"></span>
                                 <span class="text-sm font-medium text-text">{{ $label }}</span>
                             </div>
                             <span class="text-xs text-muted">{{ $info['message'] }}</span>
@@ -117,8 +134,15 @@
                 </div>
                 <div class="divide-y divide-border">
                     @forelse ($recentActivity as $event)
+                        @php
+                            $dotClass = match ($event->severity) {
+                                'high'   => 'bg-danger',
+                                'medium' => 'bg-warning',
+                                default  => 'bg-success',
+                            };
+                        @endphp
                         <a href="{{ $event->resource_type ? '#' : '#' }}" class="flex items-start gap-3 px-6 py-3 transition hover:bg-raised/50">
-                            <div class="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-{{ $event->severity === 'high' ? 'red-400' : ($event->severity === 'medium' ? 'amber-400' : 'emerald-400') }}"></div>
+                            <div class="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full {{ $dotClass }}"></div>
                             <div class="min-w-0 flex-1">
                                 <p class="text-sm font-medium text-text truncate">{{ $event->description ?? $event->action }}</p>
                                 <p class="text-xs text-muted truncate">{{ $event->actor?->name ?? 'System' }} · {{ $event->created_at?->format('M d H:i') }} · {{ $event->organization?->name ?? 'Platform' }}</p>
@@ -140,8 +164,15 @@
                 </div>
                 <div class="divide-y divide-border">
                     @forelse ($institutionsNeedingAttention as $item)
+                        @php
+                            $dotClass = match ($item['severity']) {
+                                'high'   => 'bg-danger',
+                                'medium' => 'bg-warning',
+                                default  => 'bg-info',
+                            };
+                        @endphp
                         <a href="{{ route('superadmin.institutions.show', $item['organization']) }}" class="flex items-center gap-3 px-6 py-3 transition hover:bg-raised/50">
-                            <span class="h-2 w-2 flex-shrink-0 rounded-full bg-{{ $item['severity']==='high' ? 'red-400' : ($item['severity']==='medium' ? 'amber-400' : 'sky-400') }}"></span>
+                            <span class="h-2 w-2 flex-shrink-0 rounded-full {{ $dotClass }}"></span>
                             <div class="min-w-0 flex-1">
                                 <p class="text-sm font-semibold text-text">{{ $item['organization']->name }}</p>
                                 <p class="text-xs text-muted">{{ implode(' · ', $item['issues']) }}</p>
@@ -162,9 +193,16 @@
         <h2 class="text-lg font-extrabold tracking-tight text-text mb-4">Active Alerts</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             @foreach ($alerts->take(3) as $alert)
+                @php
+                    $severityChip = match ($alert->severity) {
+                        'critical' => 'bg-danger-bg text-danger',
+                        'warning'  => 'bg-warning-bg text-warning',
+                        default    => 'bg-info/10 text-info',
+                    };
+                @endphp
                 <div class="rounded-2xl border border-border bg-surface p-5 shadow-sm">
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="rounded-full bg-{{ $alert->severity === 'critical' ? 'red-100 text-red-700' : ($alert->severity === 'warning' ? 'amber-100 text-amber-700' : 'sky-100 text-sky-700') }} px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">{{ $alert->severity }}</span>
+                        <span class="rounded-full {{ $severityChip }} px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">{{ $alert->severity }}</span>
                         <span class="text-xs text-muted">{{ $alert->created_at->format('M d, Y H:i') }}</span>
                     </div>
                     <h3 class="text-base font-bold text-text mb-1">{{ $alert->title }}</h3>

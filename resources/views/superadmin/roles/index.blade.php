@@ -14,10 +14,15 @@
             <h2 class="text-lg font-extrabold text-text mb-4">Roles</h2>
             <div class="space-y-3">
                 @foreach ($roles as $role)
+                    @php
+                        $roleChip = $role->slug === 'superadmin'
+                            ? 'bg-danger-bg text-danger'
+                            : 'bg-primary/10 text-primary';
+                    @endphp
                     <a href="{{ route('superadmin.roles.show', $role) }}" class="block rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
-                                <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-{{ $role->slug === 'superadmin' ? 'red-50 text-red-700' : 'primary/10 text-primary' }} text-sm font-bold">{{ strtoupper(substr($role->name, 0, 2)) }}</span>
+                                <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl {{ $roleChip }} text-sm font-bold">{{ strtoupper(substr($role->name, 0, 2)) }}</span>
                                 <div>
                                     <h3 class="text-sm font-bold text-text">{{ $role->name }}</h3>
                                     <p class="text-xs text-muted">{{ $role->description ?? '' }}</p>

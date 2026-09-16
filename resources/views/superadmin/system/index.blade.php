@@ -8,16 +8,16 @@
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         @php
             $healthCards = [
-                ['label'=>'Database','value'=>$dbStatus,'color'=>$dbStatus==='healthy'?'emerald':'red','msg'=>$dbMessage],
-                ['label'=>'Queue','value'=>$failedJobs.' failed','color'=>$failedJobs>0?'amber':'emerald','msg'=>$pendingJobs.' pending'],
-                ['label'=>'Cache','value'=>$cacheStatus,'color'=>$cacheStatus==='healthy'?'emerald':'red'],
-                ['label'=>'Storage','value'=>round($diskUsage, 1).'% used','color'=>$diskUsage>90?'red':($diskUsage>75?'amber':'emerald')],
+                ['label'=>'Database','value'=>$dbStatus,'dot'=>'bg-success','msg'=>$dbMessage],
+                ['label'=>'Queue','value'=>$failedJobs.' failed','dot'=>$failedJobs>0?'bg-warning':'bg-success','msg'=>$pendingJobs.' pending'],
+                ['label'=>'Cache','value'=>$cacheStatus,'dot'=>$cacheStatus==='healthy'?'bg-success':'bg-danger'],
+                ['label'=>'Storage','value'=>round($diskUsage, 1).'% used','dot'=>$diskUsage>90?'bg-danger':($diskUsage>75?'bg-warning':'bg-success')],
             ];
         @endphp
         @foreach ($healthCards as $card)
             <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm">
                 <div class="flex items-center gap-2 mb-2">
-                    <span class="h-2.5 w-2.5 rounded-full bg-{{ $card['color'] }}-500"></span>
+                    <span class="h-2.5 w-2.5 rounded-full {{ $card['dot'] }}"></span>
                     <span class="text-xs font-bold uppercase tracking-widest text-muted">{{ $card['label'] }}</span>
                 </div>
                 <div class="text-lg font-extrabold text-text">{{ $card['value'] }}</div>
@@ -53,7 +53,7 @@
                                 <td class="px-6 py-2 text-xs text-muted">{{ $job['failed_at'] }}</td>
                                 <td class="px-6 py-2 text-xs text-text font-mono">{{ $job['job_name'] }}</td>
                                 <td class="px-6 py-2 text-xs text-muted">{{ $job['queue'] ?? 'default' }}</td>
-                                <td class="px-6 py-2 text-xs text-red-700 max-w-xs truncate">{{ $job['exception_message'] }}</td>
+                                <td class="px-6 py-2 text-xs text-danger max-w-xs truncate">{{ $job['exception_message'] }}</td>
                             </tr>
                         @endforeach
                     </tbody>

@@ -38,12 +38,19 @@
                 </tr></thead>
                 <tbody class="divide-y divide-border">
                     @forelse ($events as $event)
+                        @php
+                            $sevChip = match ($event->severity) {
+                                'high'   => 'bg-danger-bg text-danger',
+                                'medium' => 'bg-warning-bg text-warning',
+                                default  => 'bg-success-bg text-success',
+                            };
+                        @endphp
                         <tr class="hover:bg-raised/50 transition">
                             <td class="px-6 py-3 text-xs text-muted whitespace-nowrap">{{ $event->created_at?->format('M d H:i') }}</td>
                             <td class="px-6 py-3 font-mono text-xs text-text">{{ $event->action }}</td>
                             <td class="px-6 py-3 text-sm text-text">{{ $event->actor?->name ?? 'System' }}</td>
                             <td class="px-6 py-3 text-sm text-muted">{{ $event->targetUser?->name ?? '—' }}</td>
-                            <td class="px-6 py-3"><span class="rounded-full bg-{{ $event->severity==='high'?'red-50 text-red-700':($event->severity==='medium'?'amber-50 text-amber-700':'emerald-50 text-emerald-700') }} px-2 py-0.5 text-[10px] font-bold">{{ ucfirst($event->severity) }}</span></td>
+                            <td class="px-6 py-3"><span class="rounded-full {{ $sevChip }} px-2 py-0.5 text-[10px] font-bold">{{ ucfirst($event->severity) }}</span></td>
                             <td class="px-6 py-3 text-xs text-muted max-w-xs truncate">{{ $event->description ?? '' }}</td>
                         </tr>
                     @empty

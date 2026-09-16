@@ -9,12 +9,12 @@
     <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
         @php
             $aiCards = [
-                ['label'=>'Requests','value'=>$summary['total_requests'],'color'=>'primary'],
-                ['label'=>'Successful','value'=>$summary['successful'],'color'=>'emerald'],
-                ['label'=>'Failed','value'=>$summary['failed'],'color'=>'red'],
-                ['label'=>'Total Tokens','value'=>number_format($summary['total_tokens']),'color'=>'sky'],
-                ['label'=>'Avg Latency','value'=>$summary['avg_latency_ms'].'ms','color'=>'amber'],
-                ['label'=>'Est. Cost','$'.$summary['estimated_cost'],'color'=>'amber'],
+                ['label'=>'Requests','value'=>$summary['total_requests']],
+                ['label'=>'Successful','value'=>$summary['successful']],
+                ['label'=>'Failed','value'=>$summary['failed']],
+                ['label'=>'Total Tokens','value'=>number_format($summary['total_tokens'])],
+                ['label'=>'Avg Latency','value'=>$summary['avg_latency_ms'].'ms'],
+                ['label'=>'Est. Cost','value'=>'$'.$summary['estimated_cost']],
             ];
         @endphp
         @foreach ($aiCards as $card)
@@ -38,6 +38,11 @@
                     </tr></thead>
                     <tbody class="divide-y divide-border">
                         @forelse ($requests as $req)
+                            @php
+                                $statusChip = ($req->status ?? '') === 'success'
+                                    ? 'bg-success-bg text-success'
+                                    : 'bg-danger-bg text-danger';
+                            @endphp
                             <tr class="hover:bg-raised/50 transition">
                                 <td class="px-6 py-2 text-xs text-muted">{{ $req->created_at?->format('M d H:i') }}</td>
                                 <td class="px-6 py-2 text-sm text-text">{{ $req->user?->name ?? '—' }}</td>
@@ -45,7 +50,7 @@
                                 <td class="px-6 py-2 text-xs text-muted font-mono">{{ $req->model ?? 'auto' }}</td>
                                 <td class="px-6 py-2 text-xs text-muted">{{ number_format($req->total_tokens ?? 0) }}</td>
                                 <td class="px-6 py-2">
-                                    <span class="rounded-full bg-{{ ($req->status ?? '') === 'success' ? 'emerald-50 text-emerald-700' : 'red-50 text-red-700' }} px-2 py-0.5 text-[10px] font-bold">{{ $req->status ?? 'unknown' }}</span>
+                                    <span class="rounded-full {{ $statusChip }} px-2 py-0.5 text-[10px] font-bold">{{ $req->status ?? 'unknown' }}</span>
                                 </td>
                             </tr>
                         @empty

@@ -12,9 +12,19 @@
 @section('content')
 <div class="mx-auto max-w-3xl space-y-6">
     {{-- Severity & result badges --}}
-    <div class="flex items-center gap-3">
-        <span class="rounded-full bg-{{ $log->severity==='high'?'red-50 text-red-700':($log->severity==='medium'?'amber-50 text-amber-700':'emerald-50 text-emerald-700') }} px-3 py-1 text-sm font-bold">{{ ucfirst($log->severity) }}</span>
-        <span class="rounded-full bg-{{ $log->result==='success'?'emerald-50 text-emerald-700':'red-50 text-red-700' }} px-3 py-1 text-sm font-bold">{{ ucfirst($log->result) }}</span>
+    @php
+        $sevChip = match ($log->severity) {
+            'high', 'critical' => 'bg-danger-bg text-danger',
+            'medium' => 'bg-warning-bg text-warning',
+            default  => 'bg-success-bg text-success',
+        };
+        $resChip = $log->result === 'success'
+            ? 'bg-success-bg text-success'
+            : 'bg-danger-bg text-danger';
+    @endphp
+    <div class="flex flex-wrap items-center gap-3">
+        <span class="rounded-full {{ $sevChip }} px-3 py-1 text-sm font-bold">{{ ucfirst($log->severity) }}</span>
+        <span class="rounded-full {{ $resChip }} px-3 py-1 text-sm font-bold">{{ ucfirst($log->result) }}</span>
     </div>
 
     <div class="rounded-2xl border border-border bg-surface p-6 shadow-sm">
