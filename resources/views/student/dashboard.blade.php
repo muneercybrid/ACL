@@ -84,24 +84,46 @@
 
             @if ($programmeCourses->count() > 0)
                 <h4 class="mb-3 text-xs font-bold uppercase tracking-wider text-muted">{{ $academicProgramme ? 'Programme curriculum' : 'Curriculum courses' }}</h4>
-                <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                    @foreach ($programmeCourses as $cc)
-                        <a href="{{ route('student.course.show', $cc->id) }}"
-                           class="group block rounded-xl border border-border bg-bg/60 p-5 transition hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring">
-                            <div class="flex items-start justify-between gap-3">
-                                <h4 class="font-bold text-text group-hover:text-primary transition">{{ $cc->course->title }}</h4>
-                                <span class="inline-flex rounded-full border border-border bg-raised px-2.5 py-0.5 text-[10px] font-semibold text-muted uppercase tracking-wide">{{ $cc->course->code ?? 'N/A' }}</span>
+                @foreach ($programmeCoursesBySemester as $level => $semesters)
+                    <div class="mb-8">
+                        <div class="mb-4 flex flex-wrap items-center gap-3">
+                            <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">Level {{ $level }}</span>
+                            <span class="text-xs text-muted">{{ $semesters->flatten()->count() }} courses across {{ $semesters->count() }} semester{{ $semesters->count() === 1 ? '' : 's' }}</span>
+                        </div>
+
+                        @foreach ($semesters as $semester => $semesterCourses)
+                            <div class="mb-6">
+                                <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                                    Semester {{ $semester }} · {{ $semesterCourses->count() }} course{{ $semesterCourses->count() === 1 ? '' : 's' }}
+                                </p>
+                                <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                                    @foreach ($semesterCourses as $cc)
+                                        @php
+                                            $isEnrolled = $cc->current_offering && in_array($cc->current_offering->id, $enrolledOfferingIds);
+                                        @endphp
+                                        <a href="{{ route('student.course.show', $cc->id) }}"
+                                           class="group block rounded-xl border p-5 transition hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring {{ $isEnrolled ? 'border-emerald-300/60 bg-emerald-50/40' : 'border-border bg-bg/60' }}">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <h4 class="font-bold text-text group-hover:text-primary transition">{{ $cc->course->title }}</h4>
+                                                <span class="inline-flex shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $isEnrolled ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-border bg-raised text-muted' }}">{{ $cc->course->code ?? 'N/A' }}</span>
+                                            </div>
+                                            <p class="mt-2 text-sm text-muted">{{ $cc->course->description ?? 'No description available.' }}</p>
+                                            <div class="mt-4 flex items-center gap-3 text-xs text-muted">
+                                                <span>{{ $cc->credit_units ?? $cc->course->credit_units ?? '-' }} credits</span>
+                                                <span aria-hidden="true">•</span>
+                                                <span>{{ ucfirst($cc->course_type ?? 'core') }}</span>
+                                                @if ($isEnrolled)
+                                                    <span class="ml-auto inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Enrolled</span>
+                                                @endif
+                                            </div>
+                                            <div class="mt-4 text-sm font-semibold text-primary">{{ $isEnrolled ? 'Continue learning →' : 'View course →' }}</div>
+                                        </a>
+                                    @endforeach
+                                </div>
                             </div>
-                            <p class="mt-2 text-sm text-muted">{{ $cc->course->description ?? 'No description available.' }}</p>
-                            <div class="mt-4 flex items-center gap-3 text-xs text-muted">
-                                <span>{{ $cc->course->credit_units ?? '-' }} credits</span>
-                                <span aria-hidden="true">•</span>
-                                <span>{{ $cc->current_offering?->semester?->name ?? 'Available' }}</span>
-                            </div>
-                            <div class="mt-4 text-sm font-semibold text-primary">View course →</div>
-                        </a>
-                    @endforeach
-                </div>
+                        @endforeach
+                    </div>
+                @endforeach
             @endif
 
             @if ($enrollments->count() === 0 && $programmeCourses->count() === 0)

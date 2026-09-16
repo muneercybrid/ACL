@@ -83,30 +83,49 @@
         <!-- Available Courses (not yet enrolled) -->
         @if ($programmeCourses->count() > 0)
             <div>
-                <h3 class="mb-4 text-lg font-bold text-text">Available Courses</h3>
-                <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                    @forelse ($availableCourses as $cc)
-                        @php $offering = $cc->current_offering; @endphp
-                        <a href="{{ route('student.course.show', $cc->id) }}" class="group block rounded-xl border border-border bg-surface/80 p-5 shadow-sm transition hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring">
-                            <div class="flex items-start justify-between gap-3">
-                                <h4 class="font-bold text-text group-hover:text-primary transition">{{ $cc->course->title }}</h4>
-                                <span class="inline-flex rounded-full border border-border bg-raised px-2.5 py-0.5 text-[10px] font-semibold text-muted uppercase tracking-wide">{{ $cc->course->code ?? 'N/A' }}</span>
-                            </div>
-                            <p class="mt-2 text-sm text-muted">{{ $cc->course->description ?? 'No description available.' }}</p>
-                            <div class="mt-4 flex items-center gap-3 text-xs text-muted">
-                                <span>{{ $cc->course->credit_units ?? '-' }} credits</span>
-                                <span aria-hidden="true">•</span>
-                                <span>{{ $offering?->semester?->name ?? 'Available' }}</span>
-                            </div>
-                            <div class="mt-4 text-sm font-semibold text-primary">View details →</div>
-                        </a>
-                    @empty
-                        <div class="col-span-full rounded-xl border border-dashed border-border bg-raised/40 p-8 text-center">
-                            <p class="text-sm font-semibold text-text">All courses shown in enrolled section</p>
-                            <p class="mt-1 text-xs text-muted">You are enrolled in all available courses for your programme.</p>
+                <h3 class="mb-4 text-lg font-bold text-text">Programme Curriculum</h3>
+
+                @foreach ($programmeCoursesBySemester as $level => $semesters)
+                    <div class="mb-8">
+                        <div class="mb-4 flex flex-wrap items-center gap-3">
+                            <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">Level {{ $level }}</span>
+                            <span class="text-xs text-muted">{{ $semesters->flatten()->count() }} courses across {{ $semesters->count() }} semester{{ $semesters->count() === 1 ? '' : 's' }}</span>
                         </div>
-                    @endforelse
-                </div>
+
+                        @foreach ($semesters as $semester => $semesterCourses)
+                            <div class="mb-6">
+                                <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                                    Semester {{ $semester }} · {{ $semesterCourses->count() }} course{{ $semesterCourses->count() === 1 ? '' : 's' }}
+                                </p>
+                                <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                                    @foreach ($semesterCourses as $cc)
+                                        @php
+                                            $offering = $cc->current_offering;
+                                            $isEnrolled = $offering && in_array($offering->id, $enrolledOfferingIds);
+                                        @endphp
+                                        <a href="{{ route('student.course.show', $cc->id) }}"
+                                           class="group block rounded-xl border p-5 shadow-sm transition hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring {{ $isEnrolled ? 'border-emerald-300/60 bg-emerald-50/40' : 'border-border bg-surface/80' }}">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <h4 class="font-bold text-text group-hover:text-primary transition">{{ $cc->course->title }}</h4>
+                                                <span class="inline-flex shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $isEnrolled ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-border bg-raised text-muted' }}">{{ $cc->course->code ?? 'N/A' }}</span>
+                                            </div>
+                                            <p class="mt-2 text-sm text-muted">{{ $cc->course->description ?? 'No description available.' }}</p>
+                                            <div class="mt-4 flex items-center gap-3 text-xs text-muted">
+                                                <span>{{ $cc->credit_units ?? $cc->course->credit_units ?? '-' }} credits</span>
+                                                <span aria-hidden="true">•</span>
+                                                <span>{{ ucfirst($cc->course_type ?? 'core') }}</span>
+                                                @if ($isEnrolled)
+                                                    <span class="ml-auto inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Enrolled</span>
+                                                @endif
+                                            </div>
+                                            <div class="mt-4 text-sm font-semibold text-primary">{{ $isEnrolled ? 'Continue learning →' : 'View details →' }}</div>
+                                        </a>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endforeach
             </div>
         @endif
     @endif

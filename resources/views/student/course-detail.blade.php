@@ -192,6 +192,13 @@
         </div>
     </section>
 
+    {{-- ACLi contextual study bar: scoped to this course --}}
+    <x-acli.study-bar
+        :course-offering-id="$currentOffering?->id"
+        context-label="this course"
+        :context-title="$curriculumCourse->course->title"
+    />
+
     <script>
         function showContentTab(tabId) {
             ['outline', 'chapters', 'outcomes'].forEach(function(id) {

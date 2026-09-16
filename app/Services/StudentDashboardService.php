@@ -172,8 +172,11 @@ class StudentDashboardService
 
     /**
      * All curriculum courses for the student's programme, one row per
-     * distinct course, enriched with chapters, outline and the first
-     * active course offering.
+     * (course, level, semester) placement, enriched with chapters,
+     * outline and the first active course offering.
+     *
+     * Each row keeps its `level` (100/200/...) and `semester` (1/2) so
+     * the views can group courses by level → semester (7–8 per semester).
      */
     public function programmeCourses(Student $student): Collection
     {
@@ -200,21 +203,33 @@ class StudentDashboardService
             ->where('curriculum_version_id', $version->id)
             ->where('status', 'active')
             ->get()
-            ->groupBy('course_id')
-            ->map(function ($items) {
-                $first = $items->first();
-
+            ->map(function (CurriculumCourse $cc) {
                 // First active offering of the linked course, if any.
-                $offering = $first->course->offerings()
+                $offering = $cc->course->offerings()
                     ->where('is_active', true)
                     ->with(['semester', 'semester.academicSession'])
                     ->first();
 
-                $first->current_offering = $offering;
+                $cc->current_offering = $offering;
 
-                return $first;
+                return $cc;
             })
             ->values();
+    }
+
+    /**
+     * Group programme curriculum courses by level → semester.
+     *
+     * Returns a collection keyed by level whose values are collections
+     * keyed by semester (1|2), each holding the semester's courses.
+     */
+    public function programmeCoursesBySemester(Student $student): Collection
+    {
+        return $this->programmeCourses($student)
+            ->groupBy(fn (CurriculumCourse $cc) => $cc->level)
+            ->map(function (Collection $levelCourses) {
+                return $levelCourses->groupBy(fn (CurriculumCourse $cc) => $cc->semester);
+            });
     }
 
     /**

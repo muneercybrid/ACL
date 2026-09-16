@@ -15,6 +15,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | ACLi Entitlement Gate
+    |--------------------------------------------------------------------------
+    |
+    | ACLi is currently free for all students. Set ACLI_REQUIRE_ENTITLEMENT
+    | to true when paid student subscriptions ship to re-enable the paid
+    | gate (see AcliEntitlementService).
+    |
+    */
+
+    'require_entitlement' => (bool) env('ACLI_REQUIRE_ENTITLEMENT', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | AI Gateway
     |--------------------------------------------------------------------------
     |
