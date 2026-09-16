@@ -49,16 +49,7 @@
         <main class="flex flex-1 flex-col min-h-0">
             <!-- Messages -->
             <div id="messages" class="flex flex-1 flex-col gap-3 overflow-y-auto p-4 min-h-0">
-                @empty
-                    <div class="flex flex-1 items-center justify-center text-center">
-                        <div>
-                            <p class="text-sm font-semibold text-text">How can I help you today?</p>
-                            <p class="mt-1 text-xs text-muted">Ask a question, explain a concept, or generate study materials.</p>
-                        </div>
-                    </div>
-                @endempty
-
-                @foreach ($messages ?? [] as $message)
+                @forelse ($messages ?? [] as $message)
                     <div class="flex gap-3 {{ $message->role === 'user' ? 'justify-end' : '' }}">
                         @if ($message->role === 'user')
                             <div class="max-w-xl rounded-2xl bg-primary px-4 py-3 text-sm text-primary-fg">
@@ -70,7 +61,14 @@
                             </div>
                         @endif
                     </div>
-                @endforeach
+                @empty
+                    <div class="flex flex-1 items-center justify-center text-center">
+                        <div>
+                            <p class="text-sm font-semibold text-text">How can I help you today?</p>
+                            <p class="mt-1 text-xs text-muted">Ask a question, explain a concept, or generate study materials.</p>
+                        </div>
+                    </div>
+                @endforelse
 
                 @if ($isTyping ?? false)
                     <div class="flex gap-3">
