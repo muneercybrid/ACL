@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ACLi\AcliChatController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
@@ -84,4 +85,14 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/lessons/{lesson}/complete', [CourseViewerController::class, 'completeLesson'])
         ->name('lessons.complete');
+
+    // ACLi - AI Chat
+    Route::prefix('acli')->name('acli.')->group(function () {
+        Route::get('/chat', [AcliChatController::class, 'page'])->name('chat');
+        Route::post('/chat', [AcliChatController::class, 'send'])->name('chat.send');
+        Route::get('/conversations', [AcliChatController::class, 'conversations'])->name('conversations');
+        Route::get('/conversations/{conversation}', [AcliChatController::class, 'conversation'])->name('conversation.show');
+        Route::post('/conversations', [AcliChatController::class, 'newConversation'])->name('conversation.new');
+        Route::delete('/conversations/{conversation}', [AcliChatController::class, 'closeConversation'])->name('conversation.close');
+    });
 });
