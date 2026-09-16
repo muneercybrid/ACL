@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>x-cloak{display:none!important}</style>
 </head>
 <body class="min-h-dvh bg-bg font-display text-text antialiased">
     <div class="flex min-h-dvh flex-col">
