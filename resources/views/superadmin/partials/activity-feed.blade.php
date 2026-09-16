@@ -7,9 +7,22 @@
 <div class="mx-auto max-w-4xl space-y-4">
     <div class="rounded-2xl border border-border bg-surface shadow-sm divide-y divide-border">
         @forelse ($activities as $event)
+            @php
+                // Full literal class strings (Tailwind JIT safe).
+                $sevChip = match ($event->severity) {
+                    'high'   => 'bg-danger-bg text-danger',
+                    'medium' => 'bg-warning-bg text-warning',
+                    default  => 'bg-success-bg text-success',
+                };
+                $sevDot  = match ($event->severity) {
+                    'high'   => 'bg-danger',
+                    'medium' => 'bg-warning',
+                    default  => 'bg-success',
+                };
+            @endphp
             <div class="flex items-start gap-4 px-6 py-4 transition hover:bg-raised/50">
-                <div class="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-{{ $event->severity === 'high' ? 'red-50 text-red-700' : ($event->severity === 'medium' ? 'amber-50 text-amber-700' : 'emerald-50 text-emerald-700') }}">
-                    <span class="h-2.5 w-2.5 rounded-full bg-{{ $event->severity === 'high' ? 'red-400' : ($event->severity === 'medium' ? 'amber-400' : 'emerald-400') }}"></span>
+                <div class="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full {{ $sevChip }}">
+                    <span class="h-2.5 w-2.5 rounded-full {{ $sevDot }}"></span>
                 </div>
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 mb-0.5">

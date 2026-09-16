@@ -80,9 +80,14 @@
                             <td class="px-6 py-2">
                                 @php
                                     $status = $req->status ?? 'unknown';
-                                    $color = $status === 'verified' ? 'emerald' : (in_array($status, ['provider_timeout','provider_unavailable','temporary_failure']) ? 'orange' : ($status === 'manual_verification_required' ? 'amber' : 'red'));
+                                    $statusChip = match (true) {
+                                        $status === 'verified' => 'bg-success-bg text-success',
+                                        in_array($status, ['provider_timeout','provider_unavailable','temporary_failure']) => 'bg-warning-bg text-warning',
+                                        $status === 'manual_verification_required' => 'bg-warning-bg text-warning',
+                                        default => 'bg-danger-bg text-danger',
+                                    };
                                 @endphp
-                                <span class="rounded-full bg-{{ $color }}-50 text-{{ $color }}-700 px-2 py-0.5 text-[10px] font-bold">{{ ucfirst(str_replace('_', ' ', $status)) }}</span>
+                                <span class="rounded-full {{ $statusChip }} px-2 py-0.5 text-[10px] font-bold">{{ ucfirst(str_replace('_', ' ', $status)) }}</span>
                             </td>
                         </tr>
                     @empty

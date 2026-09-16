@@ -1,13 +1,18 @@
 @import 'tailwindcss';
 
+/* ACL wizard animations (registration / onboarding flows) */
+@import './acl-wizard.css';
+
 /* Manual light/dark: a `.dark` class on <html> drives every `dark:` utility.
    The initial class is set by partials/theme-script.blade.php before paint. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Tokens are emitted `inline` so the utilities resolve the runtime CSS
-   variables below — flipping :root ⇄ .dark reskins the whole app with no
-   rebuild. Legacy aliases keep older markup rendering on the new palette. */
+/* ─── Design tokens ────────────────────────────────────────────────────────────
+   Tokens are emitted `inline` so Tailwind utilities resolve the runtime CSS
+   variables below — flipping :root ⇄ .dark reskins the whole app with no rebuild.
+   Semantic aliases (success / warning / danger) map to ACL's warm green palette. */
 @theme inline {
+    /* Core palette */
     --color-bg: var(--bg);
     --color-surface: var(--surface);
     --color-raised: var(--raised);
@@ -20,6 +25,15 @@
     --color-ring: var(--ring);
     --color-info: var(--info);
 
+    /* Semantic status tokens (dark-mode-safe) */
+    --color-success: var(--success);
+    --color-success-bg: var(--success-bg);
+    --color-warning: var(--warning);
+    --color-warning-bg: var(--warning-bg);
+    --color-danger: var(--danger);
+    --color-danger-bg: var(--danger-bg);
+
+    /* Legacy aliases */
     --color-abyss: var(--bg);
     --color-edge: var(--border);
     --color-brand: var(--primary);
@@ -30,7 +44,7 @@
     --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
 
-/* Light — warm light-yellow canvas, green interface. */
+/* ─── Light theme ────────────────────────────────────────────────────────────── */
 :root {
     --bg: #fdf9e7;
     --surface: #ffffff;
@@ -38,15 +52,24 @@
     --border: #e4e2c4;
     --text: #14210a;
     --muted: #5a6a4a;
-    --primary: #15803d;   /* green-700: white text clears 4.5:1 */
+    --primary: #15803d;     /* green-700: white text clears 4.5:1 */
     --primary-fg: #ffffff;
-    --accent: #166534;    /* green-800 for on-light text/icons */
+    --accent: #166534;      /* green-800 for on-light text/icons */
     --ring: #15803d;
-    --info: #0e7490;      /* teal-700 secondary accent */
+    --info: #0e7490;        /* teal-700 secondary accent */
+
+    /* Status — warm greens/amber/terracotta, never neon blue */
+    --success: #15803d;
+    --success-bg: #dcfce7;
+    --warning: #b45309;
+    --warning-bg: #fef3c7;
+    --danger: #b91c1c;
+    --danger-bg: #fee2e2;
+
     color-scheme: light;
 }
 
-/* Dark — deep canvas, lighter green interface. */
+/* ─── Dark theme ─────────────────────────────────────────────────────────────── */
 .dark {
     --bg: #0a0f1c;
     --surface: #111a2e;
@@ -54,14 +77,24 @@
     --border: #263349;
     --text: #e8f0e3;
     --muted: #93a3b5;
-    --primary: #22c55e;   /* green-500 */
+    --primary: #22c55e;     /* green-500 */
     --primary-fg: #05210f;
-    --accent: #4ade80;    /* green-400 for on-dark text/icons */
+    --accent: #4ade80;      /* green-400 for on-dark text/icons */
     --ring: #22c55e;
-    --info: #22d3ee;      /* cyan secondary accent */
+    --info: #22d3ee;        /* cyan secondary accent */
+
+    /* Status — muted so no glare on dark surface */
+    --success: #4ade80;
+    --success-bg: #052e16;
+    --warning: #fbbf24;
+    --warning-bg: #422006;
+    --danger: #f87171;
+    --danger-bg: #450a0a;
+
     color-scheme: dark;
 }
 
+/* ─── Base reset / globals ───────────────────────────────────────────────────── */
 body {
     background-color: var(--color-bg);
     color: var(--color-text);
@@ -74,12 +107,25 @@ body {
     color: var(--color-primary-fg);
 }
 
+/* Thin scrollbar everywhere */
 * {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border) transparent;
 }
 
-/* --- Micro-interactions --- */
+/* ─── Legacy catalog/wizard CSS class aliases ──────────────────────────────────
+   These provide the "adm-*" classes used by catalog and verify-email views that
+   were originally intended as a component layer. Mapping to the token system
+   keeps them visually coherent without touching every Blade file. */
+.adm-card {
+    border-radius: 1rem;                       /* rounded-2xl */
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+}
+.adm-serif { font-family: var(--font-display); }
+.adm-mono  { font-family: var(--font-mono); }
+
+/* ─── Micro-interactions ─────────────────────────────────────────────────────── */
 .press:active { transform: scale(0.98); }
 
 @keyframes flash-success {
@@ -88,8 +134,7 @@ body {
 }
 .flash-success { animation: flash-success 0.5s ease-out; }
 
-/* Scroll-reveal for the Vision/Mission cards. JS-gated so content is never
-   hidden when JavaScript is unavailable; an observer adds .is-in in view. */
+/* ─── Scroll-reveal ──────────────────────────────────────────────────────────── */
 .reveal { transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
 .js .reveal { opacity: 0; transform: translateY(16px); }
 .js .reveal.is-in { opacity: 1; transform: none; }
@@ -100,7 +145,19 @@ body {
     .js .reveal, .js .reveal.is-in { opacity: 1; transform: none; transition: none; }
 }
 
+/* ─── Custom scrollbar (webkit) ──────────────────────────────────────────────── */
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: var(--color-bg); }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--color-border); border-radius: 3px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: var(--color-primary); }
+
+/* ─── Z-index layering guide ───────────────────────────────────────────────────
+   Base content:        (default)
+   Sticky header:       z-40
+   Dropdown / popover:  z-50
+   Mobile drawer:       z-50
+   Modal:               z-[60]
+   Modal backdrop:      z-[55]
+   Toast / critical:    z-[70]
+
+   Apply in Tailwind via z-40 / z-50 / z-[55] / z-[60] / z-[70]. */

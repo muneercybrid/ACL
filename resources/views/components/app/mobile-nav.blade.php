@@ -5,7 +5,7 @@
     root (<div x-data="{ navOpen: false }"> in layouts/app), so the topbar menu
     button and this drawer share it. Hidden at md+ where the sidebar is shown.
 --}}
-<div x-cloak x-show="navOpen" class="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
+<div x-cloak x-show="navOpen" class="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
     <div x-show="navOpen" x-transition.opacity @click="navOpen = false" class="absolute inset-0 bg-black/40"></div>
 
     <div x-show="navOpen"

@@ -44,13 +44,21 @@
                 </tr></thead>
                 <tbody class="divide-y divide-border">
                     @forelse ($logs as $log)
+                        @php
+                            $sevChip = match ($log->severity) {
+                                'high'   => 'bg-danger-bg text-danger',
+                                'medium' => 'bg-warning-bg text-warning',
+                                'critical' => 'bg-danger-bg text-danger',
+                                default  => 'bg-success-bg text-success',
+                            };
+                        @endphp
                         <tr class="hover:bg-raised/50 transition">
                             <td class="px-6 py-3 text-xs text-muted">{{ $log->created_at?->format('M d H:i') }}</td>
                             <td class="px-6 py-3"><a href="{{ route('superadmin.audit.show', $log) }}" class="font-medium text-text hover:text-primary transition">{{ $log->action }}</a></td>
                             <td class="px-6 py-3 text-xs text-muted">{{ $log->actor?->name ?? 'System' }}</td>
                             <td class="px-6 py-3 text-xs text-muted">{{ $log->targetUser?->name ?? ($log->resource_type ?? '—') }}</td>
                             <td class="px-6 py-3 text-xs text-muted">{{ $log->organization?->name ?? 'Platform' }}</td>
-                            <td class="px-6 py-3"><span class="rounded-full bg-{{ $log->severity === 'high' ? 'red-50 text-red-700' : ($log->severity === 'medium' ? 'amber-50 text-amber-700' : 'emerald-50 text-emerald-700') }} px-2 py-0.5 text-xs font-bold">{{ ucfirst($log->severity) }}</span></td>
+                            <td class="px-6 py-3"><span class="rounded-full {{ $sevChip }} px-2 py-0.5 text-xs font-bold">{{ ucfirst($log->severity) }}</span></td>
                         </tr>
                     @empty
                         <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-muted">No audit events match your filters.</td></tr>
