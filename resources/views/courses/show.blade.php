@@ -95,6 +95,15 @@
                     </button>
                 @endif
             </div>
+
+            {{-- ACLi contextual study bar: scoped to this lesson --}}
+            <x-acli.study-bar
+                :course-offering-id="$offering->id"
+                :chapter-id="$activeLesson->chapter_id"
+                :lesson-id="$activeLesson->id"
+                context-label="this lesson"
+                :context-title="$activeLesson->title"
+            />
         @else
             <div class="flex h-full items-center justify-center text-muted">
                 Select a lesson from the sidebar to begin.

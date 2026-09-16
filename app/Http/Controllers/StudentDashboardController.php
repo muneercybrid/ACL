@@ -42,6 +42,7 @@ class StudentDashboardController extends Controller
             'institutionRecord' => $student ? $this->dashboard->institutionRecord($student) : null,
             'enrollments' => $enrollments,
             'programmeCourses' => $programmeCourses,
+            'programmeCoursesBySemester' => $student ? $this->dashboard->programmeCoursesBySemester($student) : collect(),
             'enrolledOfferingIds' => $enrolledOfferingIds,
         ]);
     }
@@ -96,6 +97,7 @@ class StudentDashboardController extends Controller
             'enrollments' => $enrollments,
             'academicProgramme' => $student ? $this->dashboard->academicProgramme($student) : null,
             'programmeCourses' => $programmeCourses,
+            'programmeCoursesBySemester' => $student ? $this->dashboard->programmeCoursesBySemester($student) : collect(),
             'activeEnrollments' => $activeEnrollments,
             'availableCourses' => $availableCourses,
             'enrolledOfferingIds' => $enrolledOfferingIds,

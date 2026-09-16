@@ -11,8 +11,9 @@ use App\Services\EntitlementService;
  * Determines whether a user is entitled to use specific ACLi AI capabilities.
  * Separate from ACL platform entitlements (course access, etc.).
  *
- * Current model: ACLi is a paid capability for students.
- * Students must have an active subscription/entitlement to use AI generation.
+ * Current model: ACLi is FREE for all students. The paid gate can be
+ * re-enabled later by setting ACLI_REQUIRE_ENTITLEMENT=true in .env
+ * (and then implementing the subscription check in checkAcliEntitlement).
  */
 class AcliEntitlementService
 {
@@ -53,7 +54,9 @@ class AcliEntitlementService
         // Check if user is a student
         $student = $user->student;
 
-        // For student capabilities, require student role + entitlement
+        // For student capabilities, require student role.
+        // ACLi is currently free — no subscription gate. Set
+        // ACLI_REQUIRE_ENTITLEMENT=true to enable the paid gate later.
         if (str_starts_with($capabilitySlug, 'student.')) {
             if (! $student) {
                 return [
@@ -63,15 +66,16 @@ class AcliEntitlementService
                 ];
             }
 
-            // Check ACLi-specific entitlement (paid capability)
-            $hasAcliEntitlement = $this->checkAcliEntitlement($user);
+            if (config('acli.require_entitlement')) {
+                $hasAcliEntitlement = $this->checkAcliEntitlement($user);
 
-            if (! $hasAcliEntitlement) {
-                return [
-                    'allowed' => false,
-                    'reason' => 'ACLi AI features require an active ACLi subscription. Please upgrade your account to access AI tutoring, quiz generation, and other AI features.',
-                    'capability' => $capabilitySlug,
-                ];
+                if (! $hasAcliEntitlement) {
+                    return [
+                        'allowed' => false,
+                        'reason' => 'ACLi AI features require an active ACLi subscription. Please upgrade your account to access AI tutoring, quiz generation, and other AI features.',
+                        'capability' => $capabilitySlug,
+                    ];
+                }
             }
 
             return [
