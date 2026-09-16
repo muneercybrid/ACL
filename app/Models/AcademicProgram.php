@@ -13,6 +13,8 @@ class AcademicProgram extends Model
 
     protected $fillable = [
         'department_id',
+        'organization_id',
+        'nuc_programme_id',
         'name',
         'slug',
         'code',

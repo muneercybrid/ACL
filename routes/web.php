@@ -119,6 +119,8 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     // Onboarding
     Route::get('/onboarding', [Superadmin\OnboardingController::class, 'index'])->name('onboarding');
     Route::get('/onboarding/{organization}', [Superadmin\OnboardingController::class, 'show'])->name('onboarding.show');
+    Route::get('/institutions/{organization}/programmes', [Superadmin\InstitutionController::class, 'selectProgrammes'])->name('institutions.programmes.select');
+    Route::post('/institutions/{organization}/programmes', [Superadmin\InstitutionController::class, 'saveProgrammes'])->name('institutions.programmes.save');
 
     // Staff
     Route::get('/staff', [Superadmin\StaffController::class, 'index'])->name('staff');

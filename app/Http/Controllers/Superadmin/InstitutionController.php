@@ -280,4 +280,186 @@ class InstitutionController extends Controller
 
         return back()->with('success', "{$user->name} is now the institution administrator.");
     }
+
+    /**
+     * Step 3 of onboarding: select programmes from NUC CCMAS baseline.
+     * Shows all NUC disciplines with their programmes for the institution to pick.
+     */
+    public function selectProgrammes(Organization $organization): View
+    {
+        $onboarding = $organization->onboarding ?: new InstitutionOnboarding(['organization_id' => $organization->id]);
+
+        $disciplines = \App\Models\Curriculum\NucDiscipline::where('status', 'active')
+            ->orderBy('code')
+            ->get();
+
+        $programmes = \App\Models\Curriculum\Programme::where('status', 'active')
+            ->where('scope', 'national')
+            ->with('nucDiscipline')
+            ->orderBy('name')
+            ->get();
+
+        $progress = $onboarding->progress ?? [];
+        $selectedIds = collect($progress['selected_programme_ids'] ?? []);
+
+        return view('superadmin.institutions.select-programmes', [
+            'organization' => $organization,
+            'onboarding' => $onboarding,
+            'disciplines' => $disciplines,
+            'programmes' => $programmes,
+            'selectedIds' => $selectedIds,
+            'selectedCount' => $selectedIds->count(),
+        ]);
+    }
+
+    /**
+     * Save selected programmes and create institution-specific faculties/departments/programmes.
+     * Also creates course_offerings for the current academic session.
+     */
+    public function saveProgrammes(Request $request, Organization $organization): RedirectResponse
+    {
+        $request->validate([
+            'programme_ids' => ['array'],
+            'programme_ids.*' => ['exists:programmes,id'],
+            'onboarding_step' => ['required', 'string', 'in:academic_structure'],
+        ]);
+
+        $programmeIds = $request->input('programme_ids', []);
+
+        DB::transaction(function () use ($organization, $programmeIds) {
+            $programmes = \App\Models\Curriculum\Programme::whereIn('id', $programmeIds)
+                ->with('nucDiscipline')
+                ->get();
+
+            $session = \App\Models\Curriculum\AcademicSession::where('is_current', true)->first();
+
+            // Group by NUC discipline to create faculty → department → programme hierarchy
+            $byDiscipline = $programmes->groupBy('nuc_discipline_id');
+
+            foreach ($byDiscipline as $discId => $discProgrammes) {
+                $disc = \App\Models\Curriculum\NucDiscipline::find($discId);
+                if (! $disc) continue;
+
+                // Create or find Faculty for this discipline
+                $faculty = $organization->faculties()->firstOrCreate(
+                    ['slug' => Str::slug($disc->name)],
+                    [
+                        'name' => $disc->name . ' (' . $disc->code . ')',
+                        'code' => $disc->code,
+                        'description' => 'Auto-provisioned from NUC CCMAS ' . $disc->name . ' discipline',
+                        'is_active' => true,
+                    ]
+                );
+
+                // Each programme becomes a Department under the faculty
+                foreach ($discProgrammes as $prog) {
+                    $department = $faculty->departments()->firstOrCreate(
+                        ['slug' => Str::slug($prog->name)],
+                        [
+                            'name' => $prog->name,
+                            'code' => $prog->code,
+                            'description' => 'Auto-provisioned from NUC CCMAS programme',
+                            'is_active' => true,
+                        ]
+                    );
+
+                    // Create institution-specific programme (AcademicProgram)
+                    $academicProgram = \App\Models\AcademicProgram::firstOrCreate(
+                        [
+                            'organization_id' => $organization->id,
+                            'department_id' => $department->id,
+                            'nuc_programme_id' => $prog->id,
+                        ],
+                        [
+                            'name' => $prog->name,
+                            'slug' => Str::slug($prog->name),
+                            'code' => $prog->code,
+                            'degree_type' => $prog->degree_type,
+                            'duration_years' => $prog->duration_years,
+                            'status' => 'active',
+                            'is_active' => true,
+                        ]
+                    );
+
+                    // Link curriculum courses to this institution's programme via course_offerings
+                    if ($session) {
+                        $curriculumVersion = \App\Models\Curriculum\CurriculumVersion::where('programme_id', $prog->id)
+                            ->where('is_active', true)
+                            ->where('scope', 'nuc_baseline')
+                            ->first();
+
+                        if ($curriculumVersion) {
+                            $curriculumCourses = $curriculumVersion->curriculumCourses()
+                                ->with('course')
+                                ->where('status', 'active')
+                                ->get();
+
+                            foreach ($curriculumCourses as $cc) {
+                                $semester = \App\Models\Semester::where('academic_session_id', $session?->id)
+                                ->where('slug', $cc->semester == 1 ? 'first-semester' : 'second-semester')
+                                ->first();
+                                if (! $semester) continue;
+
+                                // Create course_offering for this institution/department/semester
+                                $offering = \App\Models\CourseOffering::firstOrCreate(
+                                    [
+                                        'course_id' => $cc->course_id,
+                                        'semester_id' => $semester->id,
+                                        'department_id' => $department->id,
+                                    ],
+                                    [
+                                        'custom_code' => $cc->course->code, // Default to NUC code, editable later
+                                        'is_active' => true,
+                                    ]
+                                );
+
+                                $level = \App\Models\Level::where('academic_program_id', $academicProgram->id)
+                                    ->where('code', 'L' . $cc->level)
+                                    ->first();
+
+                                // Also link to AcademicProgram for student enrollment
+                                \App\Models\CourseOfferingTarget::firstOrCreate(
+                                    [
+                                        'course_offering_id' => $offering->id,
+                                        'academic_program_id' => $academicProgram->id,
+                                        'level_id' => $level?->id,
+                                    ],
+                                    ['is_mandatory' => true]
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Update onboarding progress
+            $onboarding = InstitutionOnboarding::firstOrCreate(
+                ['organization_id' => $organization->id],
+                ['status' => 'started', 'invited_by' => auth()->id(), 'progress' => []]
+            );
+
+            $progress = $onboarding->progress ?? [];
+            $progress['academic_structure'] = true;
+            $progress['selected_programme_ids'] = $programmeIds;
+
+            $onboarding->update([
+                'progress' => $progress,
+                'status' => 'partially_completed',
+            ]);
+        });
+
+        \App\Models\SuperadminAuditLog::log([
+            'action' => 'institution.programmes_selected',
+            'resource_type' => Organization::class,
+            'resource_id' => $organization->id,
+            'organization_id' => $organization->id,
+            'severity' => 'medium',
+            'description' => "Institution \"{$organization->name}\" selected " . count($programmeIds) . " programmes",
+            'new_values' => ['programme_count' => count($programmeIds), 'programme_ids' => $programmeIds],
+        ]);
+
+        return redirect()
+            ->route('superadmin.onboarding.show', $organization)
+            ->with('success', count($programmeIds) . ' programmes provisioned for ' . $organization->name . '.');
+    }
 }
