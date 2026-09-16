@@ -29,9 +29,9 @@
         </div>
     </div>
 
-    <div id="public-mobile-nav" x-show="open" x-cloak @click.outside="open = false" class="fixed inset-0 z-50 flex flex-col md:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
+    <div id="public-mobile-nav" x-show="open" x-cloak @click.outside="open = false" class="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
         <div x-show="open" x-transition.opacity @click="open = false" class="absolute inset-0 bg-black/40"></div>
-        <nav x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="translate-y-[-100%]" x-transition:enter-end="translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-[-100%]" @keydown.escape.window="open = false" class="relative z-50 mx-auto w-full max-w-6xl border-t border-border bg-surface px-4 py-4" aria-label="Mobile public navigation">
+        <nav x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="-translate-y-full" x-transition:enter-end="translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="translate-y-0" x-transition:leave-end="-translate-y-full" @keydown.escape.window="open = false" class="relative z-50 mx-auto w-full max-w-6xl border-t border-border bg-surface px-4 py-4 flex flex-col" aria-label="Mobile public navigation">
             <a @click="open = false" href="#courses" class="rounded-lg px-3 py-3 hover:bg-raised hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring">Learn</a>
             <a @click="open = false" href="#how" class="rounded-lg px-3 py-3 hover:bg-raised hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring">Teach</a>
             <a @click="open = false" href="#universities" class="rounded-lg px-3 py-3 hover:bg-raised hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring">Universities</a>

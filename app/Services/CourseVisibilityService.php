@@ -37,7 +37,7 @@ class CourseVisibilityService
         $ids = $this->studentDisciplineIds($student);
 
         return Course::where('is_external', true)
-            ->where('status', 'active')
+            ->where('is_active', true)
             ->whereHas('disciplines', fn (Builder $q) => $q->whereIn('nuc_disciplines.id', $ids))
             ->orderBy('difficulty')
             ->orderBy('code')
@@ -50,7 +50,7 @@ class CourseVisibilityService
     public function catalogue(?string $disciplineCode = null, ?string $difficulty = null, ?string $search = null)
     {
         return Course::where('is_external', true)
-            ->where('status', 'active')
+            ->where('is_active', true)
             ->when($disciplineCode, fn (Builder $q, $code) =>
                 $q->whereHas('disciplines', fn (Builder $q2) => $q2->where('code', $code)))
             ->when($difficulty, fn (Builder $q, $d) => $q->where('difficulty', $d))

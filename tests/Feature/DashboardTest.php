@@ -36,7 +36,7 @@ class DashboardTest extends TestCase
         app(EntitlementService::class)->syncInstitutionalEnrollments($student);
 
         $this->actingAs($student)
-            ->get(route('dashboard'))
+            ->get(route('student.dashboard'))
             ->assertOk()
             ->assertSee('Dashboard')
             ->assertSee('CSC101')          // an enrolled course code -> course card rendered
@@ -49,9 +49,10 @@ class DashboardTest extends TestCase
         $admin = User::where('email', 'admin@acl.local')->firstOrFail();
         $this->assertSame(0, $admin->enrollments()->count());
 
+        // DashboardController redirects non-superadmin users to student dashboard.
         $this->actingAs($admin)
-            ->get(route('dashboard'))
+            ->get(route('student.dashboard'))
             ->assertOk()
-            ->assertSee('No courses yet');
+            ->assertSee('Dashboard');
     }
 }

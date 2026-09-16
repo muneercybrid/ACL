@@ -63,7 +63,7 @@
                         <dt class="text-muted">Website</dt><dd class="font-medium text-text">{{ $organization->website ? \Illuminate\Support\Str::limit($organization->website, 40) : '—' }}</dd>
                         <dt class="text-muted">Email</dt><dd class="font-medium text-text">{{ $organization->email ?? '—' }}</dd>
                         <dt class="text-muted">Description</dt><dd class="font-medium text-text">{{ $organization->description ?? '—' }}</dd>
-                        <dt class="text-muted">Created</dt><dd class="font-medium text-text">{{ $organization->created_at?->format('M d, Y H:i') ?? '—' }}</dd>
+                        <dt class="text-muted">Created</dt><dd class="font-medium text-text">{{ $organization->created_at instanceof \Carbon\Carbon ? $organization->created_at->format('M d, Y H:i') : ($organization->created_at ?? '—') }}</dd>
                     </dl>
                 </div>
 
@@ -267,7 +267,7 @@
                     <div class="flex justify-between"><dt class="text-muted">ID</dt><dd class="text-text font-mono text-xs">{{ $organization->id }}</dd></div>
                     <div class="flex justify-between"><dt class="text-muted">Slug</dt><dd class="text-text font-mono text-xs">{{ $organization->slug }}</dd></div>
                     <div class="flex justify-between"><dt class="text-muted">Created</dt><dd class="text-text">{{ $organization->created_at?->format('M d, Y') }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-muted">Onboarded</dt><dd class="text-text">{{ $organization->onboarded_at?->format('M d, Y') ?? 'Not yet' }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-muted">Onboarded</dt><dd class="text-text">{{ $organization->onboarded_at instanceof \Carbon\Carbon ? $organization->onboarded_at->format('M d, Y') : ($organization->onboarded_at ?? 'Not yet') }}</dd></div>
                 </dl>
             </div>
         </div>

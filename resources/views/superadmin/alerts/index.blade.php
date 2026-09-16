@@ -5,7 +5,7 @@
 @endsection
 @section('content')
 <div class="mx-auto max-w-5xl space-y-6">
-    <div class="grid grid-cols-3 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div class="text-xl font-extrabold text-amber-700">{{ $counts['active'] }}</div><div class="text-xs text-muted">Active</div></div>
         <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div class="text-xl font-extrabold text-sky-700">{{ $counts['acknowledged'] }}</div><div class="text-xs text-muted">Acknowledged</div></div>
         <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div class="text-xl font-extrabold text-emerald-700">{{ $counts['resolved'] }}</div><div class="text-xs text-muted">Resolved</div></div>

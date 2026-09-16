@@ -11,10 +11,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Trust all proxies (required for GitHub Codespaces port forwarding).
-        // This forces Laravel to generate URLs using the forwarded Codespaces domain
-        // (e.g., https://scaling-zebra...app.github.dev) instead of internal localhost.
-        $middleware->trustProxies(at: '*');
+        // Only trust specific proxies; do not blindly trust all.
+        $middleware->trustProxies(at: env('TRUSTED_PROXIES', ''));
 
         $middleware->alias([
             'superadmin' => \App\Http\Middleware\RequireSuperadmin::class,

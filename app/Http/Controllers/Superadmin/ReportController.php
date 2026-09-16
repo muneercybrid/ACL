@@ -38,8 +38,8 @@ class ReportController extends Controller
      */
     public function export(Request $request, string $type): StreamedResponse
     {
-        $from = $request->date('from', now()->subDays(30))->startOfDay();
-        $to = $request->date('to', now())->endOfDay();
+        $from = ($request->date('from') ?? now()->subDays(30))->startOfDay();
+        $to = ($request->date('to') ?? now())->endOfDay();
 
         $filename = Str::slug($type) . '-report-' . now()->format('Ymd-His') . '.csv';
 

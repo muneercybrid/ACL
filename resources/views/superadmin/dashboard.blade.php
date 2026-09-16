@@ -65,7 +65,7 @@
                 <div class="p-6 space-y-6">
                     <div>
                         <h3 class="text-xs font-bold uppercase tracking-widest text-muted mb-3">Registrations</h3>
-                        <div class="grid grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="rounded-xl bg-raised p-3"><div class="text-2xl font-extrabold text-text">{{ $activity['registrations']['today'] }}</div><div class="text-xs text-muted">Today</div></div>
                             <div class="rounded-xl bg-raised p-3"><div class="text-2xl font-extrabold text-text">{{ $activity['registrations']['this_week'] }}</div><div class="text-xs text-muted">This week</div></div>
                             <div class="rounded-xl bg-raised p-3"><div class="text-2xl font-extrabold text-text">{{ $activity['registrations']['this_month'] }}</div><div class="text-xs text-muted">This month</div></div>
@@ -73,7 +73,7 @@
                     </div>
                     <div>
                         <h3 class="text-xs font-bold uppercase tracking-widest text-muted mb-3">JAMB Verification</h3>
-                        <div class="grid grid-cols-4 gap-3">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <div class="rounded-xl bg-raised p-3"><div class="text-xl font-extrabold text-text">{{ $activity['jamb']['requests_today'] }}</div><div class="text-xs text-muted">Requests today</div></div>
                             <div class="rounded-xl bg-emerald-50 p-3"><div class="text-xl font-extrabold text-emerald-700">{{ $activity['jamb']['successful'] }}</div><div class="text-xs text-muted">Verified</div></div>
                             <div class="rounded-xl bg-red-50 p-3"><div class="text-xl font-extrabold text-red-700">{{ $activity['jamb']['failed'] }}</div><div class="text-xs text-muted">Failed / Invalid</div></div>

@@ -66,7 +66,7 @@
             $departments = $faculties->flatMap->departments;
             $programmes = $departments->flatMap->academicPrograms;
         @endphp
-        <div class="grid grid-cols-3 gap-3 text-center">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
             <div class="rounded-xl bg-raised p-4"><div class="text-xl font-extrabold text-text">{{ $faculties->count() }}</div><div class="text-xs text-muted">Faculties</div></div>
             <div class="rounded-xl bg-raised p-4"><div class="text-xl font-extrabold text-text">{{ $departments->count() }}</div><div class="text-xs text-muted">Departments</div></div>
             <div class="rounded-xl bg-raised p-4"><div class="text-xl font-extrabold text-text">{{ $programmes->count() }}</div><div class="text-xs text-muted">Programmes</div></div>

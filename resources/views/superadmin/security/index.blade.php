@@ -5,7 +5,7 @@
 @endsection
 @section('content')
 <div class="mx-auto max-w-7xl space-y-6">
-    <div class="grid grid-cols-3 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div class="text-xl font-extrabold text-text">{{ $summary['suspended_accounts'] }}</div><div class="text-xs text-muted">Suspended accounts</div></div>
         <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div class="text-xl font-extrabold text-text">{{ $summary['high_severity_events_30d'] }}</div><div class="text-xs text-muted">High-severity events (30d)</div></div>
         <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div class="text-xl font-extrabold text-text">{{ $summary['administrative_actions_30d'] }}</div><div class="text-xs text-muted">Admin actions (30d)</div></div>

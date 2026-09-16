@@ -6,7 +6,7 @@
 @section('content')
 <div class="mx-auto max-w-7xl space-y-8">
     {{-- Quick counts --}}
-    <div class="grid grid-cols-3 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div class="text-xl font-extrabold text-text">{{ $faculties->count() }}</div><div class="text-xs text-muted">Faculties configured</div></div>
         <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div class="text-xl font-extrabold text-text">{{ $departments->count() }}</div><div class="text-xs text-muted">Departments configured</div></div>
         <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm"><div class="text-xl font-extrabold text-text">{{ $programmes->count() }}</div><div class="text-xs text-muted">NUC Programmes (active)</div></div>
