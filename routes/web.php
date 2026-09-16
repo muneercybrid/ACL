@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\ExternalLearnerRegistrationController;
 use App\Http\Controllers\CourseViewerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\StudentDashboardController;
+use App\Http\Controllers\Superadmin;
 use Illuminate\Support\Facades\Route;
 
 // Public landing for guests; authenticated users go straight to their dashboard.
@@ -95,4 +96,77 @@ Route::middleware('auth')->group(function () {
         Route::post('/conversations', [AcliChatController::class, 'newConversation'])->name('conversation.new');
         Route::delete('/conversations/{conversation}', [AcliChatController::class, 'closeConversation'])->name('conversation.close');
     });
+});
+
+// ─── Superadmin Command Center ───────────────────────────────────────────────
+// Platform-wide operational interface. Every route independently enforces the
+// superadmin role — relying on hidden links is never a security control.
+Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
+    // Command Center
+    Route::get('/', [Superadmin\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/activity', [Superadmin\DashboardController::class, 'activityFeed'])->name('activity');
+
+    // Institutions
+    Route::get('/institutions', [Superadmin\InstitutionController::class, 'index'])->name('institutions');
+    Route::get('/institutions/create', [Superadmin\InstitutionController::class, 'create'])->name('institutions.create');
+    Route::post('/institutions', [Superadmin\InstitutionController::class, 'store'])->name('institutions.store');
+    Route::get('/institutions/{organization}', [Superadmin\InstitutionController::class, 'show'])->name('institutions.show');
+    Route::get('/institutions/{organization}/edit', [Superadmin\InstitutionController::class, 'edit'])->name('institutions.edit');
+    Route::put('/institutions/{organization}', [Superadmin\InstitutionController::class, 'update'])->name('institutions.update');
+    Route::post('/institutions/{organization}/toggle', [Superadmin\InstitutionController::class, 'toggleActive'])->name('institutions.toggle');
+    Route::post('/institutions/{organization}/assign-admin', [Superadmin\InstitutionController::class, 'assignAdmin'])->name('institutions.assign-admin');
+
+    // Onboarding
+    Route::get('/onboarding', [Superadmin\OnboardingController::class, 'index'])->name('onboarding');
+    Route::get('/onboarding/{organization}', [Superadmin\OnboardingController::class, 'show'])->name('onboarding.show');
+
+    // Staff
+    Route::get('/staff', [Superadmin\StaffController::class, 'index'])->name('staff');
+    Route::post('/staff/invite', [Superadmin\StaffController::class, 'invite'])->name('staff.invite');
+    Route::post('/staff/{invitation}/revoke', [Superadmin\StaffController::class, 'revokeInvitation'])->name('staff.invitation.revoke');
+
+    // Users
+    Route::get('/users', [Superadmin\UserController::class, 'index'])->name('users');
+    Route::get('/users/{user}', [Superadmin\UserController::class, 'show'])->name('users.show');
+    Route::post('/users/{user}/toggle', [Superadmin\UserController::class, 'toggleActive'])->name('users.toggle');
+    Route::post('/users/{user}/roles', [Superadmin\UserController::class, 'updateRoles'])->name('users.roles.update');
+
+    // Academic structure
+    Route::get('/academic', [Superadmin\AcademicController::class, 'index'])->name('academic');
+    Route::get('/academic/programmes/{programme}', [Superadmin\AcademicController::class, 'programme'])->name('academic.programme');
+    Route::get('/academic/structures', [Superadmin\AcademicController::class, 'structures'])->name('academic.structures');
+
+    // Audit
+    Route::get('/audit', [Superadmin\AuditController::class, 'index'])->name('audit');
+    Route::get('/audit/{log}', [Superadmin\AuditController::class, 'show'])->name('audit.show');
+
+    // Security & auth observability
+    Route::get('/security', [Superadmin\SecurityController::class, 'index'])->name('security');
+
+    // Roles & permissions
+    Route::get('/roles', [Superadmin\RoleController::class, 'index'])->name('roles');
+    Route::get('/roles/{role}', [Superadmin\RoleController::class, 'show'])->name('roles.show');
+
+    // JAMB / registration monitoring
+    Route::get('/jamb', [Superadmin\JambController::class, 'index'])->name('jamb');
+    Route::get('/registrations', [Superadmin\JambController::class, 'registrations'])->name('registrations');
+
+    // Alerts
+    Route::get('/alerts', [Superadmin\AlertController::class, 'index'])->name('alerts');
+    Route::post('/alerts/{alert}/acknowledge', [Superadmin\AlertController::class, 'acknowledge'])->name('alerts.acknowledge');
+    Route::post('/alerts/{alert}/resolve', [Superadmin\AlertController::class, 'resolve'])->name('alerts.resolve');
+
+    // Reports
+    Route::get('/reports', [Superadmin\ReportController::class, 'index'])->name('reports');
+    Route::get('/reports/export/{type}', [Superadmin\ReportController::class, 'export'])->name('reports.export');
+
+    // AI activity
+    Route::get('/ai', [Superadmin\AiController::class, 'index'])->name('ai');
+
+    // System
+    Route::get('/system', [Superadmin\SystemController::class, 'index'])->name('system');
+    Route::get('/system/jobs', [Superadmin\SystemController::class, 'jobs'])->name('system.jobs');
+
+    // Global search
+    Route::get('/search', [Superadmin\SearchController::class, 'index'])->name('search');
 });

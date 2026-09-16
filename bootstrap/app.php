@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // This forces Laravel to generate URLs using the forwarded Codespaces domain
         // (e.g., https://scaling-zebra...app.github.dev) instead of internal localhost.
         $middleware->trustProxies(at: '*');
+
+        $middleware->alias([
+            'superadmin' => \App\Http\Middleware\RequireSuperadmin::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
