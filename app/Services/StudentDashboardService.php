@@ -11,6 +11,7 @@ use App\Models\Student;
 use App\Models\StudentRegistrationVerification;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Data-driven student dashboard access.
@@ -195,26 +196,46 @@ class StudentDashboardService
             return collect();
         }
 
-        return CurriculumCourse::with([
+        // Cache only IDs (avoids Eloquent serialization on TiDB). Fresh data rebuilt below.
+        $level = $student->level ?? 100;
+        $ids = Cache::remember("dashboard:programme:{$student->id}:v2:level{$level}", 300, function () use ($version, $level) {
+            return CurriculumCourse::where('curriculum_version_id', $version->id)
+                ->where('status', 'active')
+                ->where('level', $level)
+                ->pluck('id')
+                ->toArray();
+        });
+
+        if (empty($ids)) {
+            return collect();
+        }
+
+        $courses = CurriculumCourse::with([
             'course.chapters',
             'course.outlines',
             'curriculumVersion.programme',
-        ])
-            ->where('curriculum_version_id', $version->id)
-            ->where('status', 'active')
-            ->get()
-            ->map(function (CurriculumCourse $cc) {
-                // First active offering of the linked course, if any.
-                $offering = $cc->course->offerings()
-                    ->where('is_active', true)
-                    ->with(['semester', 'semester.academicSession'])
-                    ->first();
+        ])->whereIn('id', $ids)->where('level', $level)->get();
 
-                $cc->current_offering = $offering;
+        // Batch-fetch all current offerings in one query (avoid N+1 × ~200ms each on TiDB).
+        $courseIds = $courses->pluck('course_id')->unique()->filter()->values()->toArray();
+        $offerings = [];
+        if (! empty($courseIds)) {
+            $rows = \App\Models\CourseOffering::whereIn('course_id', $courseIds)
+                ->where('is_active', true)
+                ->with(['semester', 'semester.academicSession'])
+                ->get()
+                ->groupBy('course_id');
+            foreach ($rows as $cid => $opts) {
+                $offerings[$cid] = $opts->sortByDesc(function ($o) {
+                    return $o->semester?->academicSession?->year ?? 0;
+                })->first();
+            }
+        }
 
-                return $cc;
-            })
-            ->values();
+        return $courses->map(function (CurriculumCourse $cc) use ($offerings) {
+            $cc->current_offering = $offerings[$cc->course_id] ?? null;
+            return $cc;
+        })->values();
     }
 
     /**

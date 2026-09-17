@@ -73,5 +73,10 @@
     </div>
 
     <p class="mt-6 text-center text-xs text-muted">Access is provided through your institution.</p>
+
+    <div class="mt-4 text-center">
+        <a href="{{ route('register') }}" class="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-fg shadow-sm transition hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring">Get started — Create account</a>
+        <p class="mt-2 text-xs text-muted">New to ACL? <a href="{{ route('register.student') }}" class="font-semibold text-primary hover:underline">Register as a student</a> or <a href="{{ route('register.external') }}" class="font-semibold text-primary hover:underline">Sign up as an external learner</a>.</p>
+    </div>
 </div>
 @endsection

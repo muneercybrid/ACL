@@ -106,6 +106,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/', [Superadmin\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/activity', [Superadmin\DashboardController::class, 'activityFeed'])->name('activity');
 
+    Route::post('/institution-courses', [\App\Http\Controllers\UniversityCourseController::class, 'store'])->name('institution.courses.store');
     // Institutions
     Route::get('/institutions', [Superadmin\InstitutionController::class, 'index'])->name('institutions');
     Route::get('/institutions/create', [Superadmin\InstitutionController::class, 'create'])->name('institutions.create');

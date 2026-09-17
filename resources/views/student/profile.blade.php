@@ -13,8 +13,12 @@
     <div class="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
         <div class="bg-gradient-to-r from-primary/90 via-emerald-600/90 to-emerald-700/90 px-6 py-8 sm:px-8">
             <div class="flex flex-col gap-6 sm:flex-row sm:items-start">
-                <div class="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-white/20 shadow-inner overflow-hidden backdrop-blur-sm ring-2 ring-white/30">
-                    <img src="{{ asset('images/logo.svg') }}" alt="ACL" class="h-16 w-16 object-contain filter brightness-0 invert">
+                <div class="relative flex h-28 w-28 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-300 via-rose-400 to-emerald-500 shadow-xl ring-4 ring-white/20 overflow-hidden backdrop-blur-sm">
+                    <img src="{{ asset('images/logo.svg') }}" alt="Profile" class="h-14 w-14 object-contain drop-shadow-lg">
+                    <a href="#" onclick="document.getElementById('photo-upload').click(); return false;" class="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white text-amber-600 shadow-lg ring-2 ring-white hover:scale-110 transition" title="Upload photo">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    </a>
+                    <form id="photo-form" action="#" method="POST" enctype="multipart/form-data" class="hidden"><input id="photo-upload" type="file" name="photo" accept="image/*" onchange="this.form.submit()"></form>
                 </div>
                 <div class="min-w-0 flex-1">
                     <h1 class="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">{{ $user->name }}</h1>
@@ -55,11 +59,11 @@
                     </div>
                     <div class="flex justify-between border-b border-border pb-2">
                         <dt class="text-muted">State</dt>
-                        <dd class="font-semibold text-text">{{ $student?->state ?? 'Not set' }}</dd>
+                        <dd class="font-semibold text-text">{{ $student?->state ? \App\Models\State::find($student->state)?->name ?? $student->state : 'Not set' }}</dd>
                     </div>
                     <div class="flex justify-between border-b border-border pb-2">
                         <dt class="text-muted">LGA</dt>
-                        <dd class="font-semibold text-text">{{ $student?->lga ?? 'Not set' }}</dd>
+                        <dd class="font-semibold text-text">{{ $student?->lga ? \App\Models\Lga::find($student->lga)?->name ?? $student->lga : 'Not set' }}</dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-muted">Account Created</dt>

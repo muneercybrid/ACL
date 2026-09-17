@@ -97,6 +97,23 @@
                 <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password" class="mt-2 block w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20" />
             </div>
 
+            <div class="mt-5">
+                <label for="level" class="block text-sm font-semibold text-text">Student Level (auto-set by JAMB year)</label>
+                <select id="level" name="level" required class="mt-2 block w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20">
+                    <option value="">Select level</option>
+                    <option value="100">Level 100 (First Year — JAMB 2025)</option>
+                    <option value="200">Level 200 (Second Year — JAMB 2024)</option>
+                    <option value="300">Level 300 (Third Year — JAMB 2023)</option>
+                    <option value="400">Level 400 (Fourth Year — JAMB 2022)</option>
+                    <option value="500">Level 500 (Fifth Year — JAMB 2021)</option>
+                </select>
+            </div>
+
+            <label class="flex items-start gap-3 cursor-pointer mb-5">
+                <input type="checkbox" name="terms_accepted" id="terms_accepted" required class="mt-1 h-5 w-5 rounded border-border text-primary focus:ring-primary" />
+                <span class="text-sm text-text leading-5">I agree to ACL <a href="#" class="font-semibold text-primary underline">Terms</a>, <a href="#" class="font-semibold text-primary underline">Privacy</a>, and confirm accuracy.</span>
+            </label>
+
             <button type="submit" class="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-fg shadow-sm transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
                 Complete Registration →
             </button>
