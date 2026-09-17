@@ -139,7 +139,7 @@ class StudentRegistrationController extends Controller
                 'name' => $result['name'],
                 'institution' => $result['institution'],
                 'programme' => $result['programme'],
-                'redirect' => route('register.student.confirm'),
+                'redirect' => route('register.student.school'),
             ]);
         } catch (Throwable $e) {
             report($e);
@@ -298,6 +298,8 @@ class StudentRegistrationController extends Controller
             'state_id' => ['required', 'exists:states,id'],
             'lga_id' => ['required', 'exists:lgas,id'],
             'school_registration_number' => ['nullable', 'string', 'max:100'],
+            'level' => ['required', 'integer', 'in:100,200,300,400,500'],
+            'terms_accepted' => ['required', 'accepted'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
@@ -316,25 +318,26 @@ class StudentRegistrationController extends Controller
                 'jamb_registration_number_hash' => $verification->jamb_registration_number_hash,
             ]);
 
-            // Assign student role scoped to the institution
-            $studentRole = Role::where('slug', 'student')->firstOrFail();
-            RoleAssignment::create([
-                'user_id' => $user->id,
-                'role_id' => $studentRole->id,
-                'entity_type' => get_class($verification->organization),
-                'entity_id' => $verification->organization->id,
-            ]);
+            // Assign student role scoped to the institution (only if org exists)
+            if ($verification->organization) {
+                $studentRole = Role::where('slug', 'student')->firstOrFail();
+                RoleAssignment::create([
+                    'user_id' => $user->id,
+                    'role_id' => $studentRole->id,
+                    'entity_type' => get_class($verification->organization),
+                    'entity_id' => $verification->organization->id,
+                ]);
 
-            // Create organization membership
-            OrganizationMembership::create([
-                'organization_id' => $verification->organization->id,
-                'user_id' => $user->id,
-                'academic_program_id' => $verification->academic_program_id,
-                'matric_number' => $verification->school_registration_number,
-                'membership_type' => 'student',
-                'status' => 'active',
-                'joined_at' => now(),
-            ]);
+                OrganizationMembership::create([
+                    'organization_id' => $verification->organization->id,
+                    'user_id' => $user->id,
+                    'academic_program_id' => $verification->academic_program_id,
+                    'matric_number' => $validated['school_registration_number'] ?? null,
+                    'membership_type' => 'student',
+                    'status' => 'active',
+                    'joined_at' => now(),
+                ]);
+            }
 
             // Create student record with nationality, state, lga
             \App\Models\Student::create([
@@ -346,6 +349,8 @@ class StudentRegistrationController extends Controller
                 'lga' => $validated['lga_id'], // lga name
                 'region' => \App\Models\Lga::find($validated['lga_id'])?->state->name ?? '',
                 'admission_year' => (int) $verification->jamb_exam_year,
+                'level' => $validated['level'] ?? 100,
+                'acl_student_id' => (string) $user->id,
             ]);
 
             $verification->update([
@@ -356,6 +361,15 @@ class StudentRegistrationController extends Controller
 
         $request->session()->forget('student_verification_token');
 
-        return redirect()->route('dashboard')->with('success', 'Welcome! Your student account has been created successfully.');
+        // Send verification email if not already verified
+        if ($user && ! $user->email_verified_at) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($validated['email'])->send(new \\App\\Mail\\VerificationSuccessMail($verification));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return redirect()->route('student.dashboard')->with('success', 'Welcome! Your student account has been created successfully.');
     }
 }

@@ -25,6 +25,16 @@
         </p>
     </div>
 
+    <div class="mb-6 rounded-2xl border border-primary/30 bg-primary/10 p-5 shadow-sm">
+        <h3 class="text-sm font-bold text-primary uppercase tracking-wide">JAMB Verification Confirmed</h3>
+        <div class="mt-2 text-sm text-text">
+            <p><strong>Name:</strong> {{ $verification->verified_name ?? 'Verified' }}</p>
+            <p><strong>Institution:</strong> {{ $verification->verified_institution ?? 'Verified' }}</p>
+            <p><strong>Programme:</strong> {{ $verification->verified_programme ?? 'Verified' }}</p>
+        </div>
+        <p class="mt-2 text-xs text-muted">Click Confirmed & Continue below to create your account details.</p>
+    </div>
+
     <div class="mb-6 rounded-2xl border border-border bg-surface p-4 shadow-sm">
         <div class="flex items-center gap-3">
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-fg">
