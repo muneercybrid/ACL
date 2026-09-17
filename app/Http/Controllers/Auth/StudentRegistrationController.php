@@ -364,7 +364,7 @@ class StudentRegistrationController extends Controller
         // Send verification email if not already verified
         if ($user && ! $user->email_verified_at) {
             try {
-                \Illuminate\Support\Facades\Mail::to($validated['email'])->send(new \\App\\Mail\\VerificationSuccessMail($verification));
+                \Illuminate\Support\Facades\Mail::to($validated['email'])->send(new \App\Mail\VerificationSuccessMail($verification));
             } catch (\Throwable $e) {
                 report($e);
             }
