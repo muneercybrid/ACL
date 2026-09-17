@@ -81,7 +81,7 @@
                         <h3 class="mb-3 text-sm font-extrabold uppercase tracking-widest text-primary">Semester {{ $semNumber }}</h3>
                         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             @forelse($courseCollection as $cc)
-                                <a href="{{ route('course.show', $cc->id) }}" class="rounded-xl border border-border bg-bg p-4 shadow-sm transition hover:border-primary hover:shadow-md">
+                                <a href="{{ route('student.course.show', $cc->id) }}" class="rounded-xl border border-border bg-bg p-4 shadow-sm transition hover:border-primary hover:shadow-md">
                                     <h3 class="font-bold text-text">{{ $cc->course->code ?? 'CODE' }}</h3>
                                     <p class="text-xs text-muted">{{ $cc->course->name ?? 'Course title' }} — Level {{ $cc->level }}</p>
                                 </a>
