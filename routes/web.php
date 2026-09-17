@@ -72,7 +72,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [StudentDashboardController::class, 'index'])->name('dashboard');
         Route::get('/profile', [StudentDashboardController::class, 'profile'])->name('profile');
         Route::get('/my-courses', [StudentDashboardController::class, 'myCourses'])->name('my-courses');
-        Route::get('/course/{curriculumCourse}', [StudentDashboardController::class, 'showCourse'])->name('course.show');
+        Route::get('/course/{curriculumCourse}', [StudentDashboardController::class, 'showCourse'])->name('student.course.show');
     });
 
     // Course Viewer
