@@ -310,7 +310,7 @@ class StudentRegistrationController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($verification, $validated) {
+        $user = DB::transaction(function () use ($verification, $validated) {
             $user = User::create([
                 'name' => $verification->verified_name,
                 'email' => $validated['email'],
@@ -357,6 +357,8 @@ class StudentRegistrationController extends Controller
                 'user_id' => $user->id,
                 'school_registration_number' => $verification->school_registration_number,
             ]);
+
+            return $user;
         });
 
         $request->session()->forget('student_verification_token');
