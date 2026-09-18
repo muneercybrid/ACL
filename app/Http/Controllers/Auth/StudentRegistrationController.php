@@ -310,54 +310,66 @@ class StudentRegistrationController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($verification, $validated) {
-            $user = User::create([
-                'name' => $verification->verified_name,
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-                'jamb_registration_number_hash' => $verification->jamb_registration_number_hash,
-            ]);
-
-            // Assign student role scoped to the institution (only if org exists)
-            if ($verification->organization) {
-                $studentRole = Role::where('slug', 'student')->firstOrFail();
-                RoleAssignment::create([
-                    'user_id' => $user->id,
-                    'role_id' => $studentRole->id,
-                    'entity_type' => get_class($verification->organization),
-                    'entity_id' => $verification->organization->id,
+        try {
+            $user = DB::transaction(function () use ($verification, $validated) {
+                $user = User::create([
+                    'name' => $verification->verified_name,
+                    'email' => $validated['email'],
+                    'password' => Hash::make($validated['password']),
+                    'jamb_registration_number_hash' => $verification->jamb_registration_number_hash,
                 ]);
 
-                OrganizationMembership::create([
-                    'organization_id' => $verification->organization->id,
+                // Assign student role scoped to the institution (only if org exists)
+                if ($verification->organization) {
+                    $studentRole = Role::where('slug', 'student')->firstOrFail();
+                    RoleAssignment::create([
+                        'user_id' => $user->id,
+                        'role_id' => $studentRole->id,
+                        'entity_type' => get_class($verification->organization),
+                        'entity_id' => $verification->organization->id,
+                    ]);
+
+                    OrganizationMembership::create([
+                        'organization_id' => $verification->organization->id,
+                        'user_id' => $user->id,
+                        'academic_program_id' => $verification->academic_program_id,
+                        'matric_number' => $validated['school_registration_number'] ?? null,
+                        'membership_type' => 'student',
+                        'status' => 'active',
+                        'joined_at' => now(),
+                    ]);
+                }
+
+                // Create student record with nationality, state, lga
+                \App\Models\Student::create([
                     'user_id' => $user->id,
-                    'academic_program_id' => $verification->academic_program_id,
-                    'matric_number' => $validated['school_registration_number'] ?? null,
-                    'membership_type' => 'student',
-                    'status' => 'active',
-                    'joined_at' => now(),
+                    'verification_method' => 'jamb',
+                    'verification_status' => 'verified',
+                    'nationality' => $validated['nationality'],
+                    'state' => $validated['state_id'], // state name
+                    'lga' => $validated['lga_id'], // lga name
+                    'region' => \App\Models\Lga::find($validated['lga_id'])?->state->name ?? '',
+                    'admission_year' => (int) $verification->jamb_exam_year,
+                    'level' => $validated['level'] ?? 100,
+                    'acl_student_id' => (string) $user->id,
                 ]);
-            }
 
-            // Create student record with nationality, state, lga
-            \App\Models\Student::create([
-                'user_id' => $user->id,
-                'verification_method' => 'jamb',
-                'verification_status' => 'verified',
-                'nationality' => $validated['nationality'],
-                'state' => $validated['state_id'], // state name
-                'lga' => $validated['lga_id'], // lga name
-                'region' => \App\Models\Lga::find($validated['lga_id'])?->state->name ?? '',
-                'admission_year' => (int) $verification->jamb_exam_year,
-                'level' => $validated['level'] ?? 100,
-                'acl_student_id' => (string) $user->id,
-            ]);
+                $verification->update([
+                    'user_id' => $user->id,
+                    'school_registration_number' => $verification->school_registration_number,
+                ]);
 
-            $verification->update([
-                'user_id' => $user->id,
-                'school_registration_number' => $verification->school_registration_number,
-            ]);
-        });
+                return $user;
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            report($e);
+
+            return redirect()
+                ->route('register.student')
+                ->withErrors([
+                    'email' => 'This email is already registered. Please sign in instead.',
+                ]);
+        }
 
         $request->session()->forget('student_verification_token');
 
