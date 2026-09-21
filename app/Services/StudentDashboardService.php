@@ -83,7 +83,29 @@ class StudentDashboardService
                 return $byName;
             }
 
-            // Aligned identifiers (legacy/demo datasets).
+            // Fuzzy/substring match: institution programme name may be
+            // a substring of the NUC programme name (e.g. "Cyber Security"
+            // ⊂ "B.Sc. Cyber Security"). Replaces unsafe exact-ID match
+            // which previously returned an unrelated programme when
+            // AcademicProgram id collided with Curriculum Programme id.
+            $byPartial = Programme::where('status', 'active')
+                ->get()
+                ->filter(function (Programme $p) use ($academic) {
+                    $haystack = $this->normaliseName($p->name);
+                    $needle = $this->normaliseName($academic->name);
+                    return $needle !== '' && (
+                        str_contains($haystack, $needle) ||
+                        str_contains($needle, $haystack)
+                    );
+                })
+                ->first();
+
+            if ($byPartial) {
+                return $byPartial;
+            }
+
+            // Aligned identifiers (legacy/demo datasets) — only when
+            // institution explicitly maps ids to NUC programmes.
             $byId = Programme::where('status', 'active')
                 ->whereKey($academic->id)
                 ->first();
