@@ -55,4 +55,36 @@ class DashboardTest extends TestCase
             ->assertOk()
             ->assertSee('Dashboard');
     }
+
+    /**
+     * Regression test for: Route [course.show] not defined.
+     *
+     * The student route group uses name('student.') prefix, so the correct
+     * fully-qualified route name for the course detail page is
+     * 'student.course.show'. Any view that calls route('course.show', ...)
+     * (without the prefix) will throw a RouteNotFoundException at render time.
+     * This test ensures the /student page renders without that error.
+     */
+    public function test_student_dashboard_does_not_throw_route_not_defined(): void
+    {
+        // Assert the correct named route exists and resolves.
+        $this->assertTrue(
+            \Illuminate\Support\Facades\Route::has('student.course.show'),
+            "Route 'student.course.show' must be registered. " .
+            "Did you accidentally drop the name('student.') prefix group?"
+        );
+
+        // Assert the bare (wrong) name does NOT exist, so misuse is caught early.
+        $this->assertFalse(
+            \Illuminate\Support\Facades\Route::has('course.show'),
+            "Route 'course.show' should not exist as a standalone name. " .
+            "Course routes belong inside the student. prefix group."
+        );
+
+        // Assert the dashboard itself renders without a RouteNotFoundException.
+        $student = User::where('email', 'student@acl.local')->firstOrFail();
+        $this->actingAs($student)
+            ->get(route('student.dashboard'))
+            ->assertOk();
+    }
 }
