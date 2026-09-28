@@ -59,7 +59,7 @@ class InstitutionStaffInvitation extends Model
 
     public function role(): BelongsTo
     {
-        return Role::where('slug', $this->role_slug)->first();
+        return $this->belongsTo(Role::class, 'role_slug', 'slug');
     }
 
     public function isExpired(): bool
