@@ -154,7 +154,7 @@ class AcliOrchestrator
                 'user_id' => $user->id,
                 'conversation_id' => $conversation->id,
                 'capability_id' => $capability?->id,
-                'provider' => $e->getProvider(),
+                'provider' => $e->provider,
                 'model' => config('acli.gateway.model', 'auto'),
                 'status' => 'failed',
                 'latency_ms' => $latencyMs,
