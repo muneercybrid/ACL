@@ -68,50 +68,17 @@
             </div>
         </a>
 
-        {{-- External Learner --}}
-        <a href="{{ route('register.external') }}"
-           class="group rounded-2xl border border-border bg-surface p-6 shadow-sm transition
-                  hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md
-                  focus:outline-none focus:ring-2 focus:ring-ring">
+        {{--
+            External Learner registration is suppressed for now, at the project
+            owner's direction: ACL is focused on university students, and offering
+            a second audience on the front page split attention from that.
 
-            <div class="flex items-start justify-between gap-4">
-                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-info/10 text-info">
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                         viewBox="0 0 24 24"
-                         fill="none"
-                         stroke="currentColor"
-                         stroke-width="1.8"
-                         class="h-6 w-6"
-                         aria-hidden="true">
-                        <circle cx="12" cy="12" r="8.5"/>
-                        <path stroke-linecap="round" d="M3.5 12h17"/>
-                        <path stroke-linecap="round"
-                              d="M12 3.5c2.2 2.3 3.3 5.15 3.3 8.5S14.2 18.2 12 20.5"/>
-                        <path stroke-linecap="round"
-                              d="M12 3.5c-2.2 2.3-3.3 5.15-3.3 8.5S9.8 18.2 12 20.5"/>
-                    </svg>
-                </div>
-
-                <span class="text-muted transition-transform group-hover:translate-x-1"
-                      aria-hidden="true">
-                    →
-                </span>
-            </div>
-
-            <h2 class="mt-5 text-lg font-bold text-text">
-                External Learner
-            </h2>
-
-            <p class="mt-2 text-sm leading-6 text-muted">
-                Learn independently through professional programmes,
-                practical skills, certifications, and courses beyond the
-                university curriculum.
-            </p>
-
-            <div class="mt-5 text-sm font-semibold text-primary">
-                Start learning →
-            </div>
-        </a>
+            The route, controller and view are deliberately kept in place. The
+            `is_external` flag, `external_track_id` and student_external_identity
+            rows all still exist and must keep their data, so removing the code
+            would gain nothing and cost a rebuild if the audience returns. Only
+            the entry point is withdrawn; the route answers 410 Gone.
+        --}}
 
         {{-- Tutor --}}
         <div class="rounded-2xl border border-border bg-surface p-6 shadow-sm">

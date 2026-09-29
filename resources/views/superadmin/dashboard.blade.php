@@ -39,7 +39,7 @@
                         default    => 'bg-primary/10 text-primary',
                     };
                 @endphp
-                <a href="{{ $card['label']==='Institutions' ? route('superadmin.institutions') : ($card['label']==='Students' ? '#' : ($card['label']==='Staff' ? route('superadmin.staff') : ($card['label']==='Courses' ? '#' : ($card['label']==='Programmes' ? route('superadmin.academic') : ($card['label']==='Onboarding' ? route('superadmin.onboarding') : '#'))))) }}"
+                <a href="{{ $card['label']==='Institutions' ? route('superadmin.institutions.index') : ($card['label']==='Students' ? '#' : ($card['label']==='Staff' ? route('superadmin.staff') : ($card['label']==='Courses' ? '#' : ($card['label']==='Programmes' ? route('superadmin.academic') : ($card['label']==='Onboarding' ? route('superadmin.onboarding') : '#'))))) }}"
                    class="group relative rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30">
                     <div class="flex items-start justify-between">
                         <div class="rounded-xl p-2.5 {{ $chipClass }}">
@@ -160,7 +160,7 @@
             <div class="rounded-2xl border border-border bg-surface shadow-sm">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-border">
                     <h2 class="text-base font-extrabold text-text">Institutions Requiring Attention</h2>
-                    <a href="{{ route('superadmin.institutions') }}" class="text-xs font-semibold text-primary hover:underline">All ›</a>
+                    <a href="{{ route('superadmin.institutions.index') }}" class="text-xs font-semibold text-primary hover:underline">All ›</a>
                 </div>
                 <div class="divide-y divide-border">
                     @forelse ($institutionsNeedingAttention as $item)

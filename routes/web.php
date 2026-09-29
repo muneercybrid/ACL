@@ -3,18 +3,25 @@
 use App\Http\Controllers\ACLi\AcliChatController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\SetPasswordController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\StudentRegistrationController;
-use App\Http\Controllers\Auth\ExternalLearnerRegistrationController;
 use App\Http\Controllers\CourseViewerController;
+use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\StudentDashboardController;
+use App\Http\Controllers\Student;
 use App\Http\Controllers\Superadmin;
 use Illuminate\Support\Facades\Route;
 
 // Public landing for guests; authenticated users go straight to their dashboard.
 Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : view('welcome'))->name('home');
+
+// Professional catalogue — browsable by guests. The controller reads the
+// student relation optionally, so recommendations only appear when signed in.
+Route::get('/catalogue', [CatalogController::class, 'index'])->name('catalogue');
+Route::get('/catalogue/{discipline}', [CatalogController::class, 'discipline'])->name('catalogue.discipline');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -41,8 +48,19 @@ Route::middleware('guest')->group(function () {
     Route::post('/register/student/complete', [StudentRegistrationController::class, 'complete'])
         ->name('register.student.complete');
 
-    Route::get('/register/external', [ExternalLearnerRegistrationController::class, 'create'])
-        ->name('register.external');
+    /*
+     * External learner registration is suppressed while ACL focuses on
+     * university students.
+     *
+     * The endpoint answers 410 Gone rather than being unregistered. A deleted
+     * route returns 404, which reads as a broken link and invites a support
+     * ticket; 410 states correctly that the capability was retired and can
+     * return. The controller and view are kept for the same reason, and
+     * re-enabling is just removing this closure and restoring two view links.
+     */
+    Route::get('/register/external', function () {
+        abort(410, 'External learner registration is currently closed.');
+    })->name('register.external');
 
 
 
@@ -72,6 +90,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [StudentDashboardController::class, 'index'])->name('dashboard');
         Route::get('/profile', [StudentDashboardController::class, 'profile'])->name('profile');
         Route::get('/my-courses', [StudentDashboardController::class, 'myCourses'])->name('my-courses');
+
+        // The student is always resolved from the authenticated session, never
+        // from a route parameter, so one student can never read another's data.
+        // Declared before {curriculumCourse} so the literal path wins.
+        Route::get('/course/missing-request', [Student\MissingCourseController::class, 'create'])->name('missing-course.create');
+        Route::get('/course-register', [Student\CourseRegistrationController::class, 'index'])->name('course.register');
         Route::get('/course/{curriculumCourse}', [StudentDashboardController::class, 'showCourse'])->name('course.show');
     });
 
@@ -108,7 +132,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 
     Route::post('/institution-courses', [\App\Http\Controllers\UniversityCourseController::class, 'store'])->name('institution.courses.store');
     // Institutions
-    Route::get('/institutions', [Superadmin\InstitutionController::class, 'index'])->name('institutions');
+    Route::get('/institutions', [Superadmin\InstitutionController::class, 'index'])->name('institutions.index');
     Route::get('/institutions/create', [Superadmin\InstitutionController::class, 'create'])->name('institutions.create');
     Route::post('/institutions', [Superadmin\InstitutionController::class, 'store'])->name('institutions.store');
     Route::get('/institutions/{organization}', [Superadmin\InstitutionController::class, 'show'])->name('institutions.show');
@@ -170,4 +194,21 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 
     // Global search
     Route::get('/search', [Superadmin\SearchController::class, 'index'])->name('search');
+});
+
+/*
+ * Setting a password of the user's own choosing.
+ *
+ * Institution administrators are provisioned with a generated credential and
+ * flagged force_password_change. Without these routes the flag was
+ * unactionable: the only password flow in ACL was forgot-password, which needs
+ * a mailbox the platform does not control, so a provisioned administrator
+ * could never replace the generated password.
+ *
+ * auth is required — the user is changing their own credential, not resetting
+ * a forgotten one.
+ */
+Route::middleware('auth')->group(function () {
+    Route::get('/set-password', [SetPasswordController::class, 'create'])->name('password.set');
+    Route::post('/set-password', [SetPasswordController::class, 'store'])->name('password.set.store');
 });

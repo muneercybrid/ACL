@@ -28,3 +28,6 @@ Thumbs.db
 
 # Local database backups
 /backups/
+
+# Session cookie captured during testing — never commit
+cookies.txt

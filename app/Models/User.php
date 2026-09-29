@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -11,7 +14,7 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password', 'jamb_registration_number_hash', 'provider', 'provider_id', 'avatar_path'];
+    protected $fillable = ['name', 'email', 'password', 'jamb_registration_number_hash', 'provider', 'provider_id', 'avatar_path', 'institution_id', 'force_password_change', 'email_verified_at'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -20,12 +23,66 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            // Stored as tinyint(1). Without this cast the attribute hydrates as
+            // 0 or 1 rather than a real boolean, so strict checks such as
+            // assertFalse($user->force_password_change) fail even though the
+            // stored value is correct.
+            'force_password_change' => 'boolean',
         ];
     }
 
     public function organizationMemberships(): HasMany
     {
         return $this->hasMany(OrganizationMembership::class);
+    }
+
+    /**
+     * The institution this account belongs to.
+     *
+     * The column has existed on users since registration but had no relation,
+     * so every caller had to hand-roll the lookup and some reached for the
+     * Organization fork instead. Institutions is the authoritative record.
+     */
+    /**
+     * The organization this account belongs to.
+     *
+     * The column is still called `institution_id`, but since the consolidation
+     * it holds an `organizations` id: every body ACL works with now lives in
+     * that one table, NUC-registered or not. The column is left as-is so the
+     * rename does not become a schema migration touching a hot table; the
+     * relation below is what defines its meaning.
+     */
+    public function institution(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'institution_id');
+    }
+
+    /** Unambiguous alias. Prefer this where the old name would mislead. */
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'institution_id');
+    }
+
+    /**
+     * The institutions this account administers, via its scoped role
+     * assignments. A user may administer more than one.
+     */
+    public function administeredInstitutions(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Organization::class,
+            'role_assignments',
+            'user_id',
+            'entity_id'
+        )
+            ->where('role_assignments.entity_type', Organization::class)
+            ->whereHas('roles', fn ($q) => $q->where('slug', 'institution.admin'));
+    }
+
+    /** The organizations this account administers. Same data, current name. */
+    public function administeredOrganizations(): BelongsToMany
+    {
+        return $this->administeredInstitutions();
     }
 
     public function roleAssignments(): HasMany
@@ -137,15 +194,31 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if user is an Institution Admin for a specific organization.
-     * Without an organization, checks for platform-wide institution admin only.
+     * Check if the user is an Institution Administrator.
+     *
+     * With an entity, the check is scoped to that entity: holding the role
+     * against one institution is not evidence of authority over another, which
+     * is the scope-isolation rule in AGENTS.md §6.
+     *
+     * With no entity, the question is "is this person an institution
+     * administrator at all?" and the answer looks across every institution the
+     * user is scoped to.
+     *
+     * The previous implementation required `entity_type IS NULL` in the
+     * no-entity case, which meant it returned false for every genuine
+     * institution administrator, because an institution administrator's role
+     * is always held against the institution they administer. The role is
+     * inherently scoped, so requiring an unscoped assignment described a
+     * situation ACL does not create and never should.
      */
-    public function isInstitutionAdmin(?Organization $organization = null): bool
+    public function isInstitutionAdmin($entity = null): bool
     {
-        if ($organization) {
-            return $this->hasRole('institution.admin', $organization);
+        if ($entity !== null) {
+            return $this->hasRole('institution.admin', $entity);
         }
 
-        return $this->hasRole('institution.admin');
+        return $this->roleAssignments()
+            ->whereHas('role', fn ($q) => $q->where('slug', 'institution.admin'))
+            ->exists();
     }
 }

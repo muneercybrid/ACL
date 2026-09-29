@@ -24,6 +24,10 @@ class Student extends Model
         'admission_year',
     ];
 
+    public function institutionRecord(): BelongsTo
+    {
+        return $this->belongsTo(OrganizationMembership::class, "user_id", "user_id");
+    }
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

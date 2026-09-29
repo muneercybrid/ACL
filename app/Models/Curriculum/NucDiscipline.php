@@ -13,7 +13,7 @@ class NucDiscipline extends Model
 
     public function programmes(): HasMany
     {
-        return $this->hasMany(\App\Models\Programme::class, 'nuc_discipline_id');
+        return $this->hasMany(\App\Models\Curriculum\Programme::class, 'nuc_discipline_id');
     }
 
     public function courses(): BelongsToMany

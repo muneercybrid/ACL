@@ -20,7 +20,7 @@ class StudentDashboardController extends Controller
     public function index(Request $request): View
     {
         $user = Auth::user();
-        $student = $user->student;
+        $student = $user?->student;
 
         $enrollments = collect();
         $programmeCourses = collect();
@@ -53,7 +53,7 @@ class StudentDashboardController extends Controller
     public function profile(Request $request): View
     {
         $user = Auth::user();
-        $student = $user->student;
+        $student = $user?->student;
 
         return view('student.profile', [
             'user' => $user,
@@ -73,7 +73,7 @@ class StudentDashboardController extends Controller
     public function myCourses(Request $request): View
     {
         $user = Auth::user();
-        $student = $user->student;
+        $student = $user?->student;
 
         $enrollments = $this->dashboard->activeEnrollments($user);
         $programmeCourses = collect();
@@ -111,7 +111,7 @@ class StudentDashboardController extends Controller
     public function showCourse(Request $request, int $curriculumCourseId): View
     {
         $user = Auth::user();
-        $student = $user->student;
+        $student = $user?->student;
 
         $curriculumCourse = CurriculumCourse::with([
             'course.chapters',

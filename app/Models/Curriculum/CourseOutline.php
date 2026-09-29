@@ -5,6 +5,8 @@ namespace App\Models\Curriculum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\OutlineQuestion;
 
 class CourseOutline extends Model
 {
@@ -40,5 +42,10 @@ class CourseOutline extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function questions(): HasMany
+    {
+        return $this->hasMany(OutlineQuestion::class, 'course_outline_id')->orderBy('order');
     }
 }

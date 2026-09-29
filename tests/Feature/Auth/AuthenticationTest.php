@@ -50,6 +50,9 @@ class AuthenticationTest extends TestCase
 
     public function test_dashboard_requires_authentication(): void
     {
+        // /dashboard is a compatibility alias that forwards to the student
+        // dashboard, but the auth group runs before the controller, so a guest
+        // is turned away with a redirect to login and never reaches either.
         $this->get('/dashboard')->assertRedirect(route('login'));
     }
 

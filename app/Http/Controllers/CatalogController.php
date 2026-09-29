@@ -33,7 +33,7 @@ class CatalogController extends Controller
             $request->query('q')
         );
 
-        $departments = $programmeList = $discipline->programmes()->orderBy('name')->get();
+        $departments = $discipline->programmes()->orderBy('name')->get();
 
         return view('catalog.discipline', compact('discipline', 'courses', 'departments'));
     }

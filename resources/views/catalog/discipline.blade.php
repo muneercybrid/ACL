@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.public')
 @section('title', $discipline->name)
 @section('content')
 <div class="mx-auto max-w-6xl px-4 py-8">

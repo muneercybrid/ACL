@@ -2,7 +2,7 @@
 @section('title', 'Institution Create — Superadmin')
 @section('header')
     <div class="flex items-center gap-3">
-        <a href="{{ route('superadmin.institutions') }}" class="text-muted hover:text-text transition"><x-ui.icon name="arrow-left" class="h-5 w-5" /></a>
+        <a href="{{ route('superadmin.institutions.index') }}" class="text-muted hover:text-text transition"><x-ui.icon name="arrow-left" class="h-5 w-5" /></a>
         <h1 class="text-xl font-extrabold tracking-tight text-text">Create Institution</h1>
     </div>
 @endsection
@@ -64,7 +64,7 @@
         </div>
         <div class="flex gap-3">
             <button type="submit" class="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-fg transition hover:bg-primary/90">Create Institution</button>
-            <a href="{{ route('superadmin.institutions') }}" class="rounded-xl border border-border px-6 py-2.5 text-sm font-bold text-muted hover:bg-raised transition">Cancel</a>
+            <a href="{{ route('superadmin.institutions.index') }}" class="rounded-xl border border-border px-6 py-2.5 text-sm font-bold text-muted hover:bg-raised transition">Cancel</a>
         </div>
     </form>
 </div>
