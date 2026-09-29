@@ -48,7 +48,11 @@ return new class extends Migration {
         
         $zeroCourseVersions = DB::table('curriculum_versions')
             ->where('is_active', true)
-            ->whereDoesntHave('curriculumCourses')
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('curriculum_courses')
+                    ->whereColumn('curriculum_courses.curriculum_version_id', 'curriculum_versions.id');
+            })
             ->pluck('id');
         
         foreach ($zeroCourseVersions as $versionId) {
