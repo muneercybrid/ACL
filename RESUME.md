@@ -110,3 +110,22 @@ database by the agent that wrote them.
                               model/schema drift, migration chain soundness
 - audits/functional_audit.md — route/view pairing, null-safety, dashboard
                               traces, blade correctness, test honesty
+
+## ACLi access model — decided by the owner
+Course content is AUTHORED, not student-generated:
+
+- Authoring lives in `CourseContentGenerator`, reached only through the
+  console command `acl:acli:generate-content`. No web route touches it, and
+  a test asserts that stays true.
+- Generated chapters are written as `draft` with `generated_by` null. Human
+  review then approval then publication, per AGENTS.md section 7.
+- A student's ACLi access is to ask questions about material they ALREADY
+  have: their course content, exercises and diagrams. The student system
+  prompt says so explicitly and refuses to draft chapters, lessons, course
+  notes, answer keys or syllabus content, and points the student back to
+  their own material instead.
+- Guarded by `AcliStudentCannotAuthorCourseContentTest`.
+
+A prompt instruction is a guardrail, not an authorization control. The
+authoring capability is absent from the student's reach entirely; the prompt
+only stops a determined user from re-creating it through the chat surface.
