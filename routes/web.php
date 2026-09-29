@@ -96,6 +96,10 @@ Route::middleware('auth')->group(function () {
         // Declared before {curriculumCourse} so the literal path wins.
         Route::get('/course/missing-request', [Student\MissingCourseController::class, 'create'])->name('missing-course.create');
         Route::get('/course-register', [Student\CourseRegistrationController::class, 'index'])->name('course.register');
+        // Declared after the GET on the same path. The order is intentional:
+        // the flow is server-enforced, so the POST is the only way a
+        // selection is recorded and the GET never mutates anything.
+        Route::post('/course-register', [Student\CourseRegistrationController::class, 'store'])->name('course.register.store');
         Route::get('/course/{curriculumCourse}', [StudentDashboardController::class, 'showCourse'])->name('course.show');
     });
 

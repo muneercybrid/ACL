@@ -92,8 +92,23 @@ class CurriculumPublisher
                 ->where('academic_session_id', $sessionId)
                 ->count() + 1;
 
+            // curriculum_versions.programme_id has a foreign key to
+            // `programmes` (the national catalogue), NOT to academic_programs
+            // (the per-university offering). Publishing the offering id there
+            // is wrong twice over: it violates the constraint, and where the
+            // two id ranges overlap it does not violate it, so the rows are
+            // silently attached to whichever programme happens to share the
+            // number. That is how 194 versions came to point at the wrong
+            // programme with no error anywhere.
+            //
+            // Publishing nationally is also what the owner asked for
+            // originally: programmes are national and universities offer from
+            // one list. A curriculum version therefore belongs to the
+            // programme, and a student reaches it through their offering.
+            $programmeId = $offering->nuc_programme_id ?? $offering->id;
+
             $versionId = DB::table('curriculum_versions')->insertGetId([
-                'programme_id' => $offering->id,
+                'programme_id' => $programmeId,
                 'academic_session_id' => $sessionId,
                 'version_label' => $label ?? ('Version ' . $version),
                 'slug' => \Illuminate\Support\Str::slug(($offering->slug ?: 'programme').'-s'.$sessionId.'-v'.$version),
@@ -143,7 +158,7 @@ class CurriculumPublisher
     {
         $query = DB::table('curriculum_courses as cc')
             ->join('curriculum_versions as cv', 'cv.id', '=', 'cc.curriculum_version_id')
-            ->where('cv.programme_id', $offering->id)
+            ->where('cv.programme_id', $offering->nuc_programme_id ?? $offering->id)
             ->where('cv.is_active', true)
             ->where('cc.level', $level)
             ->where('cc.status', 'active');
@@ -165,7 +180,7 @@ class CurriculumPublisher
         $query = DB::table('curriculum_courses as cc')
             ->join('curriculum_versions as cv', 'cv.id', '=', 'cc.curriculum_version_id')
             ->join('courses as c', 'c.id', '=', 'cc.course_id')
-            ->where('cv.programme_id', $offering->id)
+            ->where('cv.programme_id', $offering->nuc_programme_id ?? $offering->id)
             ->where('cv.is_active', true)
             ->where('cc.level', $level)
             ->where('cc.status', 'active')
