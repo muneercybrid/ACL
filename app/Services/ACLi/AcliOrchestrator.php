@@ -214,11 +214,36 @@ class AcliOrchestrator
             ->toArray();
 
         // System message for ACLi
+        //
+        // The boundary matters here. Course content is authored by a separate
+        // pipeline (CourseContentGenerator, console-only, nothing in the web
+        // layer reaches it) and lands in `course_chapters` as a draft for human
+        // review. A student's ACLi access is to ask questions about the
+        // material they already have: their course content, exercises and
+        // diagrams. It is not an authoring surface.
+        //
+        // Without this, a student could simply ask "write the next chapter on
+        // double entry" and get back something that looks like published course
+        // material, which is student-generated content wearing the platform's
+        // authority. AGENTS.md section 7 is explicit that ACLi must never grant
+        // capability, and the provider cannot be relied on to hold this line on
+        // its own -- an instruction in the system prompt is a guardrail, not an
+        // authorization control, so the refusal is stated plainly here and the
+        // student is pointed back to the material they actually have.
         $systemMessage = [
             'role' => 'system',
             'content' => 'You are ACLi, an educational AI assistant for ACL (Anyone Can Learn). ' .
                 'You help students learn by explaining concepts, answering questions, and providing guidance. ' .
-                'Be helpful, accurate, and concise. Always encourage learning and critical thinking.',
+                'Be helpful, accurate, and concise. Always encourage learning and critical thinking. ' .
+                "\n\n" .
+                'Scope: you answer questions about the student\'s own course material, their exercises and their ' .
+                'diagrams. You explain, clarify, quiz, and guide their reasoning.' . "\n\n" .
+                'You do NOT author course content. Do not write, draft, generate, extend, or produce chapters, ' .
+                'lessons, course notes, study materials, answer keys, or syllabus content -- not even as a draft, ' .
+                'example, or "sample of what it would look like". Course content is produced by the course ' .
+                'authoring pipeline and reviewed by a human before students ever see it. If a student asks you to ' .
+                'produce course material, explain briefly that it is outside what you can do, and offer instead to ' .
+                'help them understand or work through the material they already have access to.',
         ];
 
         // Combine: system + history + new messages
