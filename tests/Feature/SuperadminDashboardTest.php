@@ -247,15 +247,39 @@ class SuperadminDashboardTest extends TestCase
             ->post('/superadmin/staff/invite', [
                 'email' => 'brand.new@acl.local',
                 'organization_id' => $this->organization->id,
-                'role_slug' => 'level.coordinator',
+                'role_slug' => 'tutor',
             ])
             ->assertRedirect()
             ->assertSessionHas('success');
 
         $this->assertDatabaseHas('institution_staff_invitations', [
             'email' => 'brand.new@acl.local',
-            'role_slug' => 'level.coordinator',
+            'role_slug' => 'tutor',
             'organization_id' => $this->organization->id,
+        ]);
+    }
+
+    /**
+     * A level coordinator must be scoped to a level.
+     *
+     * This previously succeeded while writing an organization-wide role
+     * assignment, granting the account authority over every programme and level
+     * in the organization — the over-grant AGENTS.md section 6 forbids. The
+     * scope was validated and then discarded, so the audit log recorded a scope
+     * the grant did not actually carry, which is what made it look correct.
+     */
+    public function test_level_coordinator_cannot_be_invited_without_a_level(): void
+    {
+        $this->actingAs($this->superadmin)
+            ->post('/superadmin/staff/invite', [
+                'email' => 'unscoped.coordinator@acl.local',
+                'organization_id' => $this->organization->id,
+                'role_slug' => 'level.coordinator',
+            ])
+            ->assertSessionHasErrors('scope.level_id');
+
+        $this->assertDatabaseMissing('institution_staff_invitations', [
+            'email' => 'unscoped.coordinator@acl.local',
         ]);
     }
 

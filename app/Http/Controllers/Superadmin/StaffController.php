@@ -69,19 +69,46 @@ class StaffController extends Controller
         $organization = Organization::findOrFail($data['organization_id']);
         $role = Role::where('slug', $data['role_slug'])->firstOrFail();
 
+        // A level coordinator's authority is the programme *and* the level, not
+        // the whole organization.
+        //
+        // This was the worst defect found in the data-model audit: the scope was
+        // validated above and then dropped on the floor, and the role assignment
+        // was written org-wide. Inviting someone as a "level coordinator" granted
+        // them authority over every programme and level in the organization —
+        // precisely the over-grant AGENTS.md section 6 forbids. The audit log even
+        // recorded the discarded scope, so the log looked correct while the grant
+        // was not.
+        $scope = $data['scope'] ?? null;
+
+        if ($role->slug === 'level.coordinator' && empty($scope['level_id'])) {
+            return back()->withErrors([
+                'scope.level_id' => 'A level coordinator must be scoped to a level. '
+                    .'Without it the account would be granted the whole organization.',
+            ])->withInput();
+        }
+
         // If the user already exists, assign the role directly (scoped).
         $existingUser = User::where('email', $data['email'])->first();
 
         if ($existingUser) {
-            DB::transaction(function () use ($existingUser, $role, $organization, $data) {
+            DB::transaction(function () use ($existingUser, $role, $organization, $data, $scope) {
                 RoleAssignment::updateOrCreate(
                     [
                         'user_id' => $existingUser->id,
                         'role_id' => $role->id,
-                        'entity_type' => Organization::class,
-                        'entity_id' => $organization->id,
+                        'entity_type' => $role->slug === 'level.coordinator'
+                            ? \App\Models\Curriculum\Programme::class
+                            : Organization::class,
+                        'entity_id' => $role->slug === 'level.coordinator'
+                            ? (int) $scope['academic_program_id']
+                            : $organization->id,
                     ],
-                    ['updated_at' => now()]
+                    // The level is the part that was being lost. It is what makes a
+                    // 100-level coordinator distinct from a 200-level one.
+                    $role->slug === 'level.coordinator'
+                        ? ['scope_type' => 'level', 'scope_id' => (string) $scope['level_id'], 'updated_at' => now()]
+                        : ['updated_at' => now()]
                 );
 
                 OrganizationMembership::updateOrCreate(
@@ -102,7 +129,9 @@ class StaffController extends Controller
                 'target_user_id' => $existingUser->id,
                 'severity' => 'medium',
                 'description' => "{$existingUser->name} assigned role {$role->name} at {$organization->name}",
-                'new_values' => ['role' => $role->slug, 'scope' => Organization::class . '#' . $organization->id],
+                'new_values' => ['role' => $role->slug, 'scope' => $role->slug === 'level.coordinator'
+                    ? 'Programme#' . $scope['academic_program_id'] . ' level:' . $scope['level_id']
+                    : Organization::class . '#' . $organization->id],
             ]);
 
             return back()->with('success', "Role {$role->name} assigned to existing user {$existingUser->name}.");
@@ -113,7 +142,7 @@ class StaffController extends Controller
             'organization_id' => $organization->id,
             'email' => $data['email'],
             'role_slug' => $role->slug,
-            'scope' => $data['scope'] ?? null,
+            'scope' => $scope,
             'invited_by' => auth()->id(),
             'token' => Str::random(64),
             'expires_at' => now()->addDays(7),
