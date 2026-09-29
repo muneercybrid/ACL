@@ -246,9 +246,28 @@ Verified by rendering the actual view the controller returns, with the
 actual models: 49 options, Abia and Bauchi both present, and the LGA
 JavaScript payload populated.
 
-## Chapter scaffold — needs a fix before rerunning
-`acl:scaffold:chapters` died at 348 placeholders with a duplicate on
-`course_chapters_course_id_position_unique`. The per-course `max(position)`
-query is both slow and racy when a batch spans several courses. It needs to
-dedupe (course_id, position) within a batch and skip what already exists
-rather than aborting the whole run on the first collision.
+## Chapter scaffold — fixed, running
+It died at 348 placeholders on a duplicate `course_chapters_course_id_position_unique`
+and aborted the whole run on the first collision. Fixed and verified: 15,600+
+placeholders with zero errors, and a re-run over already-scaffolded courses
+creates 0 and skips cleanly.
+
+A second bug in the same fix: `pluck('slug','position')->keys()` assumes a
+Collection, but this driver returns a plain array from that call. Use
+`max('position')` for the high-water mark and a separate `pluck('slug')` for
+the duplicate check.
+
+## Course registration — the next real piece of work
+The owner's requirement, not yet started:
+- after account creation a student sees the courses for their programme and level
+- they select FIRST SEMESTER courses, then SECOND SEMESTER, in that order, so
+  the two are never mixed up
+- if the level coordinator or superadmin has already published the course list
+  for that programme and level, the student skips selection entirely
+- must be standardised and scalable
+
+The tables to build on already exist and are populated:
+`curriculum_courses` (course_id, level, semester, course_type, credit_units,
+is_mandatory), `levels`, `academic_programs`. `curriculum_courses` is still
+empty, so the coordinator side has to be done before the student side means
+anything.
