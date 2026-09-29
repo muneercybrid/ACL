@@ -125,23 +125,29 @@ class ChapterScaffolder
                 $lastId = (int) $course->id;
                 $coursesDone++;
 
-                $highest = (int) DB::table('course_chapters')
+                // Two separate checks, and both are needed:
+                // - slug: re-running must not duplicate a chapter
+                // - (course_id, position): the unique constraint rejects it,
+                //   and it aborts the whole run on the first collision if it is
+                //   not caught first. The slug check alone is not enough, since
+                //   two different titles can produce the same slug.
+                $highest = DB::table('course_chapters')
                     ->where('course_id', $course->id)
                     ->max('position');
 
-                $existingSlugs = DB::table('course_chapters')
+                $existing = DB::table('course_chapters')
                     ->where('course_id', $course->id)
                     ->pluck('slug')
                     ->flip()
                     ->all();
 
-                $position = $highest;
+                $position = (int) $highest;
 
                 foreach ($arc as $title) {
                     $position++;
                     $slug = Str::slug($title);
 
-                    if (isset($existingSlugs[$slug])) {
+                    if (isset($existing[$slug])) {
                         $skipped++;
                         continue;
                     }
