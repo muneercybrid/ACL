@@ -32,7 +32,7 @@ which its own startup banner flags as a risk on an untrusted network. Setting
   `--only-students` it re-walks all 481 organizations and re-checks 1,666
   levels, which costs ~20 minutes before a single student is written.
 
-  Log: /tmp/seed4.log
+  Log: storage/logs/seed_students.log  (owned by www-data)
 
   Already written and correct, e.g. accountinglvl100@aclacademy.me,
   actuarialsciencelvl100@aclacademy.me, aviationmanagementlvl100@aclacademy.me.
@@ -44,6 +44,18 @@ which its own startup banner flags as a risk on an untrusted network. Setting
   Why it is slow: TiDB runs at ~200 ms per statement, and the command issues
   several per student. This is a design problem, not a bug — the per-row work
   should be batched the way the CCMAS course import now is.
+
+## Seeder process management — learned the hard way
+`nohup ... &` from a tool shell is NOT enough: the child was killed when its
+parent exited, and the log under /tmp vanished with it. The working form is:
+
+    sudo -u www-data bash -c 'cd /home/ubuntu/ACL && setsid nohup php artisan \
+      acl:seed:test-accounts --apply --only-students \
+      > storage/logs/seed_students.log 2>&1 < /dev/null & disown'
+
+Also: `pgrep -f "artisan acl:seed"` matches the checking shell's own command
+line, so it reports RUNNING when nothing is. Check with
+`ps -eo pid,etime,cmd | grep "artisan acl:seed" | grep -v grep` instead.
 
 ## Laravel signature gotcha
 A multi-line option description in a command signature makes the option
