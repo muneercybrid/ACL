@@ -231,3 +231,24 @@ time is far too slow, so the plan is:
 
 Nothing is written for step 1 yet; it starts after coordinators and email are
 finished.
+
+## Registration state/LGA bug — fixed
+`states` and `lgas` were both EMPTY. The view, the controller and the
+JavaScript were all correct; the dropdowns simply had nothing to render,
+which is why selecting Nigeria appeared to do nothing and the LGA field
+never appeared (it is `display:none` until a state is chosen).
+
+`NigeriaStatesLgasSeeder` already existed with all 36 states and their LGAs
+and had simply never been run. It is not destructive (no truncate/delete/
+drop) — verified before running. Now: 37 states, 770 LGAs.
+
+Verified by rendering the actual view the controller returns, with the
+actual models: 49 options, Abia and Bauchi both present, and the LGA
+JavaScript payload populated.
+
+## Chapter scaffold — needs a fix before rerunning
+`acl:scaffold:chapters` died at 348 placeholders with a duplicate on
+`course_chapters_course_id_position_unique`. The per-course `max(position)`
+query is both slow and racy when a batch spans several courses. It needs to
+dedupe (course_id, position) within a batch and skip what already exists
+rather than aborting the whole run on the first collision.
