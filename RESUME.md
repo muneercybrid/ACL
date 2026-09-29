@@ -304,3 +304,59 @@ offerings just happen to all be Administration and Management, so their
 counts matched. The command was deleted rather than committed. Counting
 equality is not proof of a bug, and the check that would have settled it in
 one query was the distribution across all 17.
+
+
+## Student course registration — BUILT AND TESTED
+Exactly the flow the owner specified, with the order enforced on the server.
+
+  1. a student sees the courses for their programme and level
+  2. they choose FIRST semester, then SECOND semester, in that order
+  3. if a coordinator has published the list, they skip selection entirely
+
+`CourseRegistrationService` is the single place that decides the stage:
+`select_semester_1` -> `select_semester_2` -> `complete`, or `auto_enroll`
+when a list is published, or `unassigned` when there is no programme.
+
+Why the order is a rule and not a hint: a disabled "next" button is a request
+to the client. `registerSemester()` throws on semester 2 before semester 1,
+so posting the form directly does not get around it.
+
+## The design gap that had to be closed
+`hasPublishedList` is false exactly when nothing is published, so the
+selection path was originally unreachable — the student would face an empty
+screen. Fixed with a second source: when a coordinator has published nothing,
+the student selects from the programme's own CCMAS course catalogue, matched
+by the same level/semester code convention. Mandatory is false there, because
+nothing in CCMAS says a course is compulsory for a particular student and
+failing someone for omitting a guessed course is worse than letting them
+choose. Once a coordinator publishes, mandatory is real and is enforced.
+
+## Four real bugs found by running it
+1. `curriculum_versions.programme_id` foreign-keys to `programmes` (the
+   national catalogue), NOT `academic_programs` (the offering). I had been
+   writing the offering id. It did not raise, because the two id ranges
+   overlap — 221 versions were silently attached to the wrong programme. The
+   publishing job also failed 10 times past id 238 for the same reason.
+   Publishing nationally is also what the owner originally asked for.
+2. `student_course_registrations.semester_id` is NOT NULL with no default and
+   FKs to `semesters`, which was empty. Semesters are now created on demand;
+   the denormalised `semester` column added in the migration is what the flow
+   branches on.
+3. `registration_source` is a fixed enum
+   (`curriculum`,`crf`,`manual`,`carry_over`,`elective`). My free-text values
+   were truncated into a WARNING, not an error, so a wrong source would have
+   been written silently. Now validated up front.
+4. `organization_memberships` carries `academic_program_id` directly. My first
+   version joined through `curriculum_versions` on a non-existent
+   `entity_id`, which would have thrown the moment a student opened the page.
+
+## Driver quirks in this environment (keep)
+- `->keys()` on a keyed Collection returns a Collection here, and
+  `->keys()->all()` throws in array_diff. Use `array_keys($c->all())`.
+- `pluck('slug','position')` returns a plain array, not a Collection, so
+  `->keys()` throws on it.
+- A duplicated PHP array key keeps the LAST value with no warning. A bulk
+  sed left `'nuc_discipline_id' => $disciplineId, 'nuc_discipline_id' => 1`
+  and the literal 1 silently won, so the test was reading the wrong
+  catalogue. Only the full suite exposed it; the class alone passed.
+  Watch for this after any scripted edit.
