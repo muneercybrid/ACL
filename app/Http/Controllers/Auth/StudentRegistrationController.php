@@ -373,15 +373,34 @@ class StudentRegistrationController extends Controller
 
         $request->session()->forget('student_verification_token');
 
-        // Send verification email if not already verified
+        // Send verification email if not already verified.
+        //
+        // The failure is surfaced rather than swallowed. Previously a thrown
+        // exception was reported to the log and the student was still
+        // redirected to their dashboard with "account created successfully" --
+        // so a total mail outage looked identical to a working one, and the
+        // only clue was a line in a log file nobody reads. The account is
+        // already created at this point, so the honest thing is to say so and
+        // tell them what to do, rather than pretend all is well.
+        $mailFailed = false;
+
         if ($user && ! $user->email_verified_at) {
             try {
-                \Illuminate\Support\Facades\Mail::to($validated['email'])->send(new \App\Mail\VerificationSuccessMail($verification));
+                \Illuminate\Support\Facades\Mail::to($validated['email'])
+                    ->send(new \App\Mail\VerificationSuccessMail($verification));
             } catch (\Throwable $e) {
                 report($e);
+                $mailFailed = true;
             }
         }
 
-        return redirect()->route('student.dashboard')->with('success', 'Welcome! Your student account has been created successfully.');
+        if ($mailFailed) {
+            return redirect()->route('student.dashboard')
+                ->with('warning', 'Your account was created, but the verification email could not be sent. '
+                    .'Please contact your institution administrator to have it resent.');
+        }
+
+        return redirect()->route('student.dashboard')
+            ->with('success', 'Welcome! Your student account has been created successfully.');
     }
 }

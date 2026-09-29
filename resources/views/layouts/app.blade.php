@@ -43,6 +43,29 @@
             </div>
         </header>
         <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            {{-- Session messages.
+                 These were not rendered anywhere in this layout, so every
+                 with('success') in a controller was silently discarded: the
+                 student was redirected to their dashboard and told nothing, not
+                 even when the verification email had failed to send. The
+                 warning level matters most -- it is how a partial failure is
+                 reported without claiming the whole thing succeeded. --}}
+            @foreach (['success' => 'success', 'warning' => 'warning', 'error' => 'danger', 'status' => 'info'] as $key => $style)
+                @if (session($key))
+                    <div class="mb-4 rounded-lg border border-{{ $style }} bg-{{ $style }}-bg px-4 py-3 text-sm text-{{ $style }}">{{ session($key) }}</div>
+                @endif
+            @endforeach
+
+            @if ($errors->any())
+                <div class="mb-4 rounded-lg border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
+                    <ul class="list-disc pl-5">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             @yield('content')
         </main>
         <footer class="border-t border-border px-6 py-4 text-xs text-muted">
