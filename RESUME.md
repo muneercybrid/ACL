@@ -163,3 +163,33 @@ over-grant fixed in StaffController.
 One per programme-per-level nationally (1,666), not per university: 481 x 238
 x 7 is roughly 800,000 accounts, and level structure is a national property of
 a programme.
+
+## Material upload -> catalogue (PDF / DOCX / PPTX / text)
+`MaterialExtractor` + `MaterialImporter` (app/Services/Curriculum/).
+
+Extraction uses no Composer library. A DOCX is a ZIP holding word/document.xml
+and a PPTX is a ZIP holding one XML part per slide, so both are read directly
+with ZipArchive. PDF uses the system `pdftotext`. smalot/pdfparser and
+phpoffice were considered and rejected: a large dependency for a small job, and
+one that can break on a major version bump.
+
+`MaterialImporter` creates a NUMBERED UPDATE -- the next `version` of the
+chapter, never an in-place overwrite. Content is read by students who may be
+mid-chapter and may be under review; mutating it destroys the review trail and
+silently changes what a student saw last week. New versions land as `draft`.
+
+ACLi expands the extracted text into teaching prose, but the extracted text is
+always what is stored: a provider failure degrades to a plain import rather
+than losing the material.
+
+Authorization is server-side in `assertMayAuthor()`: superadmin, or a level
+coordinator appointed to that programme. Knowing a course id, or posting to a
+valid route, is not authorization.
+
+Three parser bugs were found by running it on real files, not by reading it:
+- PPTX runs concatenated ("Learning ObjectivesExplain cost behaviour") because
+  each <a:t> run is a real line break that the tag stripper was erasing
+- the DOCX heading regex replaced the whole paragraph with an empty marker and
+  threw the heading text away
+- the paragraph split ran before the heading pass and consumed the </w:p> the
+  heading pattern needs to delimit a paragraph
