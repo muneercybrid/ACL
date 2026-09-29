@@ -1,4 +1,5 @@
 {{-- Signed-in user block + logout, shared by the sidebar and the mobile drawer. --}}
+@if (auth()->check())
 <div class="flex items-center gap-3">
     <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-raised font-semibold text-primary">
         {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
@@ -15,3 +16,4 @@
         Log out
     </button>
 </form>
+@endif
