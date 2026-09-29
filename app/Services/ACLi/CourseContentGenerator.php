@@ -46,13 +46,22 @@ class CourseContentGenerator
         $generated = 0;
         $skipped = 0;
         $errors = [];
-        $position = 0;
+
+        // Positions already taken for this course. The unique constraint is on
+        // (course_id, position), not on the slug, so resuming has to start after
+        // the highest existing position rather than checking titles -- otherwise
+        // a re-run collides on position 1 and aborts the whole batch.
+        $nextPosition = ((int) DB::table('course_chapters')
+            ->where('course_id', $courseId)
+            ->max('position')) + 1;
 
         foreach ($prompts as $plan) {
-            $position++;
+            $position = $nextPosition;
+            $nextPosition++;
             $slug = Str::slug($plan['title']);
 
             if (DB::table('course_chapters')->where('course_id', $courseId)->where('slug', $slug)->exists()) {
+                $nextPosition--;
                 $skipped++;
                 continue;
             }
@@ -238,7 +247,7 @@ TEXT;
         // The body is prepended to the introduction so nothing written is
         // silently discarded; there is no body column on the table.
         return [
-            'introduction' => trim($parsed['introduction'] . "\n\n" . ($parsed['body'] ?? '')),
+            'introduction' => trim($this->bullets($parsed['introduction'] ?? '') . "\n\n" . $this->bullets($parsed['body'] ?? '')),
             'summary' => $this->bullets($parsed['summary'] ?? ''),
             'key_takeaways' => $this->bullets($parsed['key_takeaways'] ?? ''),
             'further_reading' => $this->bullets($parsed['further_reading'] ?? ''),
@@ -379,15 +388,44 @@ TEXT;
         return trim($response);
     }
 
-    private function bullets(string $value): string
+    /**
+     * Normalises a bullet field to newline-separated text.
+     *
+     * The model is inconsistent about these fields: sometimes a single string
+     * with "- " lines, sometimes a JSON array of strings, and it double-escapes
+     * newlines often enough that a literal backslash-n reaches us and renders
+     * as corrupted text. All three shapes are accepted because the content is
+     * still valid; only the packaging differs.
+     *
+     * @param  mixed  $value
+     */
+    private function bullets($value): string
     {
-        // Models double-escape newlines inside JSON fairly often, so the value
-        // arrives holding a literal backslash-n rather than a line break. Left
-        // alone it renders as "\n" in the chapter and reads as corrupted text.
-        $value = str_replace(['\\n', '\\r'], ["\n", ''], $value);
+        if (is_array($value)) {
+            $parts = [];
+
+            foreach ($value as $item) {
+                if (is_string($item)) {
+                    $parts[] = $item;
+                } elseif (is_array($item) && isset($item['text']) && is_string($item['text'])) {
+                    $parts[] = $item['text'];
+                }
+            }
+
+            $value = implode("\n", $parts);
+        }
+
+        if (! is_string($value)) {
+            return '';
+        }
+
+        // Undo double-escaping: a literal backslash-n here would render as
+        // "\n" in the chapter and read as corrupted text.
+        $value = str_replace(['\\r\\n', '\\n', '\\r'], ["\n", "\n", ''], $value);
 
         $lines = preg_split('/\r?\n/', trim($value)) ?: [];
+        $lines = array_filter(array_map('trim', $lines));
 
-        return implode("\n", array_filter(array_map('trim', $lines)));
+        return implode("\n", $lines);
     }
 }
