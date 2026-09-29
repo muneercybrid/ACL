@@ -10,7 +10,7 @@
 <div class="mx-auto max-w-7xl space-y-6">
     {{-- Filters --}}
     <div class="rounded-2xl border border-border bg-surface p-5 shadow-sm">
-        <form action="{{ route('superadmin.institutions') }}" method="GET" class="flex flex-wrap gap-3 items-end">
+        <form action="{{ route('superadmin.institutions.index') }}" method="GET" class="flex flex-wrap gap-3 items-end">
             <div class="flex-1 min-w-[200px]">
                 <label class="block text-xs font-bold text-muted mb-1">Search</label>
                 <input type="text" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Name, slug or code…"
@@ -34,7 +34,7 @@
                 </select>
             </div>
             <button type="submit" class="rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-fg transition hover:bg-primary/90">Filter</button>
-            <a href="{{ route('superadmin.institutions') }}" class="text-sm text-muted hover:text-text transition">Clear</a>
+            <a href="{{ route('superadmin.institutions.index') }}" class="text-sm text-muted hover:text-text transition">Clear</a>
         </form>
     </div>
 

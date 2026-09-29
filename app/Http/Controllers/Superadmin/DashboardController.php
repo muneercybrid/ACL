@@ -156,6 +156,23 @@ class DashboardController extends Controller
      */
     protected function getInstitutionsNeedingAttention(): array
     {
+        // Student counts are aggregated once with a GROUP BY and read from the
+        // result in memory.
+        //
+        // Two earlier shapes both hurt here. An inline count() inside the map
+        // issued one query per organization, so 126 organizations meant 126
+        // round trips to a remote TiDB instance. Replacing it with withCount()
+        // kept it to one query but expressed it as a correlated subquery, which
+        // TiDB executed in about a second — barely better, because the
+        // subquery is re-evaluated per row. One grouped aggregate is a single
+        // scan and costs one round trip regardless of how many organizations
+        // the platform has.
+        $activeStudentCounts = OrganizationMembership::where('membership_type', 'student')
+            ->where('status', 'active')
+            ->select('organization_id', DB::raw('count(*) as student_count'))
+            ->groupBy('organization_id')
+            ->pluck('student_count', 'organization_id');
+
         return Organization::with(['onboarding', 'memberships' => fn ($q) => $q->where('membership_type', 'administrator')->where('status', 'active')])
             ->where('is_active', true)
             ->get()
@@ -172,7 +189,9 @@ class DashboardController extends Controller
                     $issues[] = 'No administrator assigned';
                 }
 
-                $students = $org->memberships()->where('membership_type', 'student')->where('status', 'active')->count();
+                // Read from the aggregate rather than issuing a query per
+                // organization. See the note on $activeStudentCounts above.
+                $students = $activeStudentCounts[$org->id] ?? 0;
                 if ($students === 0) {
                     $issues[] = 'No active students';
                 }

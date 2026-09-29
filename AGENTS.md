@@ -67,10 +67,30 @@ Registration is currently the first priority.
 Current work includes:
 
 - Student registration
-- External learner registration
+- External learner registration — SUPPRESSED, see below
 - JAMB registration-number verification
 - JAMB provider abstraction
 - Manual/semi-manual verification paths
+
+### External learner registration — SUPPRESSED
+
+By the project owner's direction, ACL is focused on university students for the
+foreseeable future, and external learner registration is withdrawn from the
+public surface.
+
+It is suppressed, not deleted:
+
+- `GET /register/external` answers **410 Gone**, not 404, so a bookmarked link
+  reads as "closed" rather than "broken"
+- the entry links were removed from `register.blade.php` and `login.blade.php`
+- `ExternalLearnerRegistrationController` and `register-external.blade.php` are
+  retained
+- `is_external`, `external_track_id`, the `external` verification method and the
+  `student_external_identity` rows are all retained, untouched
+
+Do not treat these columns as dead schema. The existing rows are real data, and
+suppressing an entry point is not permission to drop a column or migrate rows.
+Re-enabling is a small, reversible change.
 
 ### JAMB registration number
 

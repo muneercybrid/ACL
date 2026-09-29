@@ -44,7 +44,7 @@
     <div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-2xl border border-border bg-surface p-6 shadow-sm">
             <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Programme</h3>
-            <p class="mt-2 text-2xl font-extrabold text-text">{{ $academicProgramme?->name ?? 'Mass Communication' }}</p>
+            <p class="mt-2 text-2xl font-extrabold text-text">{{ $academicProgramme?->name ?? $institutionRecord?->academicProgram?->name ?? 'Programme Not Assigned — Review Required' }}</p>
             <p class="text-xs text-muted">Verified institution</p>
         </div>
         <div class="rounded-2xl border border-border bg-surface p-6 shadow-sm">

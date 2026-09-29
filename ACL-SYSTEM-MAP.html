@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACL — System Map &amp; Weak-Point Analysis</title>
+<style>
+  :root{
+    --bg:#0d1110; --bg2:#131917; --panel:#161d1a; --panel2:#1b2420;
+    --line:#243029; --line2:#2f3d35;
+    --fg:#e8f0ea; --fg2:#9db0a4; --fg3:#6b8074;
+    --green:#4ade80; --green-dim:#22c55e; --green-glow:rgba(74,222,128,.14);
+    --red:#f87171; --red-bg:rgba(248,113,113,.10);
+    --amber:#fbbf24; --amber-bg:rgba(251,191,36,.10);
+    --blue:#60a5fa; --blue-bg:rgba(96,165,250,.10);
+    --grey:#94a3b8; --grey-bg:rgba(148,163,184,.10);
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',system-ui,sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1400px;margin:0 auto;padding:0 24px 120px}
+
+  /* ── header ── */
+  header{
+    border-bottom:1px solid var(--line); background:linear-gradient(180deg,#101614 0%,var(--bg) 100%);
+    padding:48px 0 40px; margin-bottom:40px;
+  }
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--green);
+    border:1px solid var(--line2);border-radius:999px;padding:5px 14px;margin-bottom:20px;background:var(--green-glow);
+  }
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+  h1{font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1.1;margin-bottom:12px}
+  h1 span{color:var(--green)}
+  .sub{color:var(--fg2);font-size:15px;max-width:760px}
+  .meta{display:flex;flex-wrap:wrap;gap:28px;margin-top:28px;font-family:var(--mono);font-size:12px}
+  .meta div{color:var(--fg3)}
+  .meta b{display:block;color:var(--fg);font-size:19px;font-weight:700;margin-top:2px}
+
+  /* ── nav ── */
+  nav{position:sticky;top:0;z-index:50;background:rgba(13,17,16,.94);backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--line);margin-bottom:40px}
+  nav .inner{max-width:1400px;margin:0 auto;padding:12px 24px;display:flex;gap:6px;overflow-x:auto}
+  nav a{color:var(--fg2);text-decoration:none;font-size:13px;font-weight:600;padding:7px 13px;border-radius:8px;white-space:nowrap;transition:.15s}
+  nav a:hover{background:var(--panel2);color:var(--fg)}
+  nav a.on{background:var(--green-glow);color:var(--green)}
+
+  /* ── sections ── */
+  section{margin-bottom:64px;scroll-margin-top:80px}
+  h2{font-size:24px;font-weight:750;letter-spacing:-.01em;margin-bottom:6px;display:flex;align-items:center;gap:12px}
+  h2 .n{font-family:var(--mono);font-size:12px;color:var(--green);background:var(--green-glow);
+        border:1px solid var(--line2);border-radius:6px;padding:2px 9px;font-weight:600}
+  .lede{color:var(--fg2);font-size:14px;margin-bottom:26px;max-width:860px}
+  h3{font-size:14px;font-weight:700;color:var(--fg);margin:26px 0 12px;letter-spacing:.01em}
+  code,.mono{font-family:var(--mono);font-size:.86em}
+
+  /* ── cards ── */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .stat .v{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--green);line-height:1.1}
+  .stat .v.warn{color:var(--amber)} .stat .v.bad{color:var(--red)} .stat .v.mute{color:var(--fg3)}
+  .stat .l{font-size:11.5px;color:var(--fg3);text-transform:uppercase;letter-spacing:.08em;margin-top:6px}
+
+  /* ── layer diagram ── */
+  .layers{display:flex;flex-direction:column;gap:0}
+  .layer{position:relative;border:1px solid var(--line);border-radius:12px;padding:16px 20px;background:var(--panel);margin-bottom:10px;transition:.2s;cursor:default}
+  .layer:hover{border-color:var(--line2);background:var(--panel2)}
+  .layer .hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .layer .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+              padding:3px 8px;border-radius:5px;border:1px solid var(--line2);color:var(--fg3);white-space:nowrap}
+  .layer .nm{font-weight:700;font-size:15px}
+  .layer .desc{font-size:12.5px;color:var(--fg2);margin-top:6px}
+  .layer .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{font-family:var(--mono);font-size:11px;background:var(--bg2);border:1px solid var(--line);
+        padding:3px 9px;border-radius:6px;color:var(--fg2)}
+  .chip.bad{border-color:rgba(248,113,113,.4);color:var(--red);background:var(--red-bg)}
+  .chip.warn{border-color:rgba(251,191,36,.4);color:var(--amber);background:var(--amber-bg)}
+  .arrow{text-align:center;color:var(--fg3);font-size:15px;line-height:1;padding:5px 0}
+
+  /* ── flow ── */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 15px;flex:1;min-width:130px;position:relative}
+  .step .k{font-family:var(--mono);font-size:10px;color:var(--green);letter-spacing:.1em}
+  .step .t{font-size:13px;font-weight:650;margin:4px 0 3px}
+  .step .d{font-size:11.5px;color:var(--fg2)}
+  .step.hit{border-color:rgba(248,113,113,.5);background:var(--red-bg)}
+  .sepx{color:var(--fg3);padding:0 9px;align-self:center;font-size:16px}
+
+  /* ── issue ── */
+  .issue{border:1px solid var(--line);border-left-width:3px;border-radius:10px;padding:16px 18px;background:var(--panel);margin-bottom:11px}
+  .issue.p0{border-left-color:var(--red);background:var(--red-bg)}
+  .issue.p1{border-left-color:var(--amber);background:var(--amber-bg)}
+  .issue.p2{border-left-color:var(--blue);background:var(--blue-bg)}
+  .issue.p3{border-left-color:var(--grey);background:var(--grey-bg)}
+  .issue.fixed{border-left-color:var(--green);background:var(--green-glow);opacity:.75}
+  .issue .top{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .sev{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;padding:3px 8px;border-radius:5px;white-space:nowrap}
+  .p0 .sev{background:var(--red);color:#1a0a0a}
+  .p1 .sev{background:var(--amber);color:#1a1204}
+  .p2 .sev{background:var(--blue);color:#04121f}
+  .p3 .sev{background:var(--grey);color:#0d1110}
+  .fixed .sev{background:var(--green);color:#04140a}
+  .issue .ttl{font-weight:700;font-size:15px;flex:1;min-width:260px}
+  .issue .body{font-size:13px;color:var(--fg2);margin-top:9px}
+  .issue .ev{font-family:var(--mono);font-size:11.5px;color:var(--fg3);margin-top:9px;
+             border-top:1px dashed var(--line2);padding-top:9px;white-space:pre-wrap;word-break:break-word}
+
+  /* ── chain ── */
+  .chain{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:14px 0}
+  .cnode{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-size:12.5px;white-space:nowrap}
+  .cnode .num{font-family:var(--mono);font-size:10px;color:var(--green);display:block}
+  .cnode.empty{border-style:dashed;opacity:.62}
+  .cnode .cnt{font-family:var(--mono);font-size:10px;color:var(--fg3)}
+  .carr{color:var(--fg3);font-size:13px}
+
+  /* ── table ── */
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+  th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+     color:var(--fg3);padding:9px 12px;border-bottom:1px solid var(--line2);font-weight:600}
+  td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td .mono{color:var(--green)}
+  .ok{color:var(--green)} .no{color:var(--red)} .maybe{color:var(--amber)}
+
+  .bar{height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;margin-top:5px}
+  .bar i{display:block;height:100%;background:var(--green);border-radius:3px}
+  .bar i.r{background:var(--red)} .bar i.a{background:var(--amber)}
+
+  .note{border:1px solid var(--line2);border-radius:10px;padding:14px 16px;background:var(--bg2);
+        font-size:12.5px;color:var(--fg2);margin-top:14px}
+  .note b{color:var(--fg)}
+  .note.g{border-color:rgba(74,222,128,.35);background:var(--green-glow)}
+  .note.r{border-color:rgba(248,113,113,.35);background:var(--red-bg)}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--fg3);margin-top:16px}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  footer{border-top:1px solid var(--line);padding-top:24px;color:var(--fg3);font-size:12px;font-family:var(--mono)}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .toggles button{background:var(--panel);border:1px solid var(--line);color:var(--fg2);font-size:12px;
+                   font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer;font-family:inherit;transition:.15s}
+  .toggles button:hover{border-color:var(--line2);color:var(--fg)}
+  .toggles button.on{background:var(--green-glow);border-color:var(--green-dim);color:var(--green)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow"><span class="dot"></span> Anyone Can Learn · aclacademy.me</div>
+    <h1>ACL <span>System Map</span></h1>
+    <p class="sub">How the application actually works, end to end — request lifecycle, authorization, the ACLi pipeline, the academic data chain — with every known weak point marked where it sits. Row counts are read live from production.</p>
+    <div class="meta">
+      <div>MODELS<b>49</b></div>
+      <div>CONTROLLERS<b>31</b></div>
+      <div>SERVICES<b>23</b></div>
+      <div>ROUTES<b>78</b></div>
+      <div>TABLES<b>102</b></div>
+      <div>STACK<b>Laravel 17</b></div>
+    </div>
+  </div>
+</header>
+
+<nav><div class="inner">
+  <a href="#map" class="on">Architecture</a>
+  <a href="#lifecycle">Request Lifecycle</a>
+  <a href="#paths">Entry Paths</a>
+  <a href="#acli">ACLi Pipeline</a>
+  <a href="#rbac">Authorization</a>
+  <a href="#curriculum">Curriculum Chain</a>
+  <a href="#reality">Data Reality</a>
+  <a href="#issues">Issue Register</a>
+  <a href="#fixed">Resolved</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ═══════════ 1. ARCHITECTURE ═══════════ -->
+<section id="map">
+  <h2><span class="n">01</span> Architecture</h2>
+  <p class="lede">A Laravel modular monolith. Every request enters through one of three gated paths, passes down through controllers and services, and lands in a single TiDB cluster. ACLi is the only outbound dependency.</p>
+
+  <div class="layers">
+    <div class="layer">
+      <div class="hd"><span class="tag">Edge</span><span class="nm">Browser / Client</span></div>
+      <div class="desc">Server-rendered Blade. No SPA. <code>resources/views</code> — 74 templates, of which 15 are Blade components.</div>
+    </div>
+    <div class="arrow">▼</div>
+
+    <div class="layer">
+      <div class="hd"><span class="tag">Middleware</span><span class="nm">HTTP Kernel</span>
+        <span class="chip bad">no throttle</span><span class="chip warn">trustProxies '*'</span></div>
+      <div class="desc">Laravel <code>web</code> group (sessions, CSRF, cookies) plus exactly <b>one</b> custom alias.</div>
+      <div class="chips">
+        <span class="chip">web — session + CSRF</span>
+        <span class="chip">auth — Authenticate</span>
+        <span class="chip">guest — RedirectIfAuthenticated</span>
+        <span class="chip">superadmin → RequireSuperadmin</span>
+        <span class="chip warn">ForceEditProfile — defined, never wired</span>
+      </div>
+    </div>
+    <div class="arrow">▼</div>
+
+    <div class="layer">
+      <div class="hd"><span class="tag">Routing</span><span class="nm">routes/web.php</span></div>
+      <div class="desc">78 routes in 4 groups: public, <code>guest</code>, <code>auth</code>, and <code>auth+superadmin</code> prefixed <code>/superadmin</code>.
+        Exactly half the app — <b>39 of 78</b> — sits behind the superadmin gate.
+        <code>routes/institution_portal.php</code> exists but is never loaded.</div>
+    </div>
+    <div class="arrow">▼</div>
+
+    <div class="layer">
+      <div class="hd"><span class="tag">Controllers</span><span class="nm">31 controllers</span></div>
+      <div class="desc">Auth · Registration/JAMB · Student · Course Viewer · Superadmin · ACLi. Resolve the request, delegate to a service, return a view or JSON.</div>
+    </div>
+    <div class="arrow">▼</div>
+
+    <div class="layer">
+      <div class="hd"><span class="tag">Domain</span><span class="nm">23 services</span></div>
+      <div class="desc">The business rules live here: <code>StudentDashboardService</code> (programme resolution), <code>JambVerificationService</code>,
+        <code>CourseVisibilityService</code>, <code>AcliOrchestrator</code>, <code>AcliEntitlementService</code>.</div>
+      <div class="chips">
+        <span class="chip warn">CurriculumContextService — built, never called</span>
+        <span class="chip warn">AuditLogService — table missing</span>
+      </div>
+    </div>
+    <div class="arrow">▼</div>
+
+    <div class="layer">
+      <div class="hd"><span class="tag">Persistence</span><span class="nm">49 Eloquent models → 102 tables</span></div>
+      <div class="desc">Curriculum chain, identity, RBAC, commerce and ACLi. Single database.</div>
+    </div>
+    <div class="arrow">▼</div>
+
+    <div class="layer">
+      <div class="hd"><span class="tag">Data</span><span class="nm">TiDB Serverless (MySQL)</span>
+        <span class="chip bad">68 of 116 migrations missing from repo</span></div>
+      <div class="desc">Least-privilege account, not root. 542 users · 11 students · 474 institutions · 179 courses · 754 curriculum course links.</div>
+    </div>
+    <div class="arrow">▼</div>
+
+    <div class="layer">
+      <div class="hd"><span class="tag">External</span><span class="nm">AI Gateway only</span>
+        <span class="chip">no direct vendor SDKs</span></div>
+      <div class="desc">ACLi talks exclusively to OmniRoute on <code>127.0.0.1:20128/v1</code>. Provider selection and credentials are the gateway's problem, not the app's.</div>
+    </div>
+  </div>
+
+  <div class="note g"><b>Sound:</b> no orphaned foreign keys, no <code>DB::table()</code> pointing at missing tables, and mass assignment is properly locked down — both <code>User</code> and <code>Student</code> use <code>guarded = ['*']</code> with an explicit allow-list.</div>
+</section>
+
+<!-- ═══════════ 2. LIFECYCLE ═══════════ -->
+<section id="lifecycle">
+  <h2><span class="n">02</span> Request Lifecycle</h2>
+  <p class="lede">What actually happens between a click and a page render. Red stages are where the system currently fails.</p>
+
+  <div class="flow">
+    <div class="step"><div class="k">01</div><div class="t">Session</div><div class="d">Cookie session decrypted, CSRF token bound</div></div>
+    <div class="sepx">→</div>
+    <div class="step hit"><div class="k">02</div><div class="t">Rate limit</div><div class="d"><b>Absent.</b> Nothing throttles login, JAMB or ACLi</div></div>
+    <div class="sepx">→</div>
+    <div class="step"><div class="k">03</div><div class="t">Auth</div><div class="d"><code>auth</code> / <code>guest</code> / <code>superadmin</code></div></div>
+    <div class="sepx">→</div>
+    <div class="step"><div class="k">04</div><div class="t">Controller</div><div class="d">Validate, resolve current user</div></div>
+    <div class="sepx">→</div>
+    <div class="step"><div class="k">05</div><div class="t">Service</div><div class="d">Programme, entitlement, visibility</div></div>
+    <div class="sepx">→</div>
+    <div class="step"><div class="k">06</div><div class="t">Eloquent</div><div class="d">Query the curriculum chain</div></div>
+    <div class="sepx">→</div>
+    <div class="step"><div class="k">07</div><div class="t">Blade</div><div class="d">Compile &amp; render, Sentry traces views</div></div>
+  </div>
+
+  <div class="note r"><b>Stage 02 is the gap.</b> Because nothing throttles, an unauthenticated actor can hit <code>POST /register/student/verify</code> indefinitely. Each call reaches the JAMB provider — a <b>paid external API</b>. This is a direct cost exposure, not just an abuse concern. Login is equally unrate-limited.</div>
+</section>
+
+<!-- ═══════════ 3. ENTRY PATHS ═══════════ -->
+<section id="paths">
+  <h2><span class="n">03</span> The Three Entry Paths</h2>
+  <p class="lede">Every route belongs to exactly one. The gate is the only thing separating a student from a platform administrator.</p>
+
+  <div class="grid g3">
+    <div class="card">
+      <div class="mono" style="color:var(--green);font-size:11px;letter-spacing:.1em">PUBLIC</div>
+      <h3 style="margin-top:8px">No authentication</h3>
+      <p style="font-size:13px;color:var(--fg2)">Landing page, login, all registration, password reset, the professional catalogue, Laravel's <code>/up</code> health probe.</p>
+      <div class="chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+        <span class="chip" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:6px">/</span>
+        <span class="chip" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:6px">/login</span>
+        <span class="chip" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:6px">/register/*</span>
+        <span class="chip" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:6px">/catalogue</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="mono" style="color:var(--green);font-size:11px;letter-spacing:.1em">STUDENT</div>
+      <h3 style="margin-top:8px">auth middleware</h3>
+      <p style="font-size:13px;color:var(--fg2)">Student is resolved <b>server-side from the session</b>, never from a client-supplied ID. Course, enrolment, profile and ACLi chat routes.</p>
+      <div class="chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+        <span class="chip" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:6px">/student</span>
+        <span class="chip" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:6px">/courses/{offering}</span>
+        <span class="chip" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:6px">/acli/chat</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="mono" style="color:var(--green);font-size:11px;letter-spacing:.1em">SUPERADMIN</div>
+      <h3 style="margin-top:8px">auth + superadmin</h3>
+      <p style="font-size:13px;color:var(--fg2)">The one custom middleware. Re-checks <code>isSuperadmin()</code> on every request — hidden links are never the control.</p>
+      <div class="chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+        <span class="chip" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:6px">/superadmin/*</span>
+        <span class="chip" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:6px">39 routes — half the app</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="note"><b>Verified working:</b> guest → <code>302</code> on student routes · non-student authenticated user → <code>403</code> · student → <code>200</code>. The IDOR that previously exposed <code>/course/register/{student}</code> to any visitor is closed.</div>
+</section>
+
+<!-- ═══════════ 4. ACLi ═══════════ -->
+<section id="acli">
+  <h2><span class="n">04</span> ACLi Pipeline</h2>
+  <p class="lede">The AI path. Entitlement is checked server-side before the provider is ever called — showing the button is never the authorization.</p>
+
+  <div class="flow">
+    <div class="step"><div class="k">01</div><div class="t">AcliChatController</div><div class="d">POST /acli/chat</div></div>
+    <div class="sepx">→</div>
+    <div class="step"><div class="k">02</div><div class="t">AcliOrchestrator</div><div class="d">studentChat()</div></div>
+    <div class="sepx">→</div>
+    <div class="step"><div class="k">03</div><div class="t">Entitlement</div><div class="d">acli_capabilities · permission check</div></div>
+    <div class="sepx">→</div>
+    <div class="step hit"><div class="k">04</div><div class="t">System prompt</div><div class="d"><b>Generic.</b> No programme, level or course</div></div>
+    <div class="sepx">→</div>
+    <div class="step"><div class="k">05</div><div class="t">ProviderManager</div><div class="d">→ OmniRouteProvider</div></div>
+    <div class="sepx">→</div>
+    <div class="step"><div class="k">06</div><div class="t">OmniRoute</div><div class="d">127.0.0.1:20128/v1</div></div>
+    <div class="sepx">→</div>
+    <div class="step"><div class="k">07</div><div class="t">Response</div><div class="d">Logged to acli_requests</div></div>
+  </div>
+
+  <h3>Live verification</h3>
+  <table>
+    <tr><th>Check</th><th>Result</th></tr>
+    <tr><td>Entitlement <code>student.chat</code></td><td class="ok mono">allowed: true</td></tr>
+    <tr><td>Provider resolved</td><td class="ok mono">omniroute</td></tr>
+    <tr><td>Gateway response</td><td class="ok mono">200 · model stealth/space-bunny-alpha · "OK"</td></tr>
+    <tr><td>Registered provider count</td><td class="ok mono">1 (no vendor SDKs)</td></tr>
+  </table>
+
+  <h3>Telemetry stored per request</h3>
+  <div class="grid g4" style="margin-top:12px">
+    <div class="stat"><div class="v">10</div><div class="l">acli_capabilities</div></div>
+    <div class="stat"><div class="v">18</div><div class="l">acli_conversations</div></div>
+    <div class="stat"><div class="v">33</div><div class="l">acli_messages</div></div>
+    <div class="stat"><div class="v">16</div><div class="l">acli_requests (latency, tokens)</div></div>
+  </div>
+
+  <div class="note r"><b>The central weakness.</b> <code>buildProviderMessages()</code> sends a fixed, generic system prompt: <i>"You are ACLi, an educational AI assistant for ACL."</i> Meanwhile <code>CurriculumContextService</code> — which already resolves programme, curriculum version, level, semester and the student's actual course codes — is fully written and <b>never called by anything</b>. ACLi is currently a generic chatbot wearing a student-facing interface. It cannot answer "what am I taking this semester" because it is never told.</div>
+
+  <div class="note r"><b>And a containment gap:</b> <code>studentChat()</code> verifies a user exists and holds the capability, but never verifies that user is a <i>student</i>. A staff account granted <code>acli.student.chat</code> reaches the student capability.</div>
+</section>
+
+<!-- ═══════════ 5. RBAC ═══════════ -->
+<section id="rbac">
+  <h2><span class="n">05</span> Authorization Model</h2>
+  <p class="lede">Authentication → Role → Permission → Scope → Capability. ACL uses its own RBAC tables — no Spatie. Scope isolation is what keeps one institution from reading another's data.</p>
+
+  <div class="chain">
+    <div class="cnode"><span class="num">01</span>users <span class="cnt">542</span></div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">02</span>role_assignments <span class="cnt">479</span></div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">03</span>roles <span class="cnt">8</span></div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">04</span>permissions <span class="cnt">29</span></div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">05</span>scope<br><span class="cnt">entity_type + entity_id</span></div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">06</span>capabilities <span class="cnt">10</span></div>
+  </div>
+
+  <h3>Roles in production</h3>
+  <div class="chips" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">
+    <span class="chip" style="font-size:11.5px;padding:5px 11px;background:var(--bg2);border:1px solid var(--line);border-radius:7px">Super Admin</span>
+    <span class="chip" style="font-size:11.5px;padding:5px 11px;background:var(--bg2);border:1px solid var(--line);border-radius:7px">Institution Admin</span>
+    <span class="chip" style="font-size:11.5px;padding:5px 11px;background:var(--bg2);border:1px solid var(--line);border-radius:7px">Level Coordinator</span>
+    <span class="chip" style="font-size:11.5px;padding:5px 11px;background:var(--bg2);border:1px solid var(--line);border-radius:7px">Moderator</span>
+    <span class="chip" style="font-size:11.5px;padding:5px 11px;background:var(--bg2);border:1px solid var(--line);border-radius:7px">Tutor</span>
+    <span class="chip" style="font-size:11.5px;padding:5px 11px;background:var(--bg2);border:1px solid var(--line);border-radius:7px">Student</span>
+    <span class="chip" style="font-size:11.5px;padding:5px 11px;background:var(--bg2);border:1px solid var(--line);border-radius:7px">External Learner</span>
+    <span class="chip" style="font-size:11.5px;padding:5px 11px;background:var(--bg2);border:1px solid var(--line);border-radius:7px">Institution Admin <span style="color:var(--amber)">(dup name)</span></span>
+  </div>
+
+  <div class="note r"><b>Scope resolves into the wrong table.</b> A role assignment is scoped with <code>entity_type = Organization::class, entity_id → organizations.id</code>. But the institutions list, student records and course scoping all key off <code>Institution</code> / <code>institutions</code>. The live staff invitation carries <code>organization_id = 2000001</code> — which resolves in <code>organizations</code> and is <b>NULL</b> in <code>institutions</code>. Staff are scoped against a table the rest of the academic model does not use. This is the single most consequential structural problem in the app.</div>
+
+  <div class="note r"><b>Duplicate role name.</b> "Institution Admin" exists twice with different slugs, so role lookups by name are ambiguous and one branch is unreachable through name-based selection.</div>
+</section>
+
+<!-- ═══════════ 6. CURRICULUM ═══════════ -->
+<section id="curriculum">
+  <h2><span class="n">06</span> Curriculum Chain</h2>
+  <p class="lede">The chain a student's access depends on. Populated depth is shown honestly — most links below the discipline level are empty, which is why most students see no courses.</p>
+
+  <div class="chain">
+    <div class="cnode"><span class="num">Institution</span>474 <span class="cnt">tables: institutions + organizations</span></div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">Faculty</span>6</div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">Department</span>7</div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">Programme</span>44</div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">Curriculum version</span>41</div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">Level</span>3</div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">Semester</span>4</div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">Course</span>179</div>
+    <div class="carr">→</div>
+    <div class="cnode"><span class="num">Curriculum course</span>754</div>
+  </div>
+
+  <h3>Where the chain actually breaks</h3>
+  <table>
+    <tr><th>Table</th><th>Rows</th><th>Bar</th><th>Reading</th></tr>
+    <tr><td class="mono">institutions</td><td>474</td><td><div class="bar"><i style="width:100%"></i></div></td><td class="ok">NUC list, healthy</td></tr>
+    <tr><td class="mono">programmes</td><td>44</td><td><div class="bar"><i style="width:9%"></i></div></td><td class="maybe">Thin relative to 474 institutions</td></tr>
+    <tr><td class="mono">courses</td><td>179</td><td><div class="bar"><i style="width:38%"></i></div></td><td class="maybe">Partial catalogue</td></tr>
+    <tr><td class="mono">curriculum_courses</td><td>754</td><td><div class="bar"><i style="width:100%"></i></div></td><td class="ok">Well populated</td></tr>
+    <tr><td class="mono">course_outlines</td><td>0</td><td><div class="bar"><i class="r" style="width:1%"></i></div></td><td class="no">Empty — readiness quiz cannot build</td></tr>
+    <tr><td class="mono">outline_questions</td><td>0</td><td><div class="bar"><i class="r" style="width:1%"></i></div></td><td class="no">Empty</td></tr>
+    <tr><td class="mono">course_offerings</td><td>1</td><td><div class="bar"><i class="r" style="width:1%"></i></div></td><td class="no">One offering for 11 students</td></tr>
+    <tr><td class="mono">lessons</td><td>1</td><td><div class="bar"><i class="r" style="width:1%"></i></div></td><td class="no">One lesson total</td></tr>
+    <tr><td class="mono">student_institution_records</td><td>5</td><td><div class="bar"><i class="a" style="width:45%"></i></div></td><td class="maybe">Only 5 of 11 students are placed</td></tr>
+    <tr><td class="mono">enrollments</td><td>1</td><td><div class="bar"><i class="r" style="width:9%"></i></div></td><td class="no">Effectively no enrolments</td></tr>
+    <tr><td class="mono">student_course_registrations</td><td>0</td><td><div class="bar"><i class="r" style="width:0%"></i></div></td><td class="no">Zero registrations</td></tr>
+    <tr><td class="mono">subscriptions</td><td>0</td><td><div class="bar"><i class="r" style="width:0%"></i></div></td><td class="no">Revenue path unexercised</td></tr>
+  </table>
+
+  <div class="note r"><b>Coverage is the real product risk.</b> 542 users but 11 student records; 5 placed against an institution; 0 course registrations; 1 offering and 1 lesson for the whole platform. The chain is architecturally correct but almost entirely unpopulated beneath the discipline level, so the student dashboard has almost nothing to render for almost any account.</div>
+
+  <div class="note"><b>Identity side is healthier:</b> 69 <code>student_registration_verifications</code> and 5 <code>student_external_identities</code> exist — registration is genuinely being used. All 11 JAMB matriculation tests pass.</div>
+</section>
+
+<!-- ═══════════ 7. DATA REALITY ═══════════ -->
+<section id="reality">
+  <h2><span class="n">07</span> Data Reality — The Fork</h2>
+  <p class="lede">Two models describe the same concept and point at different tables with different row counts. Nothing in the codebase reconciles them.</p>
+
+  <div class="grid g2">
+    <div class="card" style="border-color:rgba(74,222,128,.3)">
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <span class="mono" style="font-size:30px;font-weight:700;color:var(--green)">474</span>
+        <span style="font-weight:700">Institution</span>
+      </div>
+      <div class="mono" style="font-size:12px;color:var(--fg2);margin:6px 0 12px">→ table <code>institutions</code></div>
+      <div style="font-size:12.5px;color:var(--fg2);font-family:var(--mono);line-height:1.9">
+        #1 Amadeus University, Amizi, Abia<br>
+        #2 Abia State University, Uturu<br>
+        #3 Michael Okpara University…<br>
+        <span style="color:var(--fg3)">… 470 more real NUC entries</span>
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--fg2)">
+        Shown by <code>/superadmin/institutions</code><br>
+        Referenced by <b style="color:var(--green)">7</b> call sites
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(251,191,36,.3)">
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <span class="mono" style="font-size:30px;font-weight:700;color:var(--amber)">126</span>
+        <span style="font-weight:700">Organization</span>
+      </div>
+      <div class="mono" style="font-size:12px;color:var(--fg2);margin:6px 0 12px">→ table <code>organizations</code></div>
+      <div style="font-size:12.5px;color:var(--fg2);font-family:var(--mono);line-height:1.9">
+        #1 UpdatedOrg <span style="color:var(--amber)">← test residue</span><br>
+        #2000001 Northwest University, Kano<br>
+        #2030001 Bayero University, Kano<br>
+        <span style="color:var(--fg3)">… mixed real + synthetic rows</span>
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--fg2)">
+        Filters <code>/superadmin/staff</code><br>
+        Referenced by <b style="color:var(--amber)">26</b> call sites · scope target
+      </div>
+    </div>
+  </div>
+
+  <div class="note r"><b>Consequence.</b> The two ID spaces do not overlap. The one live staff invitation points at <code>organization_id = 2000001</code> — present in <code>organizations</code>, <code>NULL</code> in <code>institutions</code>. A superadmin sees 474 institutions on one screen and manages 126 different organizations on another, and the majority of the code (26 call sites) uses the table with the messier data. Until one is declared authoritative and the other retired, staff provisioning and institution scoping cannot be trusted to mean the same thing.</div>
+</section>
+
+<!-- ═══════════ 8. ISSUES ═══════════ -->
+<section id="issues">
+  <h2><span class="n">08</span> Issue Register</h2>
+  <p class="lede">Every open item, ordered by consequence. All verified against production, not inferred from source.</p>
+
+  <div class="toggles">
+    <button class="on" data-f="all">All 21</button>
+    <button data-f="p0">P0 · 3</button>
+    <button data-f="p1">P1 · 7</button>
+    <button data-f="p2">P2 · 7</button>
+    <button data-f="p3">P3 · 4</button>
+  </div>
+
+  <div id="issues-list">
+
+  <div class="issue p0" data-s="p0">
+    <div class="top"><span class="sev">P0</span><span class="ttl">No rate limiting anywhere in the application</span></div>
+    <div class="body">Zero <code>throttle</code> middleware on any of the 78 routes and zero <code>RateLimiter::for()</code> definitions. Login is brute-forceable; JAMB verification is unmetered against a <b>paid external API</b>; ACLi chat is unmetered so one entitled student can drain the gateway.</div>
+    <div class="ev">verified: grep throttle bootstrap/app.php app/Providers routes/*.php → 0 hits
+grep RateLimiter::for app/ bootstrap/ → 0 hits
+middleware on login / acli.chat.send / register.student.verify → web|guest, web|auth, web|guest</div>
+  </div>
+
+  <div class="issue p0" data-s="p0">
+    <div class="top"><span class="sev">P0</span><span class="ttl">Institution / Organization data fork — two ID spaces</span></div>
+    <div class="body"><code>institutions</code> (474) and <code>organizations</code> (126) both model an institution. 26 call sites use <code>Organization</code>, 7 use <code>Institution</code>. The live staff invitation's <code>organization_id</code> is NULL in the other table. Scope isolation currently resolves against a table the academic model does not use.</div>
+    <div class="ev">institutions=474  organizations=126
+invitation.organization_id=2000001 → Organization: "Northwest University, Kano" · Institution: NULL
+Organization:: refs=26  Institution:: refs=7</div>
+  </div>
+
+  <div class="issue p0" data-s="p0">
+    <div class="top"><span class="sev">P0</span><span class="ttl">ACLi does not verify the caller is a student</span></div>
+    <div class="body"><code>studentChat()</code> checks that a user exists and holds the <code>student.chat</code> capability, but never checks <code>$user->student</code> exists. A staff or admin account granted the capability reaches the student AI capability.</div>
+    <div class="ev">AcliOrchestrator.php:41-47 → Auth::user() check only
+reflection scan of studentChat source for -&gt;student → no match</div>
+  </div>
+
+  <div class="issue p1" data-s="p1">
+    <div class="top"><span class="sev">P1</span><span class="ttl">68 of 116 migrations are missing from the repository</span></div>
+    <div class="body">Only 50 migration files exist. The missing 68 include the entire curriculum chain — programmes, courses, curriculum_courses, course_outlines, assessments — plus the identity and admin tables. <b>The repository cannot rebuild the database</b>, and this is the direct cause of every failing test suite.</div>
+    <div class="ev">migrations table: 116 recorded in production
+database/migrations/*.php: 50 files
+missing → create_programmes_table, create_courses_table, create_course_outlines_table,
+          create_assessments_table, add_nuc_programme_and_org_to_academic_programs, … 60 more</div>
+  </div>
+
+  <div class="issue p1" data-s="p1">
+    <div class="top"><span class="sev">P1</span><span class="ttl">Repository migrations are hardcoded to production row IDs</span></div>
+    <div class="body">Two migrations have never run on production and are not portable: <code>2026_09_17_000000_fix_missing_versions_and_courses</code> literally inserts for <code>programme_id =&gt; 28</code> and <code>33</code>. Running them anywhere but production corrupts the wrong programmes.</div>
+    <div class="ev">2026_09_17_000000_fix_missing_versions_and_courses:
+  ['programme_id' => 28, 'version_label' => 'CCMAS-2023'],
+  ['programme_id' => 33, 'version_label' => 'CCMAS-2023'],</div>
+  </div>
+
+  <div class="issue p1" data-s="p1">
+    <div class="top"><span class="sev">P1</span><span class="ttl"><code>academic_programs.status</code> does not exist in production</span></div>
+    <div class="body">The column is genuinely absent. Application code no longer filters on it, so nothing breaks today, but the schema and the model disagree. Any future filter reintroduces a 1054 in production.</div>
+    <div class="ev">Schema::hasColumn('academic_programs','status') → NO
+AcademicProgram::$fillable uses is_active, not status
+production SQL: Unknown column 'status' in 'where clause' — 4 occurrences in the log</div>
+  </div>
+
+  <div class="issue p1" data-s="p1">
+    <div class="top"><span class="sev">P1</span><span class="ttl"><code>programmes.slug</code> is fillable but the column does not exist</span></div>
+    <div class="body">Listed in <code>Programme::$fillable</code> with no matching column. A mass-assigned create would fail. Found by automated model↔schema drift scan across all 49 models.</div>
+    <div class="ev">COLUMN DRIFT  App\Models\Curriculum\Programme → programmes: slug
+Schema::hasColumn('programmes','slug') → NO</div>
+  </div>
+
+  <div class="issue p1" data-s="p1">
+    <div class="top"><span class="sev">P1</span><span class="ttl"><code>missing_course_requests</code> and <code>audit_logs</code> tables do not exist</span></div>
+    <div class="body">Two models are fully defined with no backing table. <code>MissingCourseRequest</code> has a 25-field schema; <code>AuditLog</code> is referenced by <code>AuditLogService</code>. Both would fatal the moment used.</div>
+    <div class="ev">Schema::hasTable('missing_course_requests') → NO   (MissingCourseRequest model, 25 fillable fields)
+Schema::hasTable('audit_logs')                  → NO   (AuditLogService has 0 callers)</div>
+  </div>
+
+  <div class="issue p1" data-s="p1">
+    <div class="top"><span class="sev">P1</span><span class="ttl"><code>roles.scope_level</code> is NOT NULL with no default</span></div>
+    <div class="body">Any role insert that omits it throws error 1364. This has already fired once in production.</div>
+    <div class="ev">information_schema: roles.scope_level → column_default=NULL, is_nullable=NO
+log: "Field 'scope_level' doesn't have a default value"</div>
+  </div>
+
+  <div class="issue p1" data-s="p1">
+    <div class="top"><span class="sev">P1</span><span class="ttl"><code>trustProxies(at: '*')</code> trusts every proxy</span></div>
+    <div class="body">Added for GitHub Codespaces port forwarding. It means <code>X-Forwarded-For</code> and <code>X-Forwarded-Proto</code> are trusted from any source — client IP and scheme can be spoofed, and any future IP-based rate limiting would be trivially bypassed. Fine in Codespaces, wrong in production.</div>
+    <div class="ev">bootstrap/app.php:18 → $middleware-&gt;trustProxies(at: '*');
+comment: "Trust all proxies (required for GitHub Codespaces port forwarding)"</div>
+  </div>
+
+  <div class="issue p2" data-s="p2">
+    <div class="top"><span class="sev">P2</span><span class="ttl">/student/course/missing-request returns 500</span></div>
+    <div class="body">The view <code>student.missing-course-request</code> was never written and the controller has only <code>create()</code>, no <code>store()</code>. Now behind <code>auth</code> so it is no longer a public 500, but the route is dead.</div>
+    <div class="ev">InvalidArgumentException: View [student.missing-course-request] not found.
+MissingCourseController has create() only — no submission path exists</div>
+  </div>
+
+  <div class="issue p2" data-s="p2">
+    <div class="top"><span class="sev">P2</span><span class="ttl">ACLi has no student academic context — the service exists but is unwired</span></div>
+    <div class="body">The system prompt sent to the gateway is a fixed generic string. <code>CurriculumContextService</code> already resolves programme, curriculum version, level, semester and the student's course codes, and is called by nothing. The student-aware orchestrator requirement is not met.</div>
+    <div class="ev">AcliOrchestrator::buildProviderMessages() → fixed string "You are ACLi, an educational AI assistant for ACL."
+grep CurriculumContextService app/ → only its own definition, 0 call sites</div>
+  </div>
+
+  <div class="issue p2" data-s="p2">
+    <div class="top"><span class="sev">P2</span><span class="ttl">Six orphan views — no controller renders them, no route reaches them</span></div>
+    <div class="body"><code>auth.register-student-school</code>, <code>auth.verify-email</code>, <code>student.course-outline</code>, <code>student.verification-success</code>, plus <code>components.idle-timeout</code> (0 usages).</div>
+    <div class="ev">full-resource-graph scan of 88 blade files
+idle-timeout was the source of 27 historical "Permission denied" log errors</div>
+  </div>
+
+  <div class="issue p2" data-s="p2">
+    <div class="top"><span class="sev">P2</span><span class="ttl">No privacy or terms pages are served — the footer fakes it</span></div>
+    <div class="body">The site footer's "Privacy and terms" entry is a <code>mailto:</code> link. The <code>pages.privacy</code> and <code>pages.terms</code> templates exist but no route serves them. For a platform collecting JAMB numbers, state of origin and ID documents, that is a compliance gap.</div>
+    <div class="ev">site-footer.blade.php:36 → &lt;a href="mailto:hello@aclacademy.me"&gt;Privacy and terms&lt;/a&gt;
+grep privacy|terms routes/*.php → 0 hits</div>
+  </div>
+
+  <div class="issue p2" data-s="p2">
+    <div class="top"><span class="sev">P2</span><span class="ttl"><code>routes/institution_portal.php</code> is dead and would fatal if enabled</span></div>
+    <div class="body">Never loaded, and it references two controllers that do not exist: <code>Institution\InstitutionController</code> and <code>Institution\DashboardController</code>. The directory contains only <code>ClaimController.php</code>.</div>
+    <div class="ev">app/Http/Controllers/Institution/ → ClaimController.php only</div>
+  </div>
+
+  <div class="issue p2" data-s="p2">
+    <div class="top"><span class="sev">P2</span><span class="ttl"><code>ForceEditProfile</code> middleware is defined but never registered</span></div>
+    <div class="body">A whole middleware class exists with no alias and no route reference. Whatever guard it was meant to enforce — most likely forcing profile completion after registration — is not active.</div>
+    <div class="ev">grep ForceEditProfile bootstrap/ routes/ app/ → 0 hits outside its own file
+bootstrap/app.php registers exactly one alias: 'superadmin'</div>
+  </div>
+
+  <div class="issue p2" data-s="p2">
+    <div class="top"><span class="sev">P2</span><span class="ttl">Two services have zero callers</span></div>
+    <div class="body"><code>ReadinessQuizService</code> builds a quiz from <code>course_outlines</code>, which has 0 rows. <code>AuditLogService</code> writes to a table that does not exist. Both are dead surface area that will fail if invoked.</div>
+    <div class="ev">grep ReadinessQuizService|buildQuiz app/ routes/ → 0 call sites; course_outlines rows = 0
+grep AuditLogService app/ routes/ → 0 call sites; audit_logs table = MISSING</div>
+  </div>
+
+  <div class="issue p3" data-s="p3">
+    <div class="top"><span class="sev">P3</span><span class="ttl">All 8 test suites fail on one cause</span></div>
+    <div class="body">The test database cannot be built: <code>outline_questions</code> fails to create its foreign key to <code>course_outlines</code> (errno 150) because that migration is absent from the repo. Only the 11 JAMB tests pass.</div>
+    <div class="ev">SQLSTATE[HY000] 1005 Can't create table `acl_test`.`outline_questions` (errno: 150
+"Foreign key constraint is incorrectly formed" → references course_outlines
+PASS 1 suite / 11 tests · FAIL 8 suites</div>
+  </div>
+
+  <div class="issue p3" data-s="p3">
+    <div class="top"><span class="sev">P3</span><span class="ttl">The P0 no-cross-programme-fallback rule has no real test coverage</span></div>
+    <div class="body">The isolation test hardcodes a fixture student that does not exist, and its second test asserts nothing — it wraps the real assertions in <code>if ($student)</code> then calls <code>assertTrue(true)</code>. It passes vacuously. The most important rule in the app is unverified by the suite.</div>
+    <div class="ev">Student::find(120001) → null → "Student 120001 must exist"
+test_mass_communication…: if ($student) { …assertions… } assertTrue(true)  ← vacuous</div>
+  </div>
+
+  <div class="issue p3" data-s="p3">
+    <div class="top"><span class="sev">P3</span><span class="ttl">Duplicate "Institution Admin" role</span></div>
+    <div class="body">Two role rows share the display name with different slugs. Name-based role lookup is ambiguous and one of them cannot be selected through any name-driven UI.</div>
+    <div class="ev">roles table returns "Institution Admin" twice, alongside 6 other distinct names</div>
+  </div>
+
+  <div class="issue p3" data-s="p3">
+    <div class="top"><span class="sev">P3</span><span class="ttl">Academic content is almost entirely unpopulated</span></div>
+    <div class="body">179 courses and 754 curriculum links are well seeded, but beneath that: 0 course outlines, 0 outline questions, 1 course offering, 1 lesson, 1 enrolment, 0 course registrations. Only 5 of 11 students have an institution record. Most student dashboards will render empty.</div>
+    <div class="ev">users=542 · students=11 · student_institution_records=5
+enrollments=1 · student_course_registrations=0 · course_offerings=1 · lessons=1 · subscriptions=0</div>
+  </div>
+
+  </div>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--red)"></i> P0 — active exposure</span>
+    <span><i class="sw" style="background:var(--amber)"></i> P1 — data &amp; infra integrity</span>
+    <span><i class="sw" style="background:var(--blue)"></i> P2 — unfinished or dead</span>
+    <span><i class="sw" style="background:var(--grey)"></i> P3 — verification &amp; coverage</span>
+  </div>
+</section>
+
+<!-- ═══════════ 9. FIXED ═══════════ -->
+<section id="fixed">
+  <h2><span class="n">09</span> Resolved</h2>
+  <p class="lede">Closed in this pass and verified — included so the map shows current state, not just what's left.</p>
+
+  <div class="issue fixed" data-s="fixed">
+    <div class="top"><span class="sev">FIXED</span><span class="ttl">IDOR + unauthenticated student routes</span></div>
+    <div class="body">Two routes had been appended after the superadmin group's closing brace, inheriting no middleware at all, and took <code>{student}</code> as a parameter with no ownership check — any visitor could read any student's programme and courses.</div>
+    <div class="ev">guest → 302 · non-student → 403 · student → 200</div>
+  </div>
+  <div class="issue fixed" data-s="fixed">
+    <div class="top"><span class="sev">FIXED</span><span class="ttl">Fatal parse error in ExternalCatalogueSeeder</span></div>
+    <div class="body"><code>namespace</code> appeared after a <code>use</code> statement, so the file could never load.</div>
+    <div class="ev">php -l → No syntax errors detected</div>
+  </div>
+  <div class="issue fixed" data-s="fixed">
+    <div class="top"><span class="sev">FIXED</span><span class="ttl">Three referenced model classes did not exist</span></div>
+    <div class="body"><code>StudentExternalIdentity</code> (the live JAMB duplicate-registration gate), <code>Curriculum\Assessment</code> and <code>OutlineQuestion</code>. All three tables existed; the classes did not.</div>
+    <div class="ev">JAMB isAlreadyRegistered() → resolves · 5 rows · Course::assessments() → 1 row</div>
+  </div>
+  <div class="issue fixed" data-s="fixed">
+    <div class="top"><span class="sev">FIXED</span><span class="ttl"><code>InstitutionStaffInvitation::role()</code> returned a model, not a relation</span></div>
+    <div class="body">Eloquent treats any <code>role()</code> as a relation and threw <i>"must return a relationship instance"</i>, 500-ing <code>/superadmin/staff</code>. Now a real <code>belongsTo(Role, 'role_slug', 'slug')</code>.</div>
+    <div class="ev">/superadmin/staff → 200 · relation resolves to "Level Coordinator"</div>
+  </div>
+  <div class="issue fixed" data-s="fixed">
+    <div class="top"><span class="sev">FIXED</span><span class="ttl">Two views extended a layout that does not exist</span></div>
+    <div class="body"><code>@extends('layouts.student')</code> — only <code>app</code>, <code>auth</code> and <code>public</code> exist. 500'd the course-registration page.</div>
+    <div class="ev">/student/course-register → 200</div>
+  </div>
+  <div class="issue fixed" data-s="fixed">
+    <div class="top"><span class="sev">FIXED</span><span class="ttl">The professional catalogue was entirely unreachable</span></div>
+    <div class="body">The controller and both views were complete, but no route was registered — <code>route('catalogue')</code> had no target.</div>
+    <div class="ev">/catalogue → 200 (17,878 bytes) · /catalogue/{id} → 200</div>
+  </div>
+  <div class="issue fixed" data-s="fixed">
+    <div class="top"><span class="sev">FIXED</span><span class="ttl">File permissions were breaking the app for www-data</span></div>
+    <div class="body">Newly written files landed as <code>0600</code>, so the web server could not read them — the source of 27 <code>Permission denied</code> errors. Full-tree audit now reports zero unreadable files.</div>
+    <div class="ev">find app routes database resources tests -not -perm -004 → 0 results</div>
+  </div>
+  <div class="issue fixed" data-s="fixed">
+    <div class="top"><span class="sev">FIXED</span><span class="ttl">ACLi end-to-end restored</span></div>
+    <div class="body">A destroyed <code>config/acli.php</code> had stripped the gateway config, producing "An error occurred" on every chat.</div>
+    <div class="ev">entitlement allowed:true · provider omniroute · HTTP 200 · "OK"</div>
+  </div>
+</section>
+
+<footer>
+  Generated from live production state · Laravel 17 · TiDB Serverless<br>
+  Row counts read directly from the database at generation time.
+</footer>
+
+</div>
+
+<script>
+  // section scroll-spy
+  const links = [...document.querySelectorAll('nav a')];
+  const secs = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const spy = new IntersectionObserver(es => {
+    es.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + e.target.id));
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  secs.forEach(s => spy.observe(s));
+
+  // issue filter
+  const btns = [...document.querySelectorAll('.toggles button')];
+  const items = [...document.querySelectorAll('#issues-list .issue')];
+  btns.forEach(b => b.addEventListener('click', () => {
+    btns.forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    const f = b.dataset.f;
+    items.forEach(i => {
+      i.style.display = (f === 'all' || i.dataset.s === f) ? '' : 'none';
+    });
+  }));
+</script>
+</body>
+</html>

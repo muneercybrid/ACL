@@ -6,12 +6,31 @@ use App\Models\Curriculum\Course;
 use App\Models\Curriculum\NucDiscipline;
 use App\Models\Student;
 use App\Services\CourseVisibilityService;
-use Illuminate\Foundation\Testing\TestCase;
-use Tests\CreatesApplication;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class CourseVisibilityTest extends TestCase
 {
-    use CreatesApplication;
+    use RefreshDatabase;
+
+    /**
+     * The external catalogue and the NUC disciplines it hangs off are seeded
+     * explicitly.
+     *
+     * This class previously had no database state of its own, so it either
+     * skipped on missing seeder data or, in the catalogue case, passed over an
+     * empty collection without asserting anything. Seeding the two seeders
+     * makes both tests exercise real data instead of describing the absence of
+     * it: the disciplines come from the NUC reference set, and the external
+     * courses from the catalogue seeder that keys off them.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(\Database\Seeders\NucReferenceSeeder::class);
+        $this->seed(\Database\Seeders\ExternalCatalogueSeeder::class);
+    }
 
     public function test_external_courses_are_scoped_to_student_discipline(): void
     {
@@ -27,9 +46,20 @@ class CourseVisibilityTest extends TestCase
             $this->markTestSkipped('Seeder data not present');
         }
 
-        // Build a student whose programme is in CMP
-        $student = Student::whereHas('institutionRecords.academicProgram', fn ($q) =>
-            $q->where('nuc_discipline_id', $cmp->id))->first();
+        // Build a student whose programme is in CMP.
+        //
+        // The discipline is reached through programmes, not directly off
+        // academic_programs: that table carries nuc_programme_id, and it is
+        // programmes that hold nuc_discipline_id. The previous query filtered
+        // on academic_programs.nuc_discipline_id, a column that does not exist
+        // in the schema, so this test always died on a SQL error instead of
+        // reaching its assertions.
+        //
+        // Membership is reached through the user, matching how
+        // StudentDashboardService resolves a student's programme.
+        $student = Student::whereHas('user.organizationMemberships.academicProgram', fn ($q) =>
+            $q->whereHas('nucProgramme', fn ($q2) =>
+                $q2->where('nuc_discipline_id', $cmp->id)))->first();
 
         if (! $student) {
             $this->markTestSkipped('No CMP student available');
@@ -45,8 +75,15 @@ class CourseVisibilityTest extends TestCase
     {
         $svc = app(CourseVisibilityService::class);
         $all = $svc->catalogue('CMP');
+
+        // Assert the collection is non-empty first. Without this the loop below
+        // never executes and the test passes without checking anything, which
+        // is why it was reported risky — an empty catalogue is exactly the case
+        // where "everything returned is external" is trivially true.
+        $this->assertNotEmpty($all, 'the catalogue must return courses to be checked');
+
         foreach ($all as $c) {
-            $this->assertTrue((bool) $c->is_external);
+            $this->assertTrue((bool) $c->is_external, 'the catalogue must not leak internal courses');
         }
     }
 }

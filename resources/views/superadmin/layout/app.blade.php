@@ -29,7 +29,7 @@
             [
                 'heading' => 'Institutions',
                 'items' => [
-                    ['label' => 'All Institutions',  'route' => 'superadmin.institutions',  'icon' => 'building-library', 'active' => request()->routeIs('superadmin.institutions*')],
+                    ['label' => 'All Institutions',  'route' => 'superadmin.institutions.index',  'icon' => 'building-library', 'active' => request()->routeIs('superadmin.institutions*')],
                     ['label' => 'Onboarding',        'route' => 'superadmin.onboarding',     'icon' => 'clipboard-check',  'active' => request()->routeIs('superadmin.onboarding*')],
                     ['label' => 'Staff Directory',   'route' => 'superadmin.staff',          'icon' => 'users',            'active' => request()->routeIs('superadmin.staff*')],
                 ],

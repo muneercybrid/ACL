@@ -18,6 +18,24 @@ class Role extends Model
         return ['is_system' => 'boolean'];
     }
 
+    /**
+     * `scope_level` is NOT NULL with no default, so a role created without it
+     * fails at the database rather than at the point of the mistake.
+     *
+     * Defaulting to 'organization' is the narrowest scope in use — the safest
+     * posture, because a role can only gain reach by asking for it. Platform
+     * and level scopes stay explicit in production, where the existing roles
+     * carry 'platform', 'organization' and 'level'.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $role): void {
+            if (blank($role->scope_level)) {
+                $role->scope_level = 'organization';
+            }
+        });
+    }
+
     public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class, 'role_permissions');

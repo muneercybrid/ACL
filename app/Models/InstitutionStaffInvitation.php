@@ -57,9 +57,16 @@ class InstitutionStaffInvitation extends Model
         return $this->belongsTo(User::class, 'accepted_user_id');
     }
 
+    /**
+     * The invited role, resolved from the stored slug.
+     *
+     * Eloquent treats any `role()` method as a relation, so this must return a
+     * relationship instance — resolving the Role inline would break eager
+     * loading and throw "must return a relationship instance".
+     */
     public function role(): BelongsTo
     {
-        return Role::where('slug', $this->role_slug)->first();
+        return $this->belongsTo(Role::class, 'role_slug', 'slug');
     }
 
     public function isExpired(): bool

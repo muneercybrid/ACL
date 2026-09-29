@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Institution;
 use App\Models\InstitutionOnboarding;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
@@ -20,11 +21,7 @@ class InstitutionController extends Controller
 {
     public function index(Request $request): View
     {
-        $query = Organization::query()->withCount([
-            'memberships as student_count' => fn ($q) => $q->where('membership_type', 'student')->where('status', 'active'),
-            'memberships as staff_count' => fn ($q) => $q->where('membership_type', 'staff')->where('status', 'active'),
-            'memberships as admin_count' => fn ($q) => $q->where('membership_type', 'administrator')->where('status', 'active'),
-        ]);
+        $query = Institution::query();
 
         // Filters
         if ($request->filled('q')) {
@@ -34,17 +31,18 @@ class InstitutionController extends Controller
 
         if ($request->filled('status')) {
             $status = $request->string('status');
-            if ($status === 'active') $query->where('is_active', true);
-            if ($status === 'inactive') $query->where('is_active', false);
+            if ($status === 'active') $query->where('institution_status', 'ACTIVE');
+            if ($status === 'inactive') $query->where('institution_status', 'ARCHIVED');
+            if ($status === 'not-onboarded') $query->where('onboarding_status', 'NOT_ONBOARDED');
         }
 
         if ($request->filled('type')) {
-            $query->where('type', $request->string('type'));
+            $query->where("ownership", $request->string('type'));
         }
 
-        $institutions = $query->with('onboarding')->orderBy('created_at', 'desc')->paginate(20)->withQueryString();
+        $institutions = $query->orderBy('created_at', 'desc')->paginate(20)->withQueryString();
 
-        $types = Organization::query()->distinct()->pluck('type')->filter()->values();
+        $types = Institution::query()->distinct()->pluck('ownership')->filter()->values();
 
         return view('superadmin.institutions.index', [
             'institutions' => $institutions,
@@ -118,24 +116,24 @@ class InstitutionController extends Controller
         $stats = [
             'faculties' => $organization->faculties->count(),
             'departments' => $organization->faculties->flatMap->departments->count(),
-            'students' => $organization->memberships->where('membership_type', 'student')->where('status', 'active')->count(),
-            'staff' => $organization->memberships->where('membership_type', 'staff')->where('status', 'active')->count(),
-            'administrators' => $organization->memberships->where('membership_type', 'administrator')->where('status', 'active')->count(),
+            'students' => $organization->memberships->where('membership_type', 'student')->where('institution_status', 'active')->count(),
+            'staff' => $organization->memberships->where('membership_type', 'staff')->where('institution_status', 'active')->count(),
+            'administrators' => $organization->memberships->where('membership_type', 'administrator')->where('institution_status', 'active')->count(),
         ];
 
         $administrators = $organization->memberships
             ->where('membership_type', 'administrator')
-            ->where('status', 'active')
+            ->where('institution_status', 'active')
             ->values();
 
         $staffMembers = $organization->memberships
             ->where('membership_type', 'staff')
-            ->where('status', 'active')
+            ->where('institution_status', 'active')
             ->values();
 
         $students = $organization->memberships
             ->where('membership_type', 'student')
-            ->where('status', 'active')
+            ->where('institution_status', 'active')
             ->values();
 
         $recentActivity = SuperadminAuditLog::forOrganization($organization->id)

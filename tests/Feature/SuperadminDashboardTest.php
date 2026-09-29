@@ -181,7 +181,30 @@ class SuperadminDashboardTest extends TestCase
 
         $this->assertFalse($target->isSuperadmin());
         $this->assertTrue($target->isInstitutionAdmin($this->organization));
-        $this->assertFalse($target->isInstitutionAdmin());
+
+        // The unscoped call answers "does this account hold an institution
+        // administrator role anywhere", which is what ForceEditProfile needs in
+        // order to trap a first-login administrator. It is true here by design.
+        //
+        // This assertion previously expected false, encoding the old behaviour
+        // where the unscoped form required an assignment with a null entity. An
+        // institution administrator's role is always scoped, so that check
+        // returned false for every real administrator and the forced password
+        // change never fired for any of them.
+        //
+        // The property that actually matters is that the role confers reach
+        // over this organization and no other, so that is what is asserted.
+        $this->assertTrue($target->isInstitutionAdmin());
+
+        $otherOrganization = Organization::create([
+            'name' => 'Unrelated University',
+            'slug' => 'unrelated-university',
+        ]);
+
+        $this->assertFalse(
+            $target->isInstitutionAdmin($otherOrganization),
+            'the scoped role must not extend to an unrelated organization'
+        );
     }
 
     public function test_institution_admin_cannot_toggle_institution(): void

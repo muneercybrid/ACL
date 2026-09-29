@@ -19,7 +19,14 @@ return new class extends Migration {
             $table->string('import_batch')->nullable();
             $table->dateTime('synchronized_at')->nullable();
             $table->timestamps();
-            $table->index(['ownership','institution_status','onboarding_status']);
+            $table->index(
+                ['ownership', 'institution_status', 'onboarding_status'],
+                // Named explicitly. Laravel would derive
+                // "institutions_ownership_institution_status_onboarding_status_index",
+                // which is 74 characters and exceeds MySQL's 64-character
+                // identifier limit, so the statement fails with error 1059.
+                'institutions_status_lookup_idx'
+            );
             $table->unique(['normalized_name']);
         });
     }

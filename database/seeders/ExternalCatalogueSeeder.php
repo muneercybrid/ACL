@@ -1,12 +1,15 @@
 <?php
 
-use Illuminate\Support\Facades\DB;
-
 namespace Database\Seeders;
 
 use App\Models\Curriculum\Course;
 use App\Models\Curriculum\NucDiscipline;
 use Illuminate\Database\Seeder;
+// Required: the seeder links courses to disciplines through DB::table() for
+// course_disciplines, which has no model. Without this import the class never
+// resolved DB and fataled with "Class Database\Seeders\DB not found", so this
+// seeder had never actually run to completion.
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ExternalCatalogueSeeder extends Seeder

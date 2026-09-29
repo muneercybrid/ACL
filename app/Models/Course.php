@@ -10,7 +10,10 @@ class Course extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['code', 'title', 'slug', 'credit_units', 'description', 'is_active'];
+    protected $fillable = [
+        'code', 'title', 'slug', 'credit_units', 'description', 'is_active',
+        'normalized_code', 'normalized_title',
+    ];
 
     protected function casts(): array
     {
@@ -18,6 +21,29 @@ class Course extends Model
             'credit_units' => 'integer',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * `normalized_code` and `normalized_title` are NOT NULL in the courses table
+     * but were never written by application code, so anything that created a
+     * Course without spelling them out failed on a missing default. Deriving
+     * them here means the invariant holds for every write, not just the ones
+     * that remember to.
+     *
+     * An explicitly supplied value is never overwritten, so an import that has
+     * already normalised correctly keeps its own value.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $course): void {
+            if (blank($course->normalized_code) && filled($course->code)) {
+                $course->normalized_code = mb_strtoupper(trim($course->code));
+            }
+
+            if (blank($course->normalized_title) && filled($course->title)) {
+                $course->normalized_title = mb_strtolower(trim($course->title));
+            }
+        });
     }
 
     public function offerings(): HasMany

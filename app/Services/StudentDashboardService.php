@@ -41,7 +41,6 @@ class StudentDashboardService
     public function institutionRecord(Student $student): ?OrganizationMembership
     {
         return OrganizationMembership::where('user_id', $student->user_id)
-            ->where('status', 'active')
             ->orderBy('joined_at', 'desc')
             ->first();
     }
@@ -52,8 +51,22 @@ class StudentDashboardService
     public function academicProgramme(Student $student): ?AcademicProgram
     {
         $record = $this->institutionRecord($student);
-
-        return $record?->academicProgram;
+        if ($record?->academicProgram) {
+            return $record->academicProgram;
+        }
+        // Fallback: verified JAMB programme when institution record is incomplete
+        $verification = $this->latestVerification($student);
+        if ($verification?->verified_programme) {
+            $needle = $this->normaliseName($verification->verified_programme);
+            return \App\Models\AcademicProgram::query()
+                ->get()
+                ->filter(function (\App\Models\AcademicProgram $p) use ($needle) {
+                    $haystack = $this->normaliseName($p->name);
+                    return $needle !== '' && (str_contains($haystack, $needle) || str_contains($needle, $haystack));
+                })
+                ->first();
+        }
+        return null;
     }
 
     /**
@@ -222,7 +235,6 @@ class StudentDashboardService
         $level = $student->level ?? 100;
         $ids = Cache::remember("dashboard:programme:{$student->id}:v2:level{$level}", 300, function () use ($version, $level) {
             return CurriculumCourse::where('curriculum_version_id', $version->id)
-                ->where('status', 'active')
                 ->where('level', $level)
                 ->pluck('id')
                 ->toArray();
@@ -282,7 +294,6 @@ class StudentDashboardService
     {
         return $user->enrollments()
             ->with(['courseOffering.course', 'courseOffering.semester'])
-            ->where('status', 'active')
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->orderByDesc('enrolled_at')
             ->get();
@@ -294,7 +305,6 @@ class StudentDashboardService
     public function enrolledCourseIds(User $user): array
     {
         return $user->enrollments()
-            ->where('status', 'active')
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->pluck('course_offering_id')
             ->map(fn ($id) => (int) $id)
