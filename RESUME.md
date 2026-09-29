@@ -266,8 +266,41 @@ The owner's requirement, not yet started:
   for that programme and level, the student skips selection entirely
 - must be standardised and scalable
 
-The tables to build on already exist and are populated:
-`curriculum_courses` (course_id, level, semester, course_type, credit_units,
-is_mandatory), `levels`, `academic_programs`. `curriculum_courses` is still
-empty, so the coordinator side has to be done before the student side means
-anything.
+The coordinator side is now built and running.
+
+## CurriculumPublisher + acl:curriculum:publish — done
+`app/Services/Curriculum/CurriculumPublisher.php` publishes a course list per
+offering per academic session, and creates the next version rather than
+overwriting, so a student registered last term still maps to the list that
+was in force then. It refuses an empty list and refuses a semester outside
+{1,2}, because the two-step student flow depends on that ordering.
+
+`acl:curriculum:publish` derives level and semester from the NUC course code:
+`ACC101` -> level 100 semester 1, `ACC102` -> level 100 semester 2,
+`ACC201` -> level 200 semester 1. The hundreds digit is the level; the final
+digit cycles 1,2 per year, odd first semester. Codes that do not fit are
+skipped rather than guessed at.
+
+`hasPublishedList($offering, $level)` is the flag the student flow reads to
+decide whether to skip selection. Scoped to the LEVEL, not just the
+programme: a level 100 list existing does not mean a level 200 student has
+one.
+
+### Column-name traps hit while building this
+- `academic_sessions` uses `start_date`/`end_date` and requires `slug` — not
+  `starts_on`/`ends_on`.
+- `curriculum_versions` has NO numeric `version` column. The sequence is
+  carried in `version_label`, so version N is derived from the row count.
+- There are TWO Programme classes: `App\Models\Curriculum\Programme` and
+  `App\Models\AcademicProgram`. The offering is `App\Models\AcademicProgram`.
+- `pluck('slug','position')` returns a plain array in this driver, not a
+  Collection, so `->keys()` throws.
+
+### A false alarm worth recording
+I concluded every programme had been mis-assigned to discipline 1 and built
+`acl:ccmas:reassign-disciplines` to fix it. The dry run showed 0 to change.
+The disciplines were always correct across 17 disciplines; the first six
+offerings just happen to all be Administration and Management, so their
+counts matched. The command was deleted rather than committed. Counting
+equality is not proof of a bug, and the check that would have settled it in
+one query was the distribution across all 17.
