@@ -28,7 +28,8 @@ class SeedTestAccounts extends Command
         {--levels=100,200,300,400,500,600,700 : Levels to seed}
         {--per-programme=1 : Students per programme per level}
         {--departments=1 : Departments per organization}
-        {--chunk=25 : Rows per insert batch}';
+        {--chunk=25 : Rows per insert batch}
+        {--only-students : Skip structure seeding; cheaper once it exists.}';
 
     protected $description = 'Seed the academic structure and the test student matrix';
 
@@ -63,9 +64,20 @@ class SeedTestAccounts extends Command
             return self::SUCCESS;
         }
 
-        $departmentIds = $this->seedDepartments($organizations, $departmentsPerOrg);
-        $offerings = $this->seedOfferings($programmes, $organizations, $departmentIds);
-        $this->seedLevels($offerings, $levels);
+        $onlyStudents = (bool) $this->option('only-students');
+
+        // The organizations were dealt round-robin in index order, so pairing
+        // programme n with organization n mod count reproduces the same
+        // assignment. Reading the offerings back avoids re-issuing a query per
+        // programme when the structure is already in place.
+        $offerings = $onlyStudents
+            ? $this->loadOfferings()
+            : $this->seedOfferings($programmes, $organizations, $this->seedDepartments($organizations, $departmentsPerOrg));
+
+        if (! $onlyStudents) {
+            $this->seedLevels($offerings, $levels);
+        }
+
         $students = $this->seedStudents($programmes, $organizations, $levels, $offerings, $perProgramme);
 
         $this->newLine();
@@ -279,6 +291,26 @@ class SeedTestAccounts extends Command
         $this->line("  shared test password: {$password}");
 
         return $created;
+    }
+
+    /**
+     * @return array<int, array{organization_id: int, offering_id: int}>
+     */
+    private function loadOfferings(): array
+    {
+        $rows = DB::table('academic_programs')
+            ->whereNotNull('nuc_programme_id')
+            ->get(['nuc_programme_id', 'organization_id', 'id']);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row->nuc_programme_id] ??= [
+                'organization_id' => (int) $row->organization_id,
+                'offering_id' => (int) $row->id,
+            ];
+        }
+
+        return $map;
     }
 
     private function levelName(int $level): string
