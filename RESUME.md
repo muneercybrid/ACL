@@ -26,17 +26,30 @@ which its own startup banner flags as a risk on an untrusted network. Setting
 - `programmes` is currently EMPTY. Being rebuilt from CCMAS — see in flight.
 
 ## In flight
-- `acl:seed:test-accounts --apply` is running in the BACKGROUND and takes
-  roughly 45 minutes. It seeds faculties, departments, offerings and levels
-  (all already done), then ~1,666 test students. Check before re-running:
-  re-running re-walks all 481 organizations, which alone costs ~8 minutes of
-  round trips.
+- `acl:seed:test-accounts --apply --only-students` runs in the BACKGROUND and
+  writes ~1,666 test students at roughly 2-3 seconds each, so about 50-80
+  minutes in total. Do NOT re-run the full pipeline to "fix" it: without
+  `--only-students` it re-walks all 481 organizations and re-checks 1,666
+  levels, which costs ~20 minutes before a single student is written.
 
-  Log: /tmp/seed_students.log
+  Log: /tmp/seed4.log
+
+  Already written and correct, e.g. accountinglvl100@aclacademy.me,
+  actuarialsciencelvl100@aclacademy.me, aviationmanagementlvl100@aclacademy.me.
+  The address encodes the programme and the level, as the owner asked.
+
+  Once it finishes, seed the level coordinators the same way, then ACLi
+  course content generation.
 
   Why it is slow: TiDB runs at ~200 ms per statement, and the command issues
   several per student. This is a design problem, not a bug — the per-row work
   should be batched the way the CCMAS course import now is.
+
+## Laravel signature gotcha
+A multi-line option description in a command signature makes the option
+silently unparseable -- the command then rejects it as an option that does not
+exist while the source plainly declares it. Keep option descriptions on one
+line.
 
 ## Known TiDB latency trap
 Anything doing per-row exists() + insert is unusable at ~200 ms per statement.
