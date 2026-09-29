@@ -21,7 +21,12 @@ class InstitutionController extends Controller
 {
     public function index(Request $request): View
     {
-        $query = Institution::query();
+        // Read organizations, not the `institutions` table. That table was
+        // folded into `organizations` and dropped, so querying it here made the
+        // superadmin listing page — and the create page it links to — throw on
+        // a dropped table while six sibling routes served the same entity from
+        // organizations. The two pages disagreed about what an institution is.
+        $query = Organization::query();
 
         // Filters
         if ($request->filled('q')) {
@@ -31,18 +36,20 @@ class InstitutionController extends Controller
 
         if ($request->filled('status')) {
             $status = $request->string('status');
-            if ($status === 'active') $query->where('institution_status', 'ACTIVE');
-            if ($status === 'inactive') $query->where('institution_status', 'ARCHIVED');
+            // organizations.status holds the lifecycle value; the old
+            // institutions.institution_status column does not exist here.
+            if ($status === 'active') $query->where('status', 'active');
+            if ($status === 'inactive') $query->where('status', 'archived');
             if ($status === 'not-onboarded') $query->where('onboarding_status', 'NOT_ONBOARDED');
         }
 
         if ($request->filled('type')) {
-            $query->where("ownership", $request->string('type'));
+            $query->where('ownership', $request->string('type'));
         }
 
         $institutions = $query->orderBy('created_at', 'desc')->paginate(20)->withQueryString();
 
-        $types = Institution::query()->distinct()->pluck('ownership')->filter()->values();
+        $types = Organization::query()->distinct()->pluck('ownership')->filter()->values();
 
         return view('superadmin.institutions.index', [
             'institutions' => $institutions,
@@ -116,24 +123,24 @@ class InstitutionController extends Controller
         $stats = [
             'faculties' => $organization->faculties->count(),
             'departments' => $organization->faculties->flatMap->departments->count(),
-            'students' => $organization->memberships->where('membership_type', 'student')->where('institution_status', 'active')->count(),
-            'staff' => $organization->memberships->where('membership_type', 'staff')->where('institution_status', 'active')->count(),
-            'administrators' => $organization->memberships->where('membership_type', 'administrator')->where('institution_status', 'active')->count(),
+            'students' => $organization->memberships->where('membership_type', 'student')->where('status', 'active')->count(),
+            'staff' => $organization->memberships->where('membership_type', 'staff')->where('status', 'active')->count(),
+            'administrators' => $organization->memberships->where('membership_type', 'administrator')->where('status', 'active')->count(),
         ];
 
         $administrators = $organization->memberships
             ->where('membership_type', 'administrator')
-            ->where('institution_status', 'active')
+            ->where('status', 'active')
             ->values();
 
         $staffMembers = $organization->memberships
             ->where('membership_type', 'staff')
-            ->where('institution_status', 'active')
+            ->where('status', 'active')
             ->values();
 
         $students = $organization->memberships
             ->where('membership_type', 'student')
-            ->where('institution_status', 'active')
+            ->where('status', 'active')
             ->values();
 
         $recentActivity = SuperadminAuditLog::forOrganization($organization->id)
