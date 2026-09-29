@@ -127,7 +127,7 @@ return [
     | Keep this pointed at a mailbox that is actually read.
     */
 
-    'contact_recipient' => env('MAIL_CONTACT_RECIPIENT', env('MAIL_SUPPORT_ADDRESS')),
+    'contact_recipient' => env('MAIL_CONTACT_RECIPIENT', 'offaclacademy@gmail.com'),
 
     /*
     | The public address shown to users as a way to reach support. Shown to

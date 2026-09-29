@@ -25,8 +25,8 @@ class SeedTestAccounts extends Command
 {
     protected $signature = 'acl:seed:test-accounts
         {--apply : Write. Without it, only report.}
-        {--levels=100,200,300,400,500,600,700 : Levels to seed}
-        {--per-programme=1 : Students per programme per level}
+        {--levels=100 : Levels to seed}
+        {--per-programme=2 : Students per programme per level}
         {--departments=1 : Departments per organization}
         {--chunk=25 : Rows per insert batch}
         {--only-students : Skip structure seeding; cheaper once it exists.}';
@@ -233,6 +233,9 @@ class SeedTestAccounts extends Command
         $index = 0;
         $password = Str::random(16);
 
+        // Only level 100, 2 students per programme per university: male + female
+        $onlyLevel = [100];
+
         foreach ($programmes as $programme) {
             if (! isset($offerings[$programme->id])) {
                 continue;
@@ -240,14 +243,19 @@ class SeedTestAccounts extends Command
 
             $slug = $this->programmeSlug($programme->name);
 
-            foreach ($levels as $level) {
-                for ($n = 0; $n < $perProgramme; $n++) {
+            foreach ($onlyLevel as $level) {
+                // 1 male + 1 female per programme at level 100
+                $names = [
+                    $programme->name . ' ' . $level . ' Male Student',
+                    $programme->name . ' ' . $level . ' Female Student',
+                ];
+
+                for ($n = 0; $n < 2; $n++) {
                     $organization = $organizations[$index % $organizations->count()];
                     $index++;
 
-                    $email = $n === 0
-                        ? "{$slug}lvl{$level}@aclacademy.me"
-                        : "{$slug}lvl{$level}_{$n}@aclacademy.me";
+                    $suffix = $n === 0 ? 'male' : 'female';
+                    $email = "{$slug}lvl{$level}_{$suffix}@aclacademy.me";
 
                     if (User::where('email', $email)->exists()) {
                         continue;
@@ -255,7 +263,7 @@ class SeedTestAccounts extends Command
 
                     try {
                         $user = new User([
-                            'name' => $programme->name . ' ' . $level . ' Student',
+                            'name' => $names[$n],
                             'email' => $email,
                             'password' => bcrypt($password),
                         ]);
@@ -264,8 +272,6 @@ class SeedTestAccounts extends Command
 
                         OrganizationOnboarding::attachStudent($user, $organization, $programme);
 
-                        // attachStudent deliberately does not guess a level, so
-                        // the caller's level is authoritative here.
                         DB::table('students')->where('user_id', $user->id)
                             ->update(['level' => $level]);
 
@@ -289,7 +295,6 @@ class SeedTestAccounts extends Command
         }
 
         $this->line("  shared test password: {$password}");
-
         return $created;
     }
 

@@ -20,6 +20,7 @@ class VerificationSuccessMail extends Mailable
                 'name' => $this->verification->verified_name,
                 'institution' => $this->verification->verified_institution,
                 'programme' => $this->verification->verified_programme,
+                'verify_url' => url('/verify-email-confirm/' . urlencode(strtolower(str_replace(' ', '.', $this->verification->verified_name ?? 'user')))),
             ]);
     }
 }

@@ -14,6 +14,8 @@ Your account is ready. You can now:
 - Track your academic progress
 - Use ACLi AI study features (where entitled)
 
+[Confirm verification — Account verified]({{ $verify_url }})
+
 [Log in to your dashboard]({{ url('/login') }})
 
 ---
