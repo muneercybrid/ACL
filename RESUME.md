@@ -193,3 +193,41 @@ Three parser bugs were found by running it on real files, not by reading it:
   threw the heading text away
 - the paragraph split ran before the heading pass and consumed the </w:p> the
   heading pattern needs to delimit a paragraph
+
+## Email — verified, with one real bug fixed
+SMTP (Resend) is configured and a real send succeeded against
+muneercybrid@gmail.com. Credentials being present proves nothing, so the send
+was actually attempted.
+
+Two bugs found:
+
+1. `StudentRegistrationController` swallowed mail exceptions with a bare
+   `catch { report($e); }` and then redirected to the student dashboard with
+   "account created successfully". A total mail outage looked identical to a
+   working one and the only trace was a log line nobody reads. The account is
+   already created at that point, so the honest behaviour is a `warning` flash
+   telling the student to contact their administrator.
+
+2. `resources/views/layouts/app.blade.php` — the layout every student page
+   extends — rendered NO session messages and NO validation errors at all. So
+   the success message never appeared either, and any `with('error')` in a
+   controller was invisible. Added a flash block covering success, warning,
+   error and status, plus the error bag.
+
+Note the colour token is `danger`, not `error`. There is no `--color-error`;
+using it would have produced unstyled markup that looks broken but is not.
+
+## Chapter plan (owner): placeholders first, content on demand
+The owner wants chapters in the thousands -- every course needs dozens to
+cover it from first principles to the end goal. Doing that one AI call at a
+time is far too slow, so the plan is:
+
+1. Scaffold every course with chapter PLACEHOLDERS carrying only title and
+   position, no content.
+2. A coordinator opens a chapter and generates its content with ACLi, pastes
+   it manually, or uploads a resource (PDF/DOCX/PPTX) -- all three already
+   work.
+3. Fill the rest later in bulk.
+
+Nothing is written for step 1 yet; it starts after coordinators and email are
+finished.

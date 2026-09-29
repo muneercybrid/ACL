@@ -45,22 +45,29 @@ class SeedLevelCoordinators extends Command
             return self::FAILURE;
         }
 
-        // One row per (offering, level). The offering is the university's
-        // version of a programme, so this yields every university/level pair.
-        $targets = DB::table('levels as l')
-            ->join('academic_programs as ap', 'ap.id', '=', 'l.academic_program_id')
-            ->select('l.id as level_id', 'l.name as level_name', 'l.code as level_code',
-                'ap.id as offering_id', 'ap.name as programme_name', 'ap.code as programme_code',
-                'ap.organization_id')
-            ->orderBy('ap.id')
-            ->orderBy('l.sequence')
-            ->offset($offset);
+        // Chunked rather than offset/limit.
+        //
+        // The single-query version hit a TiDB syntax error on the full run, and
+        // a join over 1,366 levels against 2,000ms-per-statement latency is a
+        // timeout waiting to happen. Chunking also means a crash costs one
+        // chunk of work rather than the whole run, which is exactly what
+        // happened before: the run died partway and left 3 of 1,666 done with
+        // no record of where it stopped.
+        $count = DB::table('levels')->count();
+        $this->line(sprintf('Levels to cover: %d', $count));
 
-        if ($limit > 0) {
-            $targets->limit($limit);
+        if (! $apply) {
+            $this->table(
+                ['offerings', 'levels', 'coordinators to create'],
+                [[
+                    (string) DB::table('academic_programs')->count(),
+                    (string) $count,
+                    (string) $count,
+                ]]
+            );
+
+            return self::SUCCESS;
         }
-
-        $targets = $targets->get();
 
         $this->line($apply
             ? '<fg=green>APPLYING</> -- coordinators will be created'
@@ -71,7 +78,6 @@ class SeedLevelCoordinators extends Command
             [[
                 (string) DB::table('academic_programs')->count(),
                 (string) DB::table('levels')->count(),
-                (string) $targets->count(),
             ]]
         );
 
@@ -81,66 +87,98 @@ class SeedLevelCoordinators extends Command
 
         $created = 0;
         $skipped = 0;
-        $password = Str::random(16);
         $errors = 0;
+        $password = Str::random(16);
+        $processed = 0;
 
-        foreach ($targets as $target) {
-            $email = $this->emailFor($target->programme_code, $target->level_code);
+        // A keyset loop rather than chunkById: the select aliases levels.id to
+        // level_id, and chunkById needs the raw key column present in the result
+        // to page on it. Keyset paging needs no offset and no group, so it is
+        // also safe against TiDB's statement timeout on a large join.
+        $lastId = 0;
 
-            $exists = DB::table('role_assignments')
-                ->where('user_id', DB::table('users')->where('email', $email)->value('id'))
-                ->where('role_id', $roleId)
-                ->exists();
+        while (true) {
+            $rows = DB::table('levels')
+                ->select(
+                    'levels.id as level_id',
+                    'levels.code as level_code',
+                    'academic_programs.id as offering_id',
+                    'academic_programs.name as programme_name',
+                    'academic_programs.code as programme_code'
+                )
+                ->join('academic_programs', 'academic_programs.id', '=', 'levels.academic_program_id')
+                ->where('levels.id', '>', $lastId)
+                ->orderBy('levels.id')
+                ->limit(100)
+                ->get();
 
-            if ($exists) {
-                $skipped++;
-                continue;
+            if ($rows->isEmpty()) {
+                break;
             }
 
-            try {
-                $userId = DB::table('users')->where('email', $email)->value('id');
+            foreach ($rows as $target) {
+                $lastId = (int) $target->level_id;
+                $processed++;
+                $email = $this->emailFor($target->programme_code, $target->level_code);
 
-                if (! $userId) {
-                    $userId = DB::table('users')->insertGetId([
-                        'name' => trim($target->programme_name . ' ' . $target->level_name . ' Coordinator'),
-                        'email' => $email,
-                        'password' => bcrypt($password),
-                        'force_password_change' => false,
+                try {
+                    $userId = DB::table('users')->where('email', $email)->value('id');
+
+                    if (! $userId) {
+                        $userId = DB::table('users')->insertGetId([
+                            'name' => trim($target->programme_name . ' ' . $target->level_code . ' Coordinator'),
+                            'email' => $email,
+                            'password' => bcrypt($password),
+                            'force_password_change' => false,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+
+                    $exists = DB::table('role_assignments')
+                        ->where('user_id', $userId)
+                        ->where('role_id', $roleId)
+                        ->where('entity_type', \App\Models\Curriculum\Programme::class)
+                        ->where('entity_id', $target->offering_id)
+                        ->exists();
+
+                    if (! $exists) {
+                        DB::table('role_assignments')->insert([
+                            'user_id' => $userId,
+                            'role_id' => $roleId,
+                            // Scoped to the programme at one level. Never the
+                            // organization, which would be the over-grant fixed
+                            // in StaffController.
+                            'entity_type' => \App\Models\Curriculum\Programme::class,
+                            'entity_id' => $target->offering_id,
+                            'scope_type' => 'level',
+                            'scope_id' => (string) $target->level_id,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+
+                        $created++;
+                    } else {
+                        $skipped++;
+                    }
+
+                    // level_coordinators stores `level` and `status`, not
+                    // level_id/is_active.
+                    DB::table('level_coordinators')->insertOrIgnore([
+                        'user_id' => $userId,
+                        'programme_id' => $target->offering_id,
+                        'level' => (int) preg_replace('/\D/', '', (string) $target->level_code),
+                        'status' => 'active',
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
+                } catch (\Throwable $e) {
+                    $errors++;
                 }
-
-                DB::table('role_assignments')->insert([
-                    'user_id' => $userId,
-                    'role_id' => $roleId,
-                    // Scoped to the programme, not the organization: a level
-                    // coordinator's authority is one programme at one level.
-                    'entity_type' => \App\Models\Curriculum\Programme::class,
-                    'entity_id' => $target->offering_id,
-                    'scope_type' => 'level',
-                    'scope_id' => (string) $target->level_id,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                // level_coordinators has `level` (the numeric level, e.g. 100)
-                // and `status`, not level_id/is_active.
-                DB::table('level_coordinators')->insertOrIgnore([
-                    'user_id' => $userId,
-                    'programme_id' => $target->offering_id,
-                    'level' => (int) preg_replace('/\D/', '', (string) $target->level_code),
-                    'status' => 'active',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                $created++;
-            } catch (\Throwable $e) {
-                $errors++;
-                $this->warn('  ' . $email . ': ' . $e->getMessage());
             }
         }
+
+        $this->line("  processed: {$processed}");
 
         $this->newLine();
         $this->info('created  : ' . $created);
