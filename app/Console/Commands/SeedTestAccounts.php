@@ -231,7 +231,7 @@ class SeedTestAccounts extends Command
     {
         $created = 0;
         $index = 0;
-        $password = Str::random(16);
+        $password = 'testaccount';
 
         // Only level 100, 2 students per programme per university: male + female
         $onlyLevel = [100];
@@ -254,8 +254,8 @@ class SeedTestAccounts extends Command
                     $organization = $organizations[$index % $organizations->count()];
                     $index++;
 
-                    $suffix = $n === 0 ? 'male' : 'female';
-                    $email = "{$slug}lvl{$level}_{$suffix}@aclacademy.me";
+                    $suffix = $n === 0 ? 'testmale' : 'testfemale';
+                    $email = "{$slug}{$suffix}@aclacademy.me";
 
                     if (User::where('email', $email)->exists()) {
                         continue;
