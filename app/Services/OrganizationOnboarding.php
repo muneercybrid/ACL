@@ -220,7 +220,16 @@ class OrganizationOnboarding
             // silent in production, because production carries no foreign key
             // on this column while the test schema does. It has to resolve
             // through the offering.
-            $offering = self::offeringFor($organization, $programme, $departmentId);
+            //
+            // academic_programs.department_id is NOT NULL, so a null department
+            // fails the insert outright. Resolve one belonging to this
+            // organization when the caller did not name one, rather than
+            // letting the database reject the registration.
+            $offering = self::offeringFor(
+                $organization,
+                $programme,
+                $departmentId ?? self::resolveDepartment($organization)
+            );
 
             $membership->update(['academic_program_id' => $offering->id]);
         }
@@ -277,6 +286,57 @@ class OrganizationOnboarding
      * its own duration. A student belongs to an offering, not to the catalogue,
      * which is why memberships reference the offering.
      */
+    /**
+     * A department belonging to the organization, creating a faculty and a
+     * department if the organization has none yet.
+     *
+     * Scoped to the organization on purpose: a department from another
+     * organization would attach a student to a faculty they do not belong to,
+     * and the audit already flagged offeringFor() for not checking this.
+     */
+    public static function resolveDepartment(Organization $organization): ?int
+    {
+        $facultyId = \DB::table('faculties')
+            ->where('organization_id', $organization->id)
+            ->value('id');
+
+        if (! $facultyId) {
+            $slug = $organization->slug ?: \Illuminate\Support\Str::slug($organization->name);
+
+            $facultyId = \DB::table('faculties')->insertGetId([
+                'organization_id' => $organization->id,
+                'name' => $organization->name . ' Faculty',
+                'slug' => $slug . '-faculty',
+                'code' => 'F' . $organization->id,
+                'description' => 'Faculty of ' . $organization->name,
+                'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $departmentId = \DB::table('departments')
+            ->where('faculty_id', $facultyId)
+            ->value('id');
+
+        if ($departmentId) {
+            return (int) $departmentId;
+        }
+
+        $slug = $organization->slug ?: \Illuminate\Support\Str::slug($organization->name);
+
+        return (int) \DB::table('departments')->insertGetId([
+            'faculty_id' => $facultyId,
+            'name' => $organization->name . ' General Department',
+            'slug' => $slug . '-general-department',
+            'code' => 'D1',
+            'description' => 'General department of ' . $organization->name,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
     public static function offeringFor(Organization $organization, Programme $programme, ?int $departmentId = null): AcademicProgram
     {
         $existing = AcademicProgram::where('organization_id', $organization->id)

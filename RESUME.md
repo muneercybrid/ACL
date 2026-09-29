@@ -26,9 +26,23 @@ which its own startup banner flags as a risk on an untrusted network. Setting
 - `programmes` is currently EMPTY. Being rebuilt from CCMAS — see in flight.
 
 ## In flight
-- Subagent: CCMAS programme catalogue parser + importer
-  (`acl:ccmas:import-programmes`). Expected to populate `programmes` from the
-  17 documents in `storage/app/nuc-ccmas/*.txt`.
+- `acl:seed:test-accounts --apply` is running in the BACKGROUND and takes
+  roughly 45 minutes. It seeds faculties, departments, offerings and levels
+  (all already done), then ~1,666 test students. Check before re-running:
+  re-running re-walks all 481 organizations, which alone costs ~8 minutes of
+  round trips.
+
+  Log: /tmp/seed_students.log
+
+  Why it is slow: TiDB runs at ~200 ms per statement, and the command issues
+  several per student. This is a design problem, not a bug — the per-row work
+  should be batched the way the CCMAS course import now is.
+
+## Known TiDB latency trap
+Anything doing per-row exists() + insert is unusable at ~200 ms per statement.
+The CCMAS course importer originally did this and was abandoned at 1,438 of
+11,748 rows; it now reads existing codes once and chunk-inserts the remainder.
+Apply the same shape to any new bulk loader.
 
 ## Deliberately not done, and why
 - "Research every institution 20 times until 100% verified" — 20 identical
