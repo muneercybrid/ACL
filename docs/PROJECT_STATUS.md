@@ -172,3 +172,9 @@ Slice 5.
 
 ## 10. Known Non-Issues
 - "Xdebug: Could not connect to debugging client" — harmless warning; ignore.
+
+## 11. Audit finding — programmes (unfixed, documented, not blocking)
+- Schema (`programmes` 2026-09-11): has `organization_id` (nullable FK), no `slug` column.
+- Model (`App\Models\Curriculum\Programme`): `$fillable` includes `slug` (no column → silent discard / error) and omits `organization_id` (present column → unfillable via mass assignment).
+- Action deferred: requires a migration (add `slug` OR remove from $fillable; add `organization_id` to $fillable) approved explicitly; kept out of this pass to avoid unverified schema change on TiDB production.
+- Related: `course_chapters` placeholders complete (140,064 draft), level co-ordinators seeded (1,666), student-registration flow verified (5 tests, isolated pass; full-suite pollution tracked to RefreshDatabase cross-test slugs), contact form delivers to muneercybrid@gmail.com, email diagnosis complete (SPF/DKIM/port 25 documented, not fixed — needs Cloudflare + AWS SG changes).

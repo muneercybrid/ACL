@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\SetPasswordController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\Auth\StudentRegistrationController;
 use App\Http\Controllers\CourseViewerController;
 use App\Http\Controllers\CatalogController;
@@ -17,6 +18,17 @@ use Illuminate\Support\Facades\Route;
 
 // Public landing for guests; authenticated users go straight to their dashboard.
 Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : view('welcome'))->name('home');
+
+// Public contact form.
+//
+// Rate limited because it sends mail on behalf of an unauthenticated visitor:
+// without a limit one person can use it to send the owner arbitrary amounts of
+// mail, or to mail someone else through the server. The POST is throttled
+// harder than a normal form because each hit costs an outbound SMTP call.
+Route::get('/contact', [ContactController::class, 'create'])->name('contact.create');
+Route::post('/contact', [ContactController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('contact.store');
 
 // Professional catalogue — browsable by guests. The controller reads the
 // student relation optionally, so recommendations only appear when signed in.

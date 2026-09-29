@@ -115,4 +115,25 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    | Where contact-form submissions are delivered.
+    |
+    | A real, readable mailbox, deliberately not an @aclacademy.me address.
+    | The domain cannot currently receive mail: its MX points at
+    | mail.aclacademy.me (this host) and nothing listens on port 25, so a
+    | message to support@aclacademy.me is accepted by the sending server and
+    | then silently discarded. See docs/EMAIL_DELIVERY.md.
+    |
+    | Keep this pointed at a mailbox that is actually read.
+    */
+
+    'contact_recipient' => env('MAIL_CONTACT_RECIPIENT', env('MAIL_SUPPORT_ADDRESS')),
+
+    /*
+    | The public address shown to users as a way to reach support. Shown to
+    | users, never used for delivery, until the MX is fixed.
+    */
+
+    'support_address' => env('MAIL_SUPPORT_ADDRESS', 'support@aclacademy.me'),
+
 ];
