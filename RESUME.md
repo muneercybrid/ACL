@@ -129,3 +129,37 @@ Course content is AUTHORED, not student-generated:
 A prompt instruction is a guardrail, not an authorization control. The
 authoring capability is absent from the student's reach entirely; the prompt
 only stops a determined user from re-creating it through the chat surface.
+
+## Course content is a CATALOGUE, not per-student
+The owner's decision: course content is authored ONCE per course and shared by
+every student taking it.
+
+`course_chapters` has no `user_id` and no `student_id` -- it is already
+course-scoped, so this was structurally true before it was written down. The
+reading of it is now centralised in `CourseContentCatalog`
+(app/Services/Curriculum/CourseContentCatalog.php), which is the single read
+path:
+
+- `forCourse()` returns published chapters and lessons only. Draft and review
+  chapters are authoring states and must never reach a student, so they are
+  filtered here rather than at the view layer where one forgotten check would
+  expose unreviewed AI-written text.
+- `groundingFor()` is what ACLi reads for a course, bounded so one question
+  does not pull an entire course into context.
+- `studentMayRead()` is the server-side entitlement check. The join path is
+  membership -> curriculum_versions.programme_id -> curriculum_courses, NOT a
+  direct join off the offering: curriculum_courses has no academic_program_id
+  column, so the naive version compiles but checks against nothing.
+
+Nothing is authored per student. A student reads the catalogue and asks ACLi
+questions about it.
+
+## Level coordinator scope
+`acl:seed:level-coordinators` writes each assignment against
+Programme#<offering> with scope_type='level' and scope_id=<level id> -- one
+programme at one level. Never against Organization, which would be the
+over-grant fixed in StaffController.
+
+One per programme-per-level nationally (1,666), not per university: 481 x 238
+x 7 is roughly 800,000 accounts, and level structure is a national property of
+a programme.
