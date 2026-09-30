@@ -47,13 +47,14 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [LoginController::class, 'store']);
 
     // The organizational door. Staff choose their institution first and are then
-    // shown that institution's logo above a credentials box. There is no sign-up
+    // shown that institution's initials above a credentials box. There is no sign-up
     // here on purpose: staff accounts are issued by ACL, not self-registered.
     Route::prefix('organizations')->name('organizations.')->group(function () {
         Route::get('/login', [\App\Http\Controllers\Auth\OrganizationLoginController::class, 'select'])->name('login');
         Route::get('/login/{organization}', [\App\Http\Controllers\Auth\OrganizationLoginController::class, 'show'])->name('login.show');
         Route::post('/login/{organization}', [\App\Http\Controllers\Auth\OrganizationLoginController::class, 'store'])->name('login.store');
     });
+
 
     Route::get('/register', [RegisterController::class, 'create'])
         ->name('register');
@@ -108,6 +109,26 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [PasswordResetController::class, 'update'])
         ->name('password.update');
 });
+
+    // Activating a freshly appointed coordinator.
+    //
+    // Deliberately NOT inside the guest group. The account is created with an
+    // unusable password, so this signed link is the only way in — which is
+    // what allows an appointment to exist before anyone has been told a
+    // credential. The controller signs the holder in on arrival, and if these
+    // routes were guest-only then the very next request would be bounced
+    // straight back to the dashboard and the form could never be submitted.
+    Route::prefix('coordinator')->name('coordinator.')->group(function () {
+        // Not behind the 'signed' middleware: the force-onboarding gate has to
+        // be able to send the user back here after they arrive, and a bare
+        // redirect carries no signature and would be refused. The controller
+        // accepts a valid signature OR an authenticated session belonging to
+        // this account, which is the same test the middleware would have made.
+        Route::get('/activate/{user}', [\App\Http\Controllers\Coordinator\OnboardingController::class, 'show'])
+            ->name('activate');
+        Route::post('/activate/{user}', [\App\Http\Controllers\Coordinator\OnboardingController::class, 'store'])
+            ->name('activate.store');
+    });
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
