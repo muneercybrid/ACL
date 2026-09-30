@@ -300,7 +300,9 @@ class StudentRegistrationController extends Controller
             'school_registration_number' => ['nullable', 'string', 'max:100'],
             'level' => ['required', 'integer', 'in:100,200,300,400,500'],
             'terms_accepted' => ['required', 'accepted'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            // The standard is enforced here, not only in the browser: a rule the
+            // client can skip is not a control.
+            'password' => ['required', 'string', new \App\Rules\StrongPassword, 'confirmed'],
         ]);
 
         // Update the school registration number if provided.

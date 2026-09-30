@@ -26,7 +26,11 @@ Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : view
 // mail, or to mail someone else through the server. The POST is throttled
 // harder than a normal form because each hit costs an outbound SMTP call.
 Route::get('/contact', [ContactController::class, 'create'])->name('contact.create');
-Route::get('/verify-email-confirm/{email}', [\App\Http\Controllers\VerificationConfirmController::class, 'confirm'])
+// Email confirmation. The link is signed and expiring (see VerificationSuccessMail),
+// so a hand-edited URL cannot confirm somebody else's address, and a name-derived
+// URL that matches no account is rejected instead of rendering an error.
+Route::get('/verify-email-confirm/{user}', [\App\Http\Controllers\VerificationConfirmController::class, 'confirm'])
+    ->middleware('signed')
     ->name('email.verify.confirm');
 Route::post('/contact', [ContactController::class, 'store'])
     ->middleware('throttle:5,1')

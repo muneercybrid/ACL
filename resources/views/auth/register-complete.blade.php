@@ -88,13 +88,24 @@
 
             <div class="mt-5">
                 <label for="password" class="block text-sm font-semibold text-text">Password</label>
-                <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters" class="mt-2 block w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20" />
+                <input id="password" name="password" type="password" required autocomplete="new-password" placeholder="At least 8 characters, with a letter and a number" class="mt-2 block w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20" />
+                <p class="mt-2 text-xs text-muted">Use at least 8 characters, including a letter and a number. A short phrase you can remember beats a scrambled word.</p>
+                {{-- Strength meter. Advisory only: the rule is enforced on the server. --}}
+                <div class="mt-2" data-password-meter hidden>
+                    <div class="h-1.5 w-full overflow-hidden rounded-full bg-border">
+                        <div data-password-meter-bar class="h-full w-0 rounded-full transition-all duration-300"></div>
+                    </div>
+                    <p data-password-meter-label class="mt-1 text-xs font-medium text-muted">Enter a password</p>
+                </div>
                 @error('password') <p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p> @enderror
             </div>
 
             <div class="mt-5">
                 <label for="password_confirmation" class="block text-sm font-semibold text-text">Confirm password</label>
                 <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password" class="mt-2 block w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20" />
+                {{-- Live match feedback, so a mismatch is caught before submitting. --}}
+                <p data-password-match class="mt-2 hidden text-sm font-medium"></p>
+                @error('password_confirmation') <p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p> @enderror
             </div>
 
             <div class="mt-5">
@@ -153,6 +164,78 @@
                     lgaWrapper.style.display = 'none';
                 }
             });
+
+            // ---- Password strength and match feedback -------------------------
+            // Deliberately plain JS with no dependency: this page already ships a
+            // state/LGA script the same way, and a student on a low-bandwidth
+            // connection should not be made to download a library for this.
+            const password = document.getElementById('password');
+            const confirmation = document.getElementById('password_confirmation');
+            const meter = document.querySelector('[data-password-meter]');
+            const bar = document.querySelector('[data-password-meter-bar]');
+            const meterLabel = document.querySelector('[data-password-meter-label]');
+            const match = document.querySelector('[data-password-match]');
+
+            // Mirrors App\Rules\StrongPassword. This is presentation, not the
+            // control: the server re-runs the real rule and its message wins.
+            // Any change here must be made there too, or the meter will promise
+            // a strength the server then refuses.
+            const COMMON = ['password','password1','password123','12345678','123456789','qwerty123','qwertyuiop','abc12345','iloveyou','admin123','welcome1','letmein1','monkey12','football','baseball','trustno1','dragon12','passw0rd','p@ssw0rd','p@ssword1','jamb1234','student123','matriculation'];
+
+            function score(value) {
+                if (!value) return 0;
+                let points = 0;
+                if (value.length >= 8) points++;
+                if (value.length >= 12) points++;
+                if (/[a-z]/.test(value) && /[A-Z]/.test(value)) points++;
+                if (/\d/.test(value)) points++;
+                if (/[^A-Za-z0-9]/.test(value)) points++;
+                if (COMMON.indexOf(value.toLowerCase()) !== -1) return 0;
+                if (value.length < 8) return Math.min(points, 1);
+                // A long passphrase is accepted without a digit, so the meter
+                // must not punish it.
+                if (value.length < 12 && (!/[A-Za-z]/.test(value) || !/\d/.test(value))) {
+                    return Math.min(points, 2);
+                }
+                return points;
+            }
+
+            const LEVELS = [
+                { min: 0, width: '0%',   color: 'bg-border',   text: 'Enter a password' },
+                { min: 1, width: '25%',  color: 'bg-red-500',  text: 'Too weak' },
+                { min: 2, width: '45%',  color: 'bg-amber-500',text: 'Weak' },
+                { min: 3, width: '65%',  color: 'bg-amber-500',text: 'Fair' },
+                { min: 4, width: '82%',  color: 'bg-lime-500', text: 'Good' },
+                { min: 5, width: '100%', color: 'bg-primary',   text: 'Strong' }
+            ];
+
+            function renderStrength() {
+                const value = password.value;
+                meter.hidden = false;
+                const s = score(value);
+                const level = LEVELS.filter(function (l) { return s >= l.min; }).pop();
+                bar.style.width = level.width;
+                bar.className = 'h-full rounded-full transition-all duration-300 ' + level.color;
+                meterLabel.textContent = value ? level.text : 'Enter a password';
+                meterLabel.className = 'mt-1 text-xs font-medium ' + (s <= 1 ? 'text-red-600' : s >= 4 ? 'text-primary' : 'text-amber-600');
+            }
+
+            function renderMatch() {
+                if (!confirmation.value) {
+                    match.classList.add('hidden');
+                    return;
+                }
+                const same = confirmation.value === password.value;
+                match.classList.remove('hidden');
+                match.textContent = same ? '✓ Passwords match' : '✕ Passwords do not match';
+                match.className = 'mt-2 text-sm font-medium ' + (same ? 'text-primary' : 'text-red-600');
+            }
+
+            password.addEventListener('input', function () { renderStrength(); renderMatch(); });
+            confirmation.addEventListener('input', renderMatch);
+            // Typing in the first field after a mismatch in the second should
+            // update the verdict, which is the moment a student is confused.
+            password.addEventListener('input', renderMatch);
         });
     </script>
 </div>
