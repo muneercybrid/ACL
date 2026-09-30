@@ -13,19 +13,11 @@
     </a>
 
     <div class="mb-8 text-center">
-        {{-- The institution's identity. Falls back to initials so this page is
-             never anonymous, which is the point of the step. --}}
-        @if ($organization->logo_path)
-            <img src="{{ \Illuminate\Support\Str::startsWith($organization->logo_path, 'http') ? $organization->logo_path : asset('storage/'.$organization->logo_path) }}"
-                 alt="{{ $organization->name }} logo"
-                 class="mx-auto mb-4 h-24 w-24 rounded-2xl border border-border bg-white object-contain p-2 shadow-sm"
-                 width="96" height="96">
-        @else
-            <div aria-hidden="true"
-                 class="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-2xl border border-border bg-raised text-2xl font-extrabold text-primary shadow-sm">
-                {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($organization->short_name ?: $organization->name, 0, 2)) }}
-            </div>
-        @endif
+        {{-- The institution's identity. --}}
+        <div aria-hidden="true"
+             class="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-2xl border border-border bg-raised text-2xl font-extrabold text-primary shadow-sm">
+            {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($organization->short_name ?: $organization->name, 0, 2)) }}
+        </div>
 
         <h1 class="text-xl font-extrabold tracking-tight text-text">{{ $organization->name }}</h1>
         <p class="mt-1 text-sm text-muted">Staff sign in</p>

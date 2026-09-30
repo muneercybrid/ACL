@@ -33,20 +33,10 @@
                 <li>
                     <a href="{{ route('organizations.login.show', $organization) }}"
                        class="flex items-center gap-4 px-5 py-4 transition hover:bg-raised focus:outline-none focus:bg-raised">
-                        {{-- A logo is a nicety. An organization without one still
-                             signs in, so the initials placeholder carries the
-                             identity rather than leaving a broken image. --}}
-                        @if ($organization->logo_path)
-                            <img src="{{ \Illuminate\Support\Str::startsWith($organization->logo_path, 'http') ? $organization->logo_path : asset('storage/'.$organization->logo_path) }}"
-                                 alt="{{ $organization->name }} logo"
-                                 class="h-11 w-11 shrink-0 rounded-lg border border-border bg-white object-contain p-1"
-                                 loading="lazy" width="44" height="44">
-                        @else
-                            <span aria-hidden="true"
-                                  class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-raised text-sm font-bold text-primary">
-                                {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($organization->short_name ?: $organization->name, 0, 2)) }}
-                            </span>
-                        @endif
+                        <span aria-hidden="true"
+                              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-raised text-sm font-bold text-primary">
+                            {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($organization->short_name ?: $organization->name, 0, 2)) }}
+                        </span>
 
                         <span class="min-w-0 flex-1">
                             <span class="block truncate font-semibold text-text">{{ $organization->name }}</span>
