@@ -25,6 +25,7 @@ class LevelCoordinator extends Model
         'programme_id',
         'level',
         'user_id',
+        'organization_id',
         'academic_session_id',
         'appointed_date',
         'status',
@@ -41,6 +42,18 @@ class LevelCoordinator extends Model
     public function programme(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Curriculum\Programme::class, 'programme_id');
+    }
+
+    /**
+     * The school this appointment belongs to.
+     *
+     * Nullable, and a NULL is not a platform-wide coordinator: it means the row
+     * has not been attached to a school yet. Authorization requires a concrete
+     * organization, so an unattached row confers no access to anything.
+     */
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'organization_id');
     }
 
     public function user(): BelongsTo
