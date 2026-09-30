@@ -15,9 +15,13 @@ return [
     */
 
     'jamb' => [
+        // The primary JAMB e-Facility host. efacility.jamb.gov.ng is the one
+        // that reliably serves a populated examination list; it is also the
+        // faster of the two. The default matches the env value so a missing
+        // JAMB_MATRICULATION_URL cannot silently fall back to the other host.
         'matriculation_url' => env(
             'JAMB_MATRICULATION_URL',
-            'https://efacility2.jamb.gov.ng/CheckMatriculationList'
+            'https://efacility.jamb.gov.ng/CheckMatriculationList'
         ),
         'minimum_year' => (int) env('JAMB_MINIMUM_EXAM_YEAR', 1995),
         'exam_type' => env('JAMB_EXAM_TYPE', 'UTME'),
