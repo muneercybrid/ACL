@@ -20,9 +20,21 @@ class ProgrammeLevelCourse extends Model
 {
     use HasFactory;
 
+    /**
+     * `course_id` is the central course this offering shares content with, and
+     * it is the reason this row is not a private copy. It was missing here when
+     * the column was added, so every write silently dropped it and failed on a
+     * NOT NULL column far from the cause — the same trap
+     * `must_complete_onboarding` fell into on the users table.
+     *
+     * `ccmas_course_id` is retained and still written. It records which NUC
+     * row seeded this offering, which is provenance rather than identity: the
+     * identity is the central course, and that link lives on `courses`.
+     */
     protected $fillable = [
         'academic_program_id',
         'level',
+        'course_id',
         'ccmas_course_id',
         'course_code',
         'title',
@@ -42,6 +54,16 @@ class ProgrammeLevelCourse extends Model
             'credit_units' => 'float',
             'is_mandatory' => 'boolean',
         ];
+    }
+
+    /**
+     * The shared course. Its content — chapters, outlines, assessments — is
+     * reached through this one relationship, which is why a school adding a
+     * course is reusing a platform's work rather than starting its own.
+     */
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     public function academicProgram(): BelongsTo

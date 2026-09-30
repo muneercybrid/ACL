@@ -146,7 +146,7 @@ Route::middleware('auth')->group(function () {
         Route::prefix('courses')->name('courses.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Coordinator\CourseController::class, 'index'])->name('index');
             Route::get('/search', [\App\Http\Controllers\Coordinator\CourseController::class, 'search'])->name('search');
-            Route::post('/ccmas', [\App\Http\Controllers\Coordinator\CourseController::class, 'storeFromCcmas'])->name('store.ccmas');
+            Route::post('/shared', [\App\Http\Controllers\Coordinator\CourseController::class, 'storeShared'])->name('store.shared');
             Route::post('/manual', [\App\Http\Controllers\Coordinator\CourseController::class, 'storeManual'])->name('store.manual');
             Route::delete('/{course}', [\App\Http\Controllers\Coordinator\CourseController::class, 'destroy'])->name('destroy');
         });

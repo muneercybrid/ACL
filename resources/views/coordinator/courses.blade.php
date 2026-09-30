@@ -8,7 +8,7 @@
     <header class="mb-8">
         <h1 class="text-2xl font-extrabold tracking-tight text-text">Programme Courses</h1>
         <p class="mt-1 text-sm text-muted">
-            Choose the courses your programme runs at each level, from the NUC CCMAS list or by entering them yourself.
+            Choose the courses your programme runs at each level. Courses are shared across the platform — you choose what your school runs and the code it calls each one by.
         </p>
     </header>
 
@@ -97,9 +97,9 @@
             {{-- Add --}}
             <section class="space-y-6">
                 <div>
-                    <h2 class="mb-3 text-sm font-bold uppercase tracking-wider text-muted">Add from NUC CCMAS</h2>
+                    <h2 class="mb-3 text-sm font-bold uppercase tracking-wider text-muted">Add a shared course</h2>
 
-                    <form method="POST" action="{{ route('coordinator.courses.store.ccmas') }}"
+                    <form method="POST" action="{{ route('coordinator.courses.store.shared') }}"
                           class="rounded-2xl border border-border bg-surface p-5 shadow-sm">
                         @csrf
                         <input type="hidden" name="academic_program_id" value="{{ $offering->id }}">
@@ -108,22 +108,23 @@
                         <label class="mb-4 block">
                             <span class="text-sm font-medium text-text">Search the CCMAS list</span>
                             <input type="search" id="ccmas-search" autocomplete="off"
-                                   placeholder="Course code or title, e.g. COS 101"
+                                   placeholder="Course title or code, e.g. Introduction to Computing"
                                    class="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-text focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring">
                         </label>
 
                         <div id="ccmas-results" class="mb-4 max-h-64 overflow-y-auto rounded-lg border border-border">
-                            <p class="px-3 py-4 text-center text-xs text-muted">Type to search 9,040 NUC courses.</p>
+                            <p class="px-3 py-4 text-center text-xs text-muted">Type to search every course on the platform.</p>
                         </div>
 
                         <p class="text-xs text-muted">
-                            Add the course by picking it from the results above.
+                            A course found here is already shared. Give it your school's code and its
+                            content is reused — you do not write the outline again.
                         </p>
                     </form>
                 </div>
 
                 <div>
-                    <h2 class="mb-3 text-sm font-bold uppercase tracking-wider text-muted">Or enter a course yourself</h2>
+                    <h2 class="mb-3 text-sm font-bold uppercase tracking-wider text-muted">Or add a course not in the catalogue</h2>
 
                     <form method="POST" action="{{ route('coordinator.courses.store.manual') }}"
                           class="rounded-2xl border border-border bg-surface p-5 shadow-sm">
@@ -159,7 +160,8 @@
                         </button>
 
                         <p class="mt-3 text-xs text-muted">
-                            Use this when the NUC list does not carry a course your programme requires.
+                            Use this when no existing course matches. It is created on the platform so
+                            other schools can find and reuse it.
                         </p>
                     </form>
                 </div>
@@ -190,7 +192,7 @@
 
         try {
             const response = await fetch(
-                `/coordinator/courses/search?q=${encodeURIComponent(term)}&level=${level}`,
+                `/coordinator/courses/search?q=${encodeURIComponent(term)}`,
                 { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' }
             );
             const data = await response.json();
@@ -204,25 +206,38 @@
             data.results.forEach((c) => {
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = '{{ route('coordinator.courses.store.ccmas') }}';
+                form.action = '{{ route('coordinator.courses.store.shared') }}';
+
+                const shared = c.shared_with > 0
+                    ? `<span class="text-primary">shared by ${c.shared_with} ${c.shared_with === 1 ? 'school' : 'schools'}</span>`
+                    : `<span class="text-muted">not yet shared</span>`;
 
                 form.innerHTML = `
                     @csrf
                     <input type="hidden" name="academic_program_id" value="${programmeId}">
                     <input type="hidden" name="level" value="${level}">
-                    <input type="hidden" name="ccmas_course_id" value="${c.id}">
-                    <div class="flex items-start justify-between gap-2 px-3 py-2 hover:bg-bg">
-                        <div>
-                            <p class="text-xs font-semibold text-text">
-                                <span class="font-mono">${c.course_code}</span>
-                                <span class="ml-1.5 font-normal">${c.title}</span>
-                            </p>
-                            <p class="text-[11px] text-muted">
-                                ${c.credit_units !== null ? c.credit_units + ' units' : 'units not stated'}
-                                ${c.level ? ' · level ' + c.level : ''}
-                            </p>
+                    <input type="hidden" name="course_id" value="${c.id}">
+                    <div class="px-3 py-2.5 hover:bg-bg">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold text-text">${c.title}</p>
+                                <p class="text-[11px] text-muted">
+                                    <span class="font-mono">${c.code}</span>
+                                    ${c.credit_units !== null ? ' · ' + c.credit_units + ' units' : ''}
+                                    ${c.from_ccmas ? ' · NUC' : ''}
+                                </p>
+                                <p class="text-[11px] mt-0.5">${shared}</p>
+                            </div>
                         </div>
-                        <button type="submit" class="shrink-0 text-xs font-semibold text-primary hover:underline">Add</button>
+                        <div class="mt-2">
+                            <input type="text" name="course_code" required maxlength="64"
+                                   placeholder="Your school's code"
+                                   value="${c.local_code || ''}"
+                                   class="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-xs text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring">
+                        </div>
+                        <div class="mt-2 flex justify-end">
+                            <button type="submit" class="text-xs font-semibold text-primary hover:underline">Add to level ${level}</button>
+                        </div>
                     </div>`;
 
                 out.appendChild(form);

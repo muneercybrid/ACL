@@ -2,7 +2,7 @@
 
 namespace App\Services\Auth;
 
-use App\Models\Curriculum\CcmasCourse;
+use App\Models\Course;
 use App\Models\LevelCoordinator;
 use App\Models\ProgrammeLevelCourse;
 use App\Models\User;
@@ -126,50 +126,13 @@ class LevelCoordinatorScope
     }
 
     /**
-     * Search the NUC CCMAS list for courses to offer.
-     *
-     * Filtering by level is offered but not required: the corpus only carries
-     * an explicit level on 93% of its rows, so insisting on one would hide
-     * roughly one course in fourteen from a coordinator who knows it belongs.
-     * The level is returned either way so the caller can show it.
-     */
-    public function searchCcmas(?string $term, ?int $level = null, int $limit = 25): Collection
-    {
-        $query = CcmasCourse::query()->where('is_active', true);
-
-        if (filled($term)) {
-            $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $term).'%';
-
-            // Matches the code or the title, so "COS 101" and "Introduction to
-            // Computing" both find the same row.
-            $query->where(function ($q) use ($like) {
-                $q->where('course_code', 'like', $like)
-                    ->orWhere('title', 'like', $like);
-            });
-        }
-
-        if ($level) {
-            $query->where('level', $level);
-        }
-
-        // The corpus lists a course once per programme that offers it, so a
-        // plain search returns COS 101 a dozen times over. Over-fetch and then
-        // collapse on the code, or the coordinator scrolls past the same row
-        // instead of the courses they do not already run.
-        $rows = $query->orderBy('course_code')
-            ->orderBy('source_line')
-            ->limit($limit * 4)
-            ->get();
-
-        return $rows->unique('course_code')->take($limit)->values();
-    }
-
-    /**
      * Add a course to an offering at a level.
      *
-     * The title, code and units are copied onto the row rather than joined
-     * through, so a school's list still reads correctly if the CCMAS import is
-     * ever rebuilt underneath it.
+     * The course is named by its central `course_id`, not by its own text, so
+     * the offering shares the platform's content rather than keeping a private
+     * copy. `courseCode` is recorded alongside as this school's label for it,
+     * which is how two universities can run the same course under different
+     * codes and still be looking at one set of chapters.
      *
      * @throws \RuntimeException when the code is already on that list
      */
@@ -177,38 +140,59 @@ class LevelCoordinatorScope
         User $user,
         int $academicProgramId,
         int $level,
-        ?int $ccmasCourseId,
+        Course $course,
         string $courseCode,
-        string $title,
-        ?float $creditUnits = null,
         ?string $semester = null,
-        string $source = 'ccmas',
     ): ProgrammeLevelCourse {
         if (! $this->administers($user, $academicProgramId, $level)) {
             throw new \RuntimeException('You are not appointed to that programme and level.');
         }
 
-        $code = strtoupper(trim($courseCode));
+        $code = trim($courseCode);
 
-        $exists = ProgrammeLevelCourse::where('academic_program_id', $academicProgramId)
+        if ($code === '') {
+            // A course with no code cannot be timetabled, examined or referred
+            // to by anyone, so it is refused rather than stored blank.
+            throw new \RuntimeException('Give the course a code for your institution.');
+        }
+
+        // The same central course may not be listed twice at one level under two
+        // different codes. That is one course on the timetable twice, and it is
+        // also the failure mode of sharing: a coordinator adds a course, fails
+        // to see it in the list, and adds it again believing it was missing.
+        $alreadyListed = ProgrammeLevelCourse::where('academic_program_id', $academicProgramId)
             ->where('level', $level)
-            ->where('course_code', $code)
+            ->where('course_id', $course->id)
             ->exists();
 
-        if ($exists) {
-            // Spelled out rather than a bare constraint violation: the
-            // administrator needs to know which of the two things collided.
-            throw new \RuntimeException("{$code} is already on this programme's level {$level} list.");
+        if ($alreadyListed) {
+            throw new \RuntimeException(
+                "\"{$course->title}\" is already on this programme's level {$level} list."
+            );
+        }
+
+        // Another central course may already hold this code at this level. The
+        // codes are independent between schools, so only a clash here is a
+        // problem — and it means the same code means two things on one
+        // programme.
+        $codeClash = ProgrammeLevelCourse::where('academic_program_id', $academicProgramId)
+            ->where('level', $level)
+            ->where('course_code', $code)
+            ->where('course_id', '!=', $course->id)
+            ->exists();
+
+        if ($codeClash) {
+            throw new \RuntimeException("Code {$code} is already used by a different course at level {$level}.");
         }
 
         return ProgrammeLevelCourse::create([
             'academic_program_id' => $academicProgramId,
             'level' => $level,
-            'ccmas_course_id' => $ccmasCourseId,
+            'course_id' => $course->id,
             'course_code' => $code,
-            'title' => trim($title),
-            'credit_units' => $creditUnits,
-            'source' => $source,
+            'title' => $course->title,
+            'credit_units' => $course->credit_units,
+            'source' => $course->ccmas_course_id ? 'ccmas' : 'manual',
             'semester' => $semester,
             'created_by' => $user->id,
             'updated_by' => $user->id,
@@ -217,6 +201,9 @@ class LevelCoordinatorScope
 
     /**
      * Remove a course from an offering at a level.
+     *
+     * Removes this school's offering only. The central course and its content
+     * are untouched, because another school is almost certainly using them.
      */
     public function removeCourse(User $user, int $courseId): void
     {

@@ -99,6 +99,21 @@ class CoordinatorCourseSelectionTest extends TestCase
         return $user->fresh();
     }
 
+    private function central(string $title = 'Introduction to Computing', string $code = 'CSC 101'): \App\Models\Course
+    {
+        return \App\Models\Course::create([
+            'code' => $code,
+            'title' => $title,
+            'slug' => str($code)->slug(),
+            'normalized_code' => strtoupper($code),
+            'normalized_title' => mb_strtolower($title),
+            'credit_units' => 3,
+            'scope' => 'university',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+    }
+
     private function ccmas(string $code = 'COS 101', string $title = 'Introduction to Computing Sciences'): CcmasCourse
     {
         return CcmasCourse::create([
@@ -134,28 +149,40 @@ class CoordinatorCourseSelectionTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_a_course_can_be_added_from_the_ccmas_list(): void
+    public function test_a_shared_course_can_be_added_with_the_schools_own_code(): void
     {
         $offering = $this->offering('Bayero University Kano');
         $user = $this->coordinator($offering);
-        $course = $this->ccmas();
 
-        $this->actingAs($user)->post(route('coordinator.courses.store.ccmas'), [
+        // A course that already exists centrally, perhaps written by another
+        // school. The coordinator picks it and gives it their own code.
+        $shared = app(\App\Services\Courses\CentralCourseService::class)
+            ->centralForCcmas($this->ccmas());
+
+        $this->actingAs($user)->post(route('coordinator.courses.store.shared'), [
             'academic_program_id' => $offering[2]->id,
             'level' => 100,
-            'ccmas_course_id' => $course->id,
+            'course_id' => $shared->id,
+            'course_code' => 'BAY-CYB101',
         ])->assertRedirect();
 
         $this->assertDatabaseHas('programme_level_courses', [
             'academic_program_id' => $offering[2]->id,
             'level' => 100,
-            'course_code' => 'COS 101',
-            'source' => 'ccmas',
-            'ccmas_course_id' => $course->id,
+            'course_id' => $shared->id,
+            'course_code' => 'BAY-CYB101',
+        ]);
+
+        // The code is registered against the shared course, so the school owns
+        // the name without owning the content.
+        $this->assertDatabaseHas('organization_course_codes', [
+            'organization_id' => $offering[0]->id,
+            'course_id' => $shared->id,
+            'local_code' => 'BAY-CYB101',
         ]);
     }
 
-    public function test_a_course_can_be_entered_by_hand(): void
+    public function test_a_course_can_be_entered_by_hand_and_becomes_central(): void
     {
         $offering = $this->offering('Bayero University Kano');
         $user = $this->coordinator($offering);
@@ -171,8 +198,14 @@ class CoordinatorCourseSelectionTest extends TestCase
         $this->assertDatabaseHas('programme_level_courses', [
             'academic_program_id' => $offering[2]->id,
             'course_code' => 'BKC 101',
-            'title' => 'Local Studies',
             'source' => 'manual',
+        ]);
+
+        // Created centrally rather than kept private, so the next school to
+        // need it finds it instead of writing it again.
+        $this->assertDatabaseHas('courses', [
+            'title' => 'Local Studies',
+            'source_type' => 'institution',
             'ccmas_course_id' => null,
         ]);
     }
@@ -219,6 +252,7 @@ class CoordinatorCourseSelectionTest extends TestCase
         $theirsCourse = ProgrammeLevelCourse::create([
             'academic_program_id' => $theirs[2]->id,
             'level' => 100,
+            'course_id' => $this->central('Their Course', 'LOS 101')->id,
             'course_code' => 'LOS 101',
             'title' => 'Their Course',
         ]);
@@ -238,30 +272,35 @@ class CoordinatorCourseSelectionTest extends TestCase
         $lagos = $this->offering('University of Lagos');
 
         app(LevelCoordinatorScope::class)->addCourse(
-            $this->coordinator($bayo), $bayo[2]->id, 100, null, 'BAY 101', 'Kano Only', 3, null, 'manual'
+            $this->coordinator($bayo),
+            $bayo[2]->id,
+            100,
+            $this->central('Kano Only', 'BAY 101'),
+            'BAY 101',
         );
 
         $this->assertSame(1, ProgrammeLevelCourse::where('academic_program_id', $bayo[2]->id)->count());
         $this->assertSame(0, ProgrammeLevelCourse::where('academic_program_id', $lagos[2]->id)->count());
     }
 
-    public function test_the_same_course_cannot_be_added_twice_to_one_level(): void
+    public function test_the_same_shared_course_cannot_be_added_twice_to_one_level(): void
     {
         $offering = $this->offering('Bayero University Kano');
         $user = $this->coordinator($offering);
+        $course = $this->central('Introduction to Computing', 'CSC 101');
 
         $payload = [
             'academic_program_id' => $offering[2]->id,
             'level' => 100,
+            'course_id' => $course->id,
             'course_code' => 'COS 101',
-            'title' => 'Introduction to Computing',
         ];
 
-        $this->actingAs($user)->post(route('coordinator.courses.store.manual'), $payload);
-        $this->actingAs($user)->post(route('coordinator.courses.store.manual'), $payload)
+        $this->actingAs($user)->post(route('coordinator.courses.store.shared'), $payload);
+        $this->actingAs($user)->post(route('coordinator.courses.store.shared'), $payload)
             ->assertSessionHasErrors('course');
 
-        $this->assertSame(1, ProgrammeLevelCourse::where('course_code', 'COS 101')->count());
+        $this->assertSame(1, ProgrammeLevelCourse::where('course_id', $course->id)->count());
     }
 
     public function test_the_same_code_may_appear_at_a_different_level(): void
@@ -269,11 +308,11 @@ class CoordinatorCourseSelectionTest extends TestCase
         $offering = $this->offering('Bayero University Kano');
         $user = $this->coordinator($offering, level: 200);
 
-        $this->actingAs($user)->post(route('coordinator.courses.store.manual'), [
+        $this->actingAs($user)->post(route('coordinator.courses.store.shared'), [
             'academic_program_id' => $offering[2]->id,
             'level' => 200,
+            'course_id' => $this->central('Introduction to Computing', 'CSC 101')->id,
             'course_code' => 'COS 101',
-            'title' => 'Introduction to Computing',
         ])->assertSessionHasNoErrors();
 
         $this->assertSame(1, ProgrammeLevelCourse::where('course_code', 'COS 101')->where('level', 200)->count());
@@ -287,6 +326,7 @@ class CoordinatorCourseSelectionTest extends TestCase
         $course = ProgrammeLevelCourse::create([
             'academic_program_id' => $offering[2]->id,
             'level' => 100,
+            'course_id' => $this->central()->id,
             'course_code' => 'COS 101',
             'title' => 'Introduction to Computing',
         ]);
@@ -298,26 +338,48 @@ class CoordinatorCourseSelectionTest extends TestCase
         $this->assertSame(0, ProgrammeLevelCourse::where('course_code', 'COS 101')->count());
     }
 
-    public function test_search_finds_a_course_by_code(): void
+    public function test_search_finds_a_shared_course_by_its_catalogue_code(): void
     {
         $user = $this->coordinator($this->offering('Bayero University Kano'));
-        $this->ccmas();
+        $this->central('Introduction to Computing', 'CSC 101');
 
-        $response = $this->actingAs($user)->getJson(route('coordinator.courses.search', ['q' => 'COS 101']));
+        $response = $this->actingAs($user)->getJson(route('coordinator.courses.search', ['q' => 'CSC 101']));
 
         $response->assertOk();
-        $this->assertSame('COS 101', $response->json('results.0.course_code'));
+        $this->assertSame('CSC 101', $response->json('results.0.code'));
     }
 
-    public function test_search_finds_a_course_by_title(): void
+    public function test_search_finds_a_shared_course_by_title(): void
     {
         $user = $this->coordinator($this->offering('Bayero University Kano'));
-        $this->ccmas();
+        $this->central('Introduction to Computing', 'CSC 101');
 
         $response = $this->actingAs($user)->getJson(route('coordinator.courses.search', ['q' => 'Introduction to Computing']));
 
         $response->assertOk();
         $this->assertCount(1, $response->json('results'));
+    }
+
+    public function test_search_reports_a_course_another_school_already_shares(): void
+    {
+        // The point of centralising: a coordinator can tell that a course is
+        // already shared before adding it, rather than writing a second copy.
+        $offering = $this->offering('Bayero University Kano');
+        $user = $this->coordinator($offering);
+        $course = $this->central('Introduction to Malware and Social Engineering', 'CSC 111');
+
+        app(\App\Services\Courses\CentralCourseService::class)->registerLocalCode(
+            $this->offering('Northwest University Kano')[0],
+            $course,
+            'NUK-CYB101',
+        );
+
+        $response = $this->actingAs($user)->getJson(
+            route('coordinator.courses.search', ['q' => 'Malware'])
+        );
+
+        $response->assertOk();
+        $this->assertSame(1, $response->json('results.0.shared_with'));
     }
 
     public function test_a_student_cannot_reach_the_course_area(): void
