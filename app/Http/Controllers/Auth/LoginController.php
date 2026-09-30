@@ -15,11 +15,20 @@ class LoginController extends Controller
 {
     public function __construct(private readonly RoleHomeResolver $roles) {}
 
+    /**
+     * The student sign-in.
+     *
+     * No role selector. Staff sign in through their own institution's door
+     * (see OrganizationLoginController), which is both simpler and a smaller
+     * surface: a form offering "Level Coordinator" confirmed to anyone watching
+     * that the role existed and invited them to try it.
+     *
+     * The 'role' field is still accepted and still checked, so a stale cached
+     * form cannot be used to claim a role this account does not hold.
+     */
     public function create(): View
     {
-        return view('auth.login', [
-            'selectableRoles' => RoleHomeResolver::SELECTABLE,
-        ]);
+        return view('auth.login');
     }
 
     public function store(LoginRequest $request): RedirectResponse
@@ -50,7 +59,7 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended($this->roles->homeFor($user, $requestedRole));
+        return redirect()->intended($this->roles->homeFor($user));
     }
 
     public function destroy(Request $request): RedirectResponse

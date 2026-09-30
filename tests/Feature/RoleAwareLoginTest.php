@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\LevelCoordinator;
+use App\Models\Organization;
 use App\Models\Role;
 use App\Models\RoleAssignment;
 use App\Models\User;
@@ -35,14 +36,136 @@ class RoleAwareLoginTest extends TestCase
         return $user->fresh();
     }
 
-    public function test_the_sign_in_screen_offers_the_three_roles(): void
+    public function test_the_student_sign_in_offers_no_role_selector(): void
     {
+        // The role picker was removed as an enumeration surface: a form offering
+        // "Level Coordinator" confirms the role exists and invites an attempt at
+        // it. Staff now sign in through their own organization's door.
         $this->get(route('login'))
             ->assertOk()
-            ->assertSee('Institution Admin')
-            ->assertSee('Level Coordinator')
-            ->assertSee('Student')
-            ->assertSee('name="role"', false);
+            ->assertDontSee('name="role"', false)
+            ->assertDontSee('Institution Admin')
+            ->assertDontSee('Level Coordinator');
+    }
+
+    public function test_the_organization_door_offers_no_sign_up(): void
+    {
+        $this->get(route('organizations.login'))
+            ->assertOk()
+            ->assertDontSee(route('register'), false);
+    }
+
+    public function test_an_institution_admin_signs_in_through_their_own_organization(): void
+    {
+        $organization = Organization::create([
+            'name' => 'Bayero University Kano', 'slug' => 'buk', 'is_active' => true,
+        ]);
+
+        $admin = $this->userWithRole(RoleHomeResolver::ROLE_INSTITUTION_ADMIN);
+        RoleAssignment::create([
+            'user_id' => $admin->id,
+            'role_id' => Role::where('slug', RoleHomeResolver::ROLE_INSTITUTION_ADMIN)->value('id'),
+            'entity_type' => Organization::class,
+            'entity_id' => $organization->id,
+        ]);
+
+        $this->post(route('organizations.login.store', $organization), [
+            'email' => $admin->email,
+            'password' => 'secret1234',
+        ])->assertRedirect(route('institution.dashboard'));
+
+        $this->assertAuthenticatedAs($admin);
+    }
+
+    public function test_a_valid_account_signing_in_through_the_wrong_organization_is_refused(): void
+    {
+        $mine = Organization::create(['name' => 'Mine', 'slug' => 'mine', 'is_active' => true]);
+        $theirs = Organization::create(['name' => 'Theirs', 'slug' => 'theirs', 'is_active' => true]);
+
+        $admin = $this->userWithRole(RoleHomeResolver::ROLE_INSTITUTION_ADMIN);
+        RoleAssignment::create([
+            'user_id' => $admin->id,
+            'role_id' => Role::where('slug', RoleHomeResolver::ROLE_INSTITUTION_ADMIN)->value('id'),
+            'entity_type' => Organization::class,
+            'entity_id' => $mine->id,
+        ]);
+
+        $this->post(route('organizations.login.store', $theirs), [
+            'email' => $admin->email,
+            'password' => 'secret1234',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+    }
+
+    public function test_every_refusal_reports_identically(): void
+    {
+        // The point of the organization door is that it cannot be used to find
+        // out who works where. A wrong password and a valid-but-not-staff
+        // account must say the same thing, or the wording itself leaks which
+        // addresses exist and where they are scoped.
+        $organization = Organization::create(['name' => 'Mine', 'slug' => 'mine', 'is_active' => true]);
+
+        $student = $this->userWithRole(RoleHomeResolver::ROLE_STUDENT);
+
+        $expected = 'Those sign-in details were not recognised for this institution.';
+
+        $this->post(route('organizations.login.store', $organization), [
+            'email' => $student->email, 'password' => 'wrong-password',
+        ])
+            ->assertSessionHasErrors('email', $expected)
+            ->assertSessionMissing('errors.password');
+
+        // A correct password on an account that is not staff here must be
+        // refused in exactly the same words.
+        $this->post(route('organizations.login.store', $organization), [
+            'email' => $student->email, 'password' => 'secret1234',
+        ])
+            ->assertSessionHasErrors('email', $expected)
+            ->assertSessionMissing('errors.password');
+
+        $this->assertGuest();
+    }
+
+    public function test_a_non_existing_address_is_refused_the_same_way(): void
+    {
+        $organization = Organization::create(['name' => 'Mine', 'slug' => 'mine', 'is_active' => true]);
+
+        $expected = 'Those sign-in details were not recognised for this institution.';
+
+        // An address that does not exist must be indistinguishable from one that
+        // does, or the door answers "who works here" for any address asked.
+        $this->post(route('organizations.login.store', $organization), [
+            'email' => 'nobody-at-all@example.test', 'password' => 'whatever',
+        ])->assertSessionHasErrors('email', $expected);
+
+        $this->assertGuest();
+    }
+
+    public function test_the_organization_door_is_throttled(): void
+    {
+        $organization = Organization::create(['name' => 'Mine', 'slug' => 'mine', 'is_active' => true]);
+
+        for ($i = 0; $i < 6; $i++) {
+            $this->post(route('organizations.login.store', $organization), [
+                'email' => 'nobody@example.test', 'password' => 'guess'.$i,
+            ]);
+        }
+
+        // Keyed on address AND organization AND ip, so repeated guessing from
+        // one place cannot continue indefinitely.
+        $this->post(route('organizations.login.store', $organization), [
+            'email' => 'nobody@example.test', 'password' => 'guess7',
+        ])->assertSessionHasErrors('email');
+    }
+
+    public function test_an_inactive_organization_has_no_door(): void
+    {
+        $organization = Organization::create([
+            'name' => 'Closed', 'slug' => 'closed', 'is_active' => false,
+        ]);
+
+        $this->get(route('organizations.login.show', $organization))->assertNotFound();
     }
 
     public function test_an_institution_admin_lands_on_the_institution_area(): void

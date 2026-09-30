@@ -46,6 +46,15 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store']);
 
+    // The organizational door. Staff choose their institution first and are then
+    // shown that institution's logo above a credentials box. There is no sign-up
+    // here on purpose: staff accounts are issued by ACL, not self-registered.
+    Route::prefix('organizations')->name('organizations.')->group(function () {
+        Route::get('/login', [\App\Http\Controllers\Auth\OrganizationLoginController::class, 'select'])->name('login');
+        Route::get('/login/{organization}', [\App\Http\Controllers\Auth\OrganizationLoginController::class, 'show'])->name('login.show');
+        Route::post('/login/{organization}', [\App\Http\Controllers\Auth\OrganizationLoginController::class, 'store'])->name('login.store');
+    });
+
     Route::get('/register', [RegisterController::class, 'create'])
         ->name('register');
 
