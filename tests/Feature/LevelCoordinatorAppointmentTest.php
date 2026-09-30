@@ -33,9 +33,46 @@ class LevelCoordinatorAppointmentTest extends TestCase
         ]);
     }
 
-    private function programme(string $name = 'B.Sc Cybersecurity', string $code = 'CYB'): Programme
-    {
-        return Programme::create(['name' => $name, 'code' => $code, 'duration_years' => 4]);
+    /**
+     * A programme plus the offering row that says this school runs it.
+     *
+     * The offering is required, not decorative: an appointment for a programme
+     * a school does not offer is refused, because such a coordinator could
+     * never be matched to anything to manage.
+     */
+    private function programme(
+        string $name = 'B.Sc Cybersecurity',
+        string $code = 'CYB',
+        ?Organization $school = null,
+    ): Programme {
+        $programme = Programme::create(['name' => $name, 'code' => $code, 'duration_years' => 4]);
+
+        if ($school) {
+            $faculty = \App\Models\Faculty::create([
+                'organization_id' => $school->id,
+                'name' => 'Faculty of Science',
+                'slug' => str($school->name.'-science')->slug(),
+                'is_active' => true,
+            ]);
+
+            $department = \App\Models\Department::create([
+                'faculty_id' => $faculty->id,
+                'name' => 'Department of Computer Science',
+                'slug' => str($school->name.'-cs')->slug(),
+                'is_active' => true,
+            ]);
+
+            \App\Models\AcademicProgram::create([
+                'name' => $programme->name,
+                'slug' => str($school->name.'-cybersecurity')->slug(),
+                'organization_id' => $school->id,
+                'nuc_programme_id' => $programme->id,
+                'department_id' => $department->id,
+                'is_active' => true,
+            ]);
+        }
+
+        return $programme;
     }
 
     private function appointer(): LevelCoordinatorAppointer
@@ -68,7 +105,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
     public function test_appointing_creates_the_appointment_tied_to_school_programme_and_level(): void
     {
         $school = $this->school();
-        $programme = $this->programme();
+        $programme = $this->programme(school: $school);
 
         $result = $this->appointer()->appoint($school, $programme, 100, ['name' => 'Fatima Umar']);
 
@@ -83,7 +120,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
 
     public function test_the_account_is_gated_until_the_person_onboards(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
 
         $user = $result['user'];
         $this->assertTrue($user->must_complete_onboarding);
@@ -92,7 +129,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
 
     public function test_the_account_gets_no_guessable_password(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
 
         // The scheme-generated address is derivable by anyone who knows the
         // school, programme and level, so a shared default password would be a
@@ -108,7 +145,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
     public function test_the_appointment_carries_the_coordinator_role_scoped_to_the_school(): void
     {
         $school = $this->school();
-        $result = $this->appointer()->appoint($school, $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school, $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
 
         $this->assertDatabaseHas('role_assignments', [
             'user_id' => $result['user']->id,
@@ -122,10 +159,24 @@ class LevelCoordinatorAppointmentTest extends TestCase
     {
         // The uniqueness rule includes organization_id precisely so this is
         // possible. Before it existed, the second school was silently refused.
-        $programme = $this->programme();
+        $bayo = $this->school('Bayero University Kano');
+        $lagos = $this->school('University of Lagos');
+        $programme = $this->programme(school: $bayo);
 
-        $a = $this->appointer()->appoint($this->school('Bayero University Kano'), $programme, 100, ['name' => 'A']);
-        $b = $this->appointer()->appoint($this->school('University of Lagos'), $programme, 100, ['name' => 'B']);
+        $a = $this->appointer()->appoint($bayo, $programme, 100, ['name' => 'A']);
+
+        // The second school needs its own offering row; sharing the first
+        // school's would be exactly the dead-end appointment now refused.
+        \App\Models\AcademicProgram::create([
+            'name' => $programme->name,
+            'slug' => 'lagos-cybersecurity',
+            'organization_id' => $lagos->id,
+            'nuc_programme_id' => $programme->id,
+            'department_id' => \App\Models\AcademicProgram::where('organization_id', $bayo->id)->value('department_id'),
+            'is_active' => true,
+        ]);
+
+        $b = $this->appointer()->appoint($lagos, $programme, 100, ['name' => 'B']);
 
         $this->assertNotSame($a['user']->id, $b['user']->id);
     }
@@ -133,7 +184,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
     public function test_one_school_cannot_appoint_twice_for_the_same_programme_and_level(): void
     {
         $school = $this->school();
-        $programme = $this->programme();
+        $programme = $this->programme(school: $school);
 
         $this->appointer()->appoint($school, $programme, 100, ['name' => 'First']);
 
@@ -148,9 +199,10 @@ class LevelCoordinatorAppointmentTest extends TestCase
         // these is a real appointment, not an assertion about rows that were
         // never written.
         $school = $this->school();
+        $programme = $this->programme(school: $school);
 
         foreach ([300, 400, 500, 600, 800] as $level) {
-            $this->appointer()->appoint($school, $this->programme(), $level, ['name' => "Coordinator {$level}"]);
+            $this->appointer()->appoint($school, $programme, $level, ['name' => "Coordinator {$level}"]);
 
             $this->assertDatabaseHas('level_coordinators', [
                 'organization_id' => $school->id,
@@ -163,12 +215,12 @@ class LevelCoordinatorAppointmentTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->appointer()->appoint($this->school(), $this->programme(), 450, ['name' => 'Nobody']);
+        $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 450, ['name' => 'Nobody']);
     }
 
     public function test_the_activation_link_reaches_the_onboarding_form(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
 
         $this->get($result['activation_url'])
             ->assertOk()
@@ -177,14 +229,14 @@ class LevelCoordinatorAppointmentTest extends TestCase
 
     public function test_an_unsigned_activation_url_is_refused(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
 
         $this->get("/coordinator/activate/{$result['user']->id}")->assertForbidden();
     }
 
     public function test_a_signed_in_stranger_cannot_open_another_coordinators_onboarding(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
         $stranger = User::factory()->create();
 
         $this->actingAs($stranger)
@@ -194,7 +246,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
 
     public function test_onboarding_replaces_the_generated_identity(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
         $generated = $result['user']->email;
 
         // Arrive the way a real person does: the signed link signs them in, and
@@ -223,7 +275,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
 
     public function test_a_coordinator_may_not_keep_the_generated_address(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
 
         // Accepting it would make the retirement a no-op and leave a login that
         // anyone can derive from the school, programme and level.
@@ -244,7 +296,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
 
     public function test_the_new_password_actually_works_after_onboarding(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
 
         // Arrive the way a real person does: the signed link signs them in, and
         // the form is submitted from that session. A bare POST with neither a
@@ -266,7 +318,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
 
     public function test_mismatched_passwords_are_reported(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
 
         // Arrive the way a real person does: the signed link signs them in, and
         // the form is submitted from that session. A bare POST with neither a
@@ -283,7 +335,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
 
     public function test_a_completed_account_cannot_be_onboarded_again(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
 
         // Arrive the way a real person does: the signed link signs them in, and
         // the form is submitted from that session. A bare POST with neither a
@@ -315,7 +367,7 @@ class LevelCoordinatorAppointmentTest extends TestCase
 
     public function test_a_coordinator_cannot_reach_anything_before_onboarding(): void
     {
-        $result = $this->appointer()->appoint($this->school(), $this->programme(), 100, ['name' => 'Fatima Umar']);
+        $result = $this->appointer()->appoint($school = $this->school(), $this->programme(school: $school), 100, ['name' => 'Fatima Umar']);
 
         // Signed in by the activation link, but still gated.
         $this->actingAs($result['user'])

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AcademicProgram;
 use App\Models\Curriculum\Programme;
 use App\Models\Organization;
 use App\Models\Role;
@@ -45,9 +46,45 @@ class InstitutionAppointsCoordinatorTest extends TestCase
         ]);
     }
 
-    private function programme(): Programme
+    /**
+     * A programme, plus the offering row that says a school actually runs it.
+     *
+     * The offering is not incidental: an appointment is only accepted for a
+     * programme the school offers, so a fixture without one would create a
+     * coordinator that could never reach its courses page.
+     */
+    private function programme(?Organization $school = null): Programme
     {
-        return Programme::create(['name' => 'B.Sc Cybersecurity', 'code' => 'CYB', 'duration_years' => 4]);
+        $programme = Programme::create([
+            'name' => 'B.Sc Cybersecurity', 'code' => 'CYB', 'duration_years' => 4,
+        ]);
+
+        if ($school) {
+            $faculty = \App\Models\Faculty::create([
+                'organization_id' => $school->id,
+                'name' => 'Faculty of Science',
+                'slug' => str($school->name.'-science')->slug(),
+                'is_active' => true,
+            ]);
+
+            $department = \App\Models\Department::create([
+                'faculty_id' => $faculty->id,
+                'name' => 'Department of Computer Science',
+                'slug' => str($school->name.'-cs')->slug(),
+                'is_active' => true,
+            ]);
+
+            AcademicProgram::create([
+                'name' => $programme->name,
+                'slug' => str($school->name.'-cybersecurity')->slug(),
+                'organization_id' => $school->id,
+                'nuc_programme_id' => $programme->id,
+                'department_id' => $department->id,
+                'is_active' => true,
+            ]);
+        }
+
+        return $programme;
     }
 
     public function test_an_institution_admin_can_open_the_appointment_page(): void
@@ -63,7 +100,7 @@ class InstitutionAppointsCoordinatorTest extends TestCase
     {
         $school = $this->school('Bayero University Kano');
         $admin = $this->adminFor($school);
-        $programme = $this->programme();
+        $programme = $this->programme($school);
 
         $this->actingAs($admin)->post(route('institution.coordinators.store'), [
             'organization_id' => $school->id,
@@ -83,7 +120,7 @@ class InstitutionAppointsCoordinatorTest extends TestCase
     {
         $school = $this->school('Bayero University Kano');
         $admin = $this->adminFor($school);
-        $programme = $this->programme();
+        $programme = $this->programme($school);
 
         $response = $this->actingAs($admin)->post(route('institution.coordinators.store'), [
             'organization_id' => $school->id,
@@ -137,10 +174,11 @@ class InstitutionAppointsCoordinatorTest extends TestCase
     {
         $school = $this->school('Bayero University Kano');
         $admin = $this->adminFor($school);
+        $this->programme($school);
 
         $this->actingAs($admin)->post(route('institution.coordinators.store'), [
             'organization_id' => $school->id,
-            'programme_id' => $this->programme()->id,
+            'programme_id' => \App\Models\Curriculum\Programme::value('id'),
             'level' => 450,
             'name' => 'Nobody',
         ])->assertSessionHasErrors('level');
@@ -150,7 +188,7 @@ class InstitutionAppointsCoordinatorTest extends TestCase
     {
         $school = $this->school('Bayero University Kano');
         $admin = $this->adminFor($school);
-        $programme = $this->programme();
+        $programme = $this->programme($school);
 
         $payload = [
             'organization_id' => $school->id,
@@ -171,7 +209,7 @@ class InstitutionAppointsCoordinatorTest extends TestCase
     {
         $school = $this->school('Bayero University Kano');
         $admin = $this->adminFor($school);
-        $programme = $this->programme();
+        $programme = $this->programme($school);
 
         $this->actingAs($admin)->post(route('institution.coordinators.store'), [
             'organization_id' => $school->id,
@@ -185,5 +223,41 @@ class InstitutionAppointsCoordinatorTest extends TestCase
             ->assertSee('B.Sc Cybersecurity')
             ->assertSee('Fatima Umar')
             ->assertSee('Awaiting activation');
+    }
+
+    public function test_a_school_cannot_appoint_for_a_programme_it_does_not_offer(): void
+    {
+        // Without this, the appointment is created, the coordinator onboards
+        // successfully, and then lands on a courses page showing nothing —
+        // because offeringsFor() reads academic_programs, which has no row for
+        // a programme the school does not run. A valid account with no work to
+        // do and no indication why.
+        $school = $this->school('Bayero University Kano');
+        $admin = $this->adminFor($school);
+
+        // Deliberately created with no offering row for this school: the
+        // programme exists, but this institution is not recorded as running it.
+        $programme = $this->programme();
+
+        $this->actingAs($admin)->post(route('institution.coordinators.store'), [
+            'organization_id' => $school->id,
+            'programme_id' => $programme->id,
+            'level' => 100,
+            'name' => 'Fatima Umar',
+        ])->assertSessionHasErrors('programme_id');
+
+        $this->assertDatabaseMissing('level_coordinators', [
+            'programme_id' => $programme->id,
+        ]);
+    }
+
+    public function test_the_form_only_offers_programmes_the_school_runs(): void
+    {
+        $school = $this->school('Bayero University Kano');
+        $admin = $this->adminFor($school);
+
+        $this->actingAs($admin)->get(route('institution.coordinators'))
+            ->assertOk()
+            ->assertSee('This institution has no recorded programmes yet');
     }
 }
