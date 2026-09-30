@@ -26,6 +26,12 @@
             <p class="text-xs font-bold uppercase tracking-wider text-muted">Institutions</p>
             <p class="mt-1 text-3xl font-extrabold text-text">{{ $organizationCount }}</p>
         </div>
+
+        <a href="{{ route('institution.coordinators') }}"
+           class="press rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-ring">
+            <p class="text-xs font-bold uppercase tracking-wider text-muted">Level coordinators</p>
+            <p class="mt-1 text-sm font-semibold text-primary">Appoint and manage →</p>
+        </a>
     </section>
 
     @if ($organizations->isEmpty())

@@ -144,6 +144,13 @@ Route::middleware('auth')->group(function () {
     // administers, from its own scoped assignments.
     Route::prefix('institution')->name('institution.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Institution\DashboardController::class, 'index'])->name('dashboard');
+
+        // Appointing coordinators. The controller confines every action to the
+        // schools named by the administrator's own role assignment, so a
+        // submitted organization id outside that set is refused rather than
+        // honoured.
+        Route::get('/coordinators', [\App\Http\Controllers\Institution\LevelCoordinatorController::class, 'index'])->name('coordinators');
+        Route::post('/coordinators', [\App\Http\Controllers\Institution\LevelCoordinatorController::class, 'store'])->name('coordinators.store');
     });
 
     // Student Dashboard
