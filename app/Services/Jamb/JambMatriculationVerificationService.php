@@ -51,17 +51,26 @@ class JambMatriculationVerificationService
         }
 
         $matriculationUrl = config('services.jamb.matriculation_url');
-
-        // Fresh per-request session: a new cookie jar isolates this
-        // verification from every other candidate's flow.
-        $jar = new CookieJar();
+        $attempts = max(1, (int) config('services.jamb.state_attempts', 5));
 
         try {
-            // Step 1: Fresh GET -> session cookies + ASP.NET hidden state.
-            $state = $this->getFreshState($matriculationUrl, $jar);
+            // The portal can still answer a postback with its generic error page
+            // even when the state came from a good page, so the whole
+            // GET-then-POST is retried as one unit. Only a portal page that
+            // actually carries a matriculation result ends the loop.
+            for ($round = 1; $round <= $attempts; $round++) {
+                // Step 1: Fresh GET -> session cookies + ASP.NET hidden state.
+                // The jar travels with the state because a retry opens a new
+                // session; posting on the wrong one is rejected.
+                $state = $this->getFreshState($matriculationUrl);
 
-            // Step 2: POST the search using the same session.
-            $result = $this->postSearch($matriculationUrl, $state, $jar, $examOption['value'], $registrationNumber);
+                // Step 2: POST the search using the session its page came from.
+                $result = $this->postSearch($matriculationUrl, $state, $state['jar'], $examOption['value'], $registrationNumber);
+
+                if ($result['raw_text'] !== 'jamb_response_uninterpretable') {
+                    break;
+                }
+            }
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             // cURL error 28 = operation timed out. Everything else is a
             // network/DNS/TLS/provider reachability failure.
@@ -89,40 +98,84 @@ class JambMatriculationVerificationService
     /**
      * GET the CheckMatriculationList page and extract the ASP.NET Web Forms
      * state fields (__VIEWSTATE, __VIEWSTATEGENERATOR, __EVENTVALIDATION)
-     * together with the session cookies.
+     * together with the session cookies they were issued with.
+     *
+     * The cookie jar is part of the returned state: a retry opens a new session,
+     * and the postback must go out on the session whose page was accepted.
      */
-    private function getFreshState(string $url, CookieJar $jar): array
+    private function getFreshState(string $url): array
     {
         $start = microtime(true);
 
-        $response = $this->http($jar)->get($url);
+        // JAMB intermittently serves a degraded copy of the page: the ASP.NET
+        // state fields are present but stub-sized (__VIEWSTATE ~108 chars instead
+        // of ~3k) and the examination dropdown is empty. Posting the search from
+        // that state is rejected and JAMB answers with its generic
+        // "The page you are looking for ... had processing error" page, which
+        // used to be read as "candidate not found" and silently killed every
+        // verification. So the GET is retried until a page that can actually
+        // accept the postback comes back.
+        $attempts = max(1, (int) config('services.jamb.state_attempts', 5));
+        $lastReason = 'JAMB returned a page missing required ASP.NET state fields.';
 
-        if (! $response->successful()) {
-            throw new RuntimeException('JAMB returned an unexpected HTTP status.');
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            // Each attempt gets its own session, exactly as a browser retrying
+            // the navigation would. The jar that produced the accepted page is
+            // the one the postback has to travel on.
+            $jar = new CookieJar();
+
+            $response = $this->http($jar)->get($url);
+
+            if (! $response->successful()) {
+                throw new RuntimeException('JAMB returned an unexpected HTTP status.');
+            }
+
+            $html = $response->body();
+
+            if (! is_string($html) || $html === '') {
+                throw new RuntimeException('JAMB returned an empty page.');
+            }
+
+            $state = $this->parseHiddenFields($html);
+
+            if (
+                $state['__VIEWSTATE'] === null
+                || $state['__VIEWSTATEGENERATOR'] === null
+                || $state['__EVENTVALIDATION'] === null
+            ) {
+                $lastReason = 'JAMB returned a page missing required ASP.NET state fields.';
+            } elseif (! $this->hasExaminationOptions($html)) {
+                $lastReason = 'JAMB returned a page without a populated examination list.';
+            } else {
+                return [
+                    'viewstate'          => $state['__VIEWSTATE'],
+                    'viewstategenerator' => $state['__VIEWSTATEGENERATOR'],
+                    'eventvalidation'    => $state['__EVENTVALIDATION'],
+                    'elapsed'            => round((microtime(true) - $start) * 1000),
+                    'attempts'           => $attempt,
+                    'jar'                => $jar,
+                ];
+            }
         }
 
-        $html = $response->body();
+        throw new RuntimeException($lastReason);
+    }
 
-        if (! is_string($html) || $html === '') {
-            throw new RuntimeException('JAMB returned an empty page.');
-        }
+    /**
+     * Does this page carry a populated examination dropdown?
+     *
+     * The degraded copy of the page keeps the <select> element but drops every
+     * <option>, which is the cheapest reliable signal that the ASP.NET state
+     * it carries will not survive a postback.
+     */
+    private function hasExaminationOptions(string $html): bool
+    {
+        $doc = $this->loadDom($html);
+        $xpath = new DOMXPath($doc);
 
-        $state = $this->parseHiddenFields($html);
+        $nodes = $xpath->query("//select[@id='ddlExamination']/option[normalize-space(text()) != 'Select Examination...']");
 
-        if (
-            $state['__VIEWSTATE'] === null
-            || $state['__VIEWSTATEGENERATOR'] === null
-            || $state['__EVENTVALIDATION'] === null
-        ) {
-            throw new RuntimeException('JAMB returned a page missing required ASP.NET state fields.');
-        }
-
-        return [
-            'viewstate'          => $state['__VIEWSTATE'],
-            'viewstategenerator' => $state['__VIEWSTATEGENERATOR'],
-            'eventvalidation'    => $state['__EVENTVALIDATION'],
-            'elapsed'            => round((microtime(true) - $start) * 1000),
-        ];
+        return $nodes && $nodes->length > 0;
     }
 
     /**
@@ -359,23 +412,34 @@ class JambMatriculationVerificationService
     {
         return Cache::remember('jamb_exam_options', 3600, function () {
             $url = config('services.jamb.matriculation_url');
+            $attempts = max(1, (int) config('services.jamb.state_attempts', 5));
+            $lastReason = 'JAMB returned an empty examination options page.';
 
-            // A fresh, independent session for options retrieval.
-            $jar = new CookieJar();
+            // Same degraded page as the search form, so it is retried here too.
+            for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+                // A fresh, independent session for options retrieval.
+                $jar = new CookieJar();
 
-            $response = $this->http($jar)->get($url);
+                $response = $this->http($jar)->get($url);
 
-            if (! $response->successful()) {
-                throw new RuntimeException('JAMB returned an unexpected HTTP status.');
+                if (! $response->successful()) {
+                    throw new RuntimeException('JAMB returned an unexpected HTTP status.');
+                }
+
+                $html = $response->body();
+
+                if (! is_string($html) || $html === '') {
+                    throw new RuntimeException('JAMB returned an empty examination options page.');
+                }
+
+                try {
+                    return $this->extractOptionsFromHtml($html);
+                } catch (RuntimeException $e) {
+                    $lastReason = $e->getMessage();
+                }
             }
 
-            $html = $response->body();
-
-            if (! is_string($html) || $html === '') {
-                throw new RuntimeException('JAMB returned an empty examination options page.');
-            }
-
-            return $this->extractOptionsFromHtml($html);
+            throw new RuntimeException($lastReason);
         });
     }
 
@@ -403,6 +467,15 @@ class JambMatriculationVerificationService
             }
 
             $options[] = ['value' => $value, 'text' => $text];
+        }
+
+        // A dropdown that is present but empty is the degraded page, not a
+        // portal that genuinely has no examinations to offer. Treating it as
+        // "this year is not available" would tell a real student that their
+        // registration number cannot be checked, which is not something the
+        // provider has told us.
+        if ($options === []) {
+            throw new RuntimeException('JAMB returned a page with an empty examination list.');
         }
 
         return $options;
