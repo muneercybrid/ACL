@@ -20,7 +20,19 @@
                         <p class="text-sm font-medium text-amber-800">Please check <strong>{{ $user->email }}</strong> and click the confirmation link to unlock full access.</p>
                     </div>
                 </div>
-                <span class="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow">Resend verification link</span>
+                {{-- A real form. This control used to be a bare <span>, so
+                     clicking it did nothing. POST plus throttle, because each
+                     send is an outbound SMTP call. --}}
+                <form method="POST" action="{{ route('student.email.resend') }}" class="shrink-0">
+                    @csrf
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow transition hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path d="M10 3.75a.75.75 0 0 1 .75.75v6a.75.75 0 0 1-1.5 0v-6a.75.75 0 0 1 .75-.75Zm0 9.5a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1a.75.75 0 0 1 .75-.75Z" />
+                        </svg>
+                        Resend verification link
+                    </button>
+                </form>
             </div>
         </div>
     @endif
