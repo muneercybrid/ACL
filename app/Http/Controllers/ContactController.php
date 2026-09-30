@@ -33,7 +33,10 @@ class ContactController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email:rfc,dns', 'max:190'],
+            // 'dns' is deliberately absent: it performs a live MX lookup on every
+            // submission, so a resolver hiccup or a captive network would reject
+            // a genuine student. Syntax is what the form can actually vouch for.
+            'email' => ['required', 'email:rfc', 'max:190'],
             'subject' => ['required', 'string', 'max:150'],
             // Bounded so one submission cannot be used to mail someone a
             // novel. The route is rate limited as well; the two are different
@@ -58,7 +61,7 @@ class ContactController extends Controller
             Mail::to($recipient)->send(new ContactMessageMail(
                 name: $validated['name'],
                 email: $validated['email'],
-                subject: $validated['subject'],
+                subjectLine: $validated['subject'],
                 body: $validated['message'],
                 ip: $request->ip(),
             ));
