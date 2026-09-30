@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
 
 class PasswordResetController extends Controller
@@ -80,7 +79,9 @@ class PasswordResetController extends Controller
                 'required',
                 'string',
                 'confirmed',
-                PasswordRule::min(8),
+                // The same standard as registration, so a reset cannot be used
+                // to downgrade an account to a weak password.
+                new \App\Rules\StrongPassword,
             ],
         ]);
 
