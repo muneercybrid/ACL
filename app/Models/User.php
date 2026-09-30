@@ -14,7 +14,7 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password', 'jamb_registration_number_hash', 'provider', 'provider_id', 'avatar_path', 'institution_id', 'force_password_change', 'email_verified_at'];
+    protected $fillable = ['name', 'email', 'password', 'jamb_registration_number_hash', 'provider', 'provider_id', 'avatar_path', 'institution_id', 'force_password_change', 'email_verified_at', 'must_complete_onboarding', 'onboarding_completed_at', 'phone'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -28,6 +28,10 @@ class User extends Authenticatable
             // assertFalse($user->force_password_change) fail even though the
             // stored value is correct.
             'force_password_change' => 'boolean',
+            // Same reasoning as force_password_change above: the column is a
+            // 0/1 tinyint, and the onboarding gate compares it as a boolean.
+            'must_complete_onboarding' => 'boolean',
+            'onboarding_completed_at' => 'datetime',
         ];
     }
 
