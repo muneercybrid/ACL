@@ -2,6 +2,7 @@
 
 namespace App\Services\Auth;
 
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -103,5 +104,72 @@ class RoleHomeResolver
     public function holdsRole(User $user, string $slug): bool
     {
         return in_array($slug, $this->rolesFor($user), true);
+    }
+
+    /**
+     * The organizations this account has staff access to.
+     *
+     * The two staff roles are scoped differently, and that difference is real
+     * rather than an inconsistency to paper over:
+     *
+     *  - an institution administrator is scoped by a role_assignment whose
+     *    entity is the organization itself;
+     *  - a level coordinator is scoped by level_coordinators rows, which name a
+     *    curriculum programme, and an organization owns the academic_program
+     *    instances of its programmes. So their organizations are derived by
+     *    walking programme -> organization.
+     *
+     * Both are read from the database, and nothing here is influenced by the
+     * request. That is what lets the sign-in screen accept an organization id
+     * from the URL and still be safe to check the result against.
+     */
+    public function organizationsFor(User $user): Collection
+    {
+        $ids = Organization::query()
+            ->whereIn('id', function ($query) use ($user) {
+                $query->select('entity_id')
+                    ->from('role_assignments')
+                    ->where('user_id', $user->id)
+                    ->where('entity_type', Organization::class)
+                    ->whereIn('role_id', function ($roles) {
+                        $roles->select('id')->from('roles')->where('slug', self::ROLE_INSTITUTION_ADMIN);
+                    });
+            })
+            ->pluck('id');
+
+        if ($this->holdsRole($user, self::ROLE_LEVEL_COORDINATOR)) {
+            // A coordinator reaches an organization through the programmes they
+            // are appointed to run. Restricted to active appointments: a
+            // coordinator whose appointment has ended keeps no standing access.
+            $coordinatorOrgIds = Organization::query()
+                ->join('academic_programs', 'academic_programs.organization_id', '=', 'organizations.id')
+                ->join('level_coordinators', 'level_coordinators.programme_id', '=', 'academic_programs.nuc_programme_id')
+                ->where('level_coordinators.user_id', $user->id)
+                ->where('level_coordinators.status', 'active')
+                ->distinct()
+                ->pluck('organizations.id');
+
+            $ids = $ids->merge($coordinatorOrgIds)->unique()->values();
+        }
+
+        return Organization::whereIn('id', $ids)
+            ->orderBy('name')
+            ->get(['id', 'name', 'short_name', 'slug', 'logo_path', 'state', 'is_active']);
+    }
+
+    /**
+     * Whether this account may sign in through this organization's door.
+     *
+     * A false result must be reported to the user in the same words as a wrong
+     * password, because a different message would let someone enumerate which
+     * administrators and coordinators belong to which institution.
+     */
+    public function canAccessOrganization(User $user, Organization $organization): bool
+    {
+        if (! $organization->is_active) {
+            return false;
+        }
+
+        return $this->organizationsFor($user)->contains('id', $organization->id);
     }
 }
