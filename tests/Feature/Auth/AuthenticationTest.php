@@ -28,10 +28,14 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
+        // An account holding no staff role is treated as a student. That is where
+        // /dashboard used to forward everyone anyway — it is now decided from
+        // the account's own roles instead of by a stub that redirected to the
+        // student page for administrators and coordinators too.
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertRedirect(route('dashboard'));
+        ])->assertRedirect(route('student.dashboard'));
 
         $this->assertAuthenticated();
     }

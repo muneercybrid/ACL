@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\Auth\RoleHomeResolver;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
@@ -21,6 +23,10 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
+            // Which area the person says they are signing in to. Optional, so
+            // the plain form still works; when present it is a claim that the
+            // controller checks against the account's real role assignments.
+            'role' => ['nullable', 'string', Rule::in(RoleHomeResolver::SELECTABLE)],
         ];
     }
 

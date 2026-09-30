@@ -104,6 +104,18 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
+    // Level coordinator area. Scoped to the levels this account is appointed
+    // to, read from level_coordinators on every request.
+    Route::prefix('coordinator')->name('coordinator.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Coordinator\DashboardController::class, 'index'])->name('dashboard');
+    });
+
+    // Institution administrator area. One per organization the account
+    // administers, from its own scoped assignments.
+    Route::prefix('institution')->name('institution.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Institution\DashboardController::class, 'index'])->name('dashboard');
+    });
+
     // Student Dashboard
     Route::prefix('student')->name('student.')->group(function () {
         Route::get('/', [StudentDashboardController::class, 'index'])->name('dashboard');

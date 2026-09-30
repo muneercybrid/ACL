@@ -29,6 +29,45 @@
             <p class="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary" role="alert">{{ $message }}</p>
         @enderror
 
+        {{-- Role selection. Choosing an area does not grant it: the server
+             checks the choice against the account's real role assignments and
+             refuses a mismatch, so this is a shortcut rather than a control. --}}
+        <fieldset class="mb-5">
+            <legend class="mb-2 text-sm font-medium text-text">Sign in as</legend>
+
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                @foreach ($selectableRoles as $role)
+                    <label class="relative">
+                        <input type="radio" name="role" value="{{ $role }}"
+                               class="peer sr-only"
+                               @checked(old('role', 'student') === $role)>
+                        <span class="flex cursor-pointer items-center justify-center rounded-lg border border-border bg-bg px-3 py-2.5 text-center text-xs font-semibold text-muted transition
+                                     hover:border-primary/50 hover:text-primary
+                                     peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary
+                                     peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
+                            @switch($role)
+                                @case(\App\Services\Auth\RoleHomeResolver::ROLE_STUDENT)
+                                    Student
+                                    @break
+                                @case(\App\Services\Auth\RoleHomeResolver::ROLE_INSTITUTION_ADMIN)
+                                    Institution Admin
+                                    @break
+                                @case(\App\Services\Auth\RoleHomeResolver::ROLE_LEVEL_COORDINATOR)
+                                    Level Coordinator
+                                    @break
+                                @default
+                                    {{ \Illuminate\Support\Str::headline($role) }}
+                            @endswitch
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+
+            @error('role')
+                <p class="mt-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700" role="alert">{{ $message }}</p>
+            @enderror
+        </fieldset
+
         <label class="mb-4 block">
             <span class="text-sm font-medium text-text">Email</span>
             <input type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="email"
