@@ -25,6 +25,12 @@ return [
         // Direct HTTP connection (no browser automation).
         'connect_timeout' => (float) env('JAMB_CONNECT_TIMEOUT', 5),
         'request_timeout' => (float) env('JAMB_REQUEST_TIMEOUT', 30),
+
+        // How many times to re-fetch the portal page before giving up. JAMB
+        // intermittently serves a degraded copy whose examination dropdown is
+        // empty and whose postback is rejected; retrying is the only reliable
+        // way through it.
+        'state_attempts' => (int) env('JAMB_STATE_ATTEMPTS', 5),
     ],
 
     'nvidia' => [
