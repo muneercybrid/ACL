@@ -138,6 +138,18 @@ Route::middleware('auth')->group(function () {
     // to, read from level_coordinators on every request.
     Route::prefix('coordinator')->name('coordinator.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Coordinator\DashboardController::class, 'index'])->name('dashboard');
+
+        // Courses run for the coordinator's own programme and level. Every write
+        // re-checks the appointment rather than trusting the submitted ids, so a
+        // coordinator cannot reach another programme or level by editing the
+        // form.
+        Route::prefix('courses')->name('courses.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Coordinator\CourseController::class, 'index'])->name('index');
+            Route::get('/search', [\App\Http\Controllers\Coordinator\CourseController::class, 'search'])->name('search');
+            Route::post('/ccmas', [\App\Http\Controllers\Coordinator\CourseController::class, 'storeFromCcmas'])->name('store.ccmas');
+            Route::post('/manual', [\App\Http\Controllers\Coordinator\CourseController::class, 'storeManual'])->name('store.manual');
+            Route::delete('/{course}', [\App\Http\Controllers\Coordinator\CourseController::class, 'destroy'])->name('destroy');
+        });
     });
 
     // Institution administrator area. One per organization the account
