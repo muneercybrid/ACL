@@ -154,7 +154,7 @@ class RoleHomeResolver
 
         return Organization::whereIn('id', $ids)
             ->orderBy('name')
-            ->get(['id', 'name', 'short_name', 'slug', 'logo_path', 'state', 'is_active']);
+            ->get(['id', 'name', 'short_name', 'slug', 'state', 'is_active']);
     }
 
     /**

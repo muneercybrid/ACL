@@ -63,7 +63,7 @@ class OrganizationLoginController extends Controller
             // page stays cheap on a low-bandwidth connection.
             ->orderBy('name')
             ->limit(100)
-            ->get(['id', 'name', 'short_name', 'logo_path', 'state']);
+            ->get(['id', 'name', 'short_name', 'state']);
 
         return view('auth.organization-select', [
             'organizations' => $organizations,
