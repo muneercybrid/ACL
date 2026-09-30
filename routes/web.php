@@ -3,6 +3,7 @@
 use App\Http\Controllers\ACLi\AcliChatController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\SetPasswordController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -108,6 +109,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [StudentDashboardController::class, 'index'])->name('dashboard');
         Route::get('/profile', [StudentDashboardController::class, 'profile'])->name('profile');
         Route::get('/my-courses', [StudentDashboardController::class, 'myCourses'])->name('my-courses');
+
+        // Re-issue the confirmation link. POST only, throttled, so the button
+        // on the dashboard cannot be turned into a mail cannon.
+        Route::post('/email/resend', [EmailVerificationController::class, 'resend'])
+            ->middleware('throttle:5,1')
+            ->name('email.resend');
 
         // The student is always resolved from the authenticated session, never
         // from a route parameter, so one student can never read another's data.
