@@ -11,6 +11,7 @@ use App\Services\Auth\LevelCoordinatorAppointer;
 use App\Services\Auth\RoleHomeResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -48,7 +49,7 @@ class LevelCoordinatorController extends Controller
             'organizations' => $organizations,
             'organization' => $organization,
             'appointments' => $organization ? $this->appointmentsFor($organization) : collect(),
-            'programmes' => Programme::orderBy('name')->get(['id', 'name', 'code']),
+            'programmes' => $organization ? $this->programmesOfferedBy($organization) : collect(),
             'levels' => LevelCoordinatorAppointer::LEVELS,
         ]);
     }
@@ -78,6 +79,17 @@ class LevelCoordinatorController extends Controller
         if (! $organization) {
             return back()->withErrors([
                 'organization_id' => 'You can only appoint coordinators at your own institution.',
+            ])->withInput();
+        }
+
+        // The school must actually run this programme. Without the check the
+        // appointment is created, the coordinator onboards, and then reaches a
+        // courses page with nothing on it — a valid account whose appointments
+        // can never match an offering, so the feature looks broken to them and
+        // to the administrator who made the appointment.
+        if (! $this->schoolOffers($organization, (int) $validated['programme_id'])) {
+            return back()->withErrors([
+                'programme_id' => 'That institution is not recorded as running this programme.',
             ])->withInput();
         }
 
@@ -127,6 +139,40 @@ class LevelCoordinatorController extends Controller
         }
 
         abort(403, 'This account is not an institution administrator.');
+    }
+
+    /**
+     * The programmes one school is recorded as running.
+     *
+     * Read from academic_programs rather than from `programmes`, because that
+     * is the table that says which school offers what. Listing all 238
+     * programmes here would offer appointments the courses page cannot then
+     * honour.
+     */
+    private function programmesOfferedBy(Organization $organization)
+    {
+        $ids = DB::table('academic_programs')
+            ->where('organization_id', $organization->id)
+            ->whereNotNull('nuc_programme_id')
+            ->distinct()
+            ->pluck('nuc_programme_id');
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return Programme::whereIn('id', $ids)->orderBy('name')->get(['id', 'name', 'code']);
+    }
+
+    /**
+     * Whether this school offers this programme.
+     */
+    private function schoolOffers(Organization $organization, int $programmeId): bool
+    {
+        return DB::table('academic_programs')
+            ->where('organization_id', $organization->id)
+            ->where('nuc_programme_id', $programmeId)
+            ->exists();
     }
 
     /**

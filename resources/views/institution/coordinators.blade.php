@@ -64,14 +64,21 @@
 
                     <label class="mb-4 block">
                         <span class="text-sm font-medium text-text">Programme</span>
-                        <select name="programme_id" required class="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-text focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring">
-                            <option value="">Select a programme…</option>
-                            @foreach ($programmes as $programme)
-                                <option value="{{ $programme->id }}" @selected(old('programme_id') == $programme->id)>
-                                    {{ $programme->name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        @if ($programmes->isEmpty())
+                            <p class="mt-1 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                                This institution has no recorded programmes yet. Appoint a coordinator once its
+                                programme offerings are on file, otherwise they would have nothing to manage.
+                            </p>
+                        @else
+                            <select name="programme_id" required class="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-text focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring">
+                                <option value="">Select a programme…</option>
+                                @foreach ($programmes as $programme)
+                                    <option value="{{ $programme->id }}" @selected(old('programme_id') == $programme->id)>
+                                        {{ $programme->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
                     </label>
 
                     <label class="mb-4 block">
@@ -95,8 +102,8 @@
                     @error('level')<p class="mb-3 text-sm text-red-700">{{ $message }}</p>@enderror
                     @error('name')<p class="mb-3 text-sm text-red-700">{{ $message }}</p>@enderror
 
-                    <button type="submit"
-                            class="press w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-fg transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring">
+                    <button type="submit" @disabled($programmes->isEmpty())
+                            class="press w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-fg transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
                         Appoint and generate link
                     </button>
 

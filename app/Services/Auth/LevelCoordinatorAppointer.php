@@ -74,6 +74,25 @@ class LevelCoordinatorAppointer
             throw new \InvalidArgumentException('Cannot appoint a coordinator at an inactive institution.');
         }
 
+        // The institution must actually be recorded as running this programme.
+        //
+        // Placed here rather than in the controller so that both entry points —
+        // the administrator's form and the artisan command — are covered by one
+        // check. A coordinator appointed for a programme their school does not
+        // offer can never be matched to an offering, so they would onboard
+        // successfully and then reach a courses page with nothing on it: a
+        // working account with no work to do and no indication why.
+        $offers = DB::table('academic_programs')
+            ->where('organization_id', $organization->id)
+            ->where('nuc_programme_id', $programme->id)
+            ->exists();
+
+        if (! $offers) {
+            throw new \InvalidArgumentException(
+                'That institution is not recorded as running this programme, so a coordinator appointed to it could not manage any courses.'
+            );
+        }
+
         // One coordinator per school, programme, level and session. The
         // database enforces this too, but checking here turns a duplicate into
         // a clear message instead of a constraint violation.
