@@ -20,6 +20,19 @@
         </div>
     @endif
 
+    @if ($appointments->isNotEmpty())
+        <div class="mb-8">
+            <a href="{{ route('coordinator.courses.index') }}"
+               class="press inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/5 px-5 py-3 text-sm font-semibold text-primary transition hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-ring">
+                Choose programme courses
+                <span aria-hidden="true">→</span>
+            </a>
+            <p class="mt-2 text-xs text-muted">
+                Search the NUC CCMAS list, or enter a course it does not carry.
+            </p>
+        </div>
+    @endif
+
     <section class="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div class="rounded-2xl border border-border bg-surface p-5 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-muted">Appointments</p>
