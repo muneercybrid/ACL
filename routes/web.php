@@ -197,6 +197,11 @@ Route::middleware('auth')->group(function () {
         // students on the same chapter receive different questions.
         Route::get('/course/chapter/{chapterId}/assessment', [StudentDashboardController::class, 'chapterAssessment'])
             ->name('chapter.assessment');
+
+        // The full chapter explanation, fetched when the student asks for it
+        // rather than shipped with the course page.
+        Route::get('/chapter/{chapterId}/content', [StudentDashboardController::class, 'chapterContent'])
+            ->name('chapter.content');
     });
 
     // Course Viewer

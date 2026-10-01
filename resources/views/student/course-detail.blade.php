@@ -149,14 +149,17 @@
                                         <p class="mt-2 text-sm text-muted">{{ $preview }}</p>
 
                                         @if (mb_strlen($chapter->introduction) > 150)
-                                            <details class="mt-2">
-                                                <summary class="cursor-pointer text-xs font-semibold text-primary">
-                                                    Read the full explanation
-                                                </summary>
-                                                <div class="mt-2 whitespace-pre-line text-sm leading-relaxed text-text">
-                                                    {{ $chapter->introduction }}
-                                                </div>
-                                            </details>
+                                            {{-- The full explanation is fetched only when
+                                                 the student asks for it. Putting it in a
+                                                 <details> element still shipped all twenty
+                                                 chapters' worth of text to the browser, which
+                                                 made the page slow and rendered blank. --}}
+                                            <button type="button"
+                                                    class="chapter-more mt-2 text-xs font-semibold text-primary"
+                                                    data-url="{{ route('student.chapter.content', $chapter->id) }}">
+                                                Read the full explanation
+                                            </button>
+                                            <div class="chapter-full mt-2 hidden whitespace-pre-line text-sm leading-relaxed text-text"></div>
                                         @endif
                                     @endif
                                 </div>
@@ -250,6 +253,42 @@
             document.getElementById('tab-' + tabId).classList.remove('text-text');
             document.getElementById('tab-' + tabId).classList.add('bg-primary', 'text-primary-fg', 'shadow-sm');
         }
+    </script>
+
+    {{-- Fetches a chapter's full explanation the first time it is asked for,
+         then keeps it in the DOM so re-opening costs nothing. --}}
+    <script>
+        document.querySelectorAll('.chapter-more').forEach(function (button) {
+            button.addEventListener('click', async function () {
+                var panel = button.nextElementSibling;
+
+                if (! panel.dataset.loaded) {
+                    button.disabled = true;
+                    button.textContent = 'Loading...';
+
+                    try {
+                        var response = await fetch(button.dataset.url, {
+                            headers: { 'Accept': 'application/json' },
+                        });
+
+                        if (! response.ok) throw new Error('failed');
+
+                        var data = await response.json();
+                        var text = data.introduction || data.summary || '';
+
+                        panel.textContent = text;
+                        panel.dataset.loaded = '1';
+                        button.classList.add('hidden');
+                    } catch (e) {
+                        button.textContent = 'Could not load. Try again.';
+                        button.disabled = false;
+                        return;
+                    }
+                }
+
+                panel.classList.toggle('hidden');
+            });
+        });
     </script>
 </div>
 @endsection

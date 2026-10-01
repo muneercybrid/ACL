@@ -228,6 +228,46 @@ class StudentDashboardController extends Controller
     }
 
     /**
+     * The full text of one chapter, on request.
+     *
+     * Held back from the course page so that page carries only the short
+     * previews. Serving it here keeps the access rules identical to the page it
+     * came from: the student must be enrolled in the course that owns the
+     * chapter, so this cannot become a way to read any chapter by guessing an id.
+     */
+    public function chapterContent(Request $request, int $chapterId)
+    {
+        $student = $request->user()?->student;
+
+        if (! $student) {
+            abort(403, 'This course is only available to registered students.');
+        }
+
+        $chapter = DB::table('course_chapters')->where('id', $chapterId)->first();
+
+        if ($chapter === null) {
+            abort(404);
+        }
+
+        $enrolled = DB::table('enrollments')
+            ->join('course_offerings', 'course_offerings.id', '=', 'enrollments.course_offering_id')
+            ->where('enrollments.user_id', $request->user()->id)
+            ->where('enrollments.status', 'active')
+            ->where('course_offerings.course_id', $chapter->course_id)
+            ->exists();
+
+        if (! $enrolled) {
+            abort(403, 'Enroll in this course before opening its chapters.');
+        }
+
+        return response()->json([
+            'introduction' => (string) ($chapter->introduction ?? ''),
+            'summary' => (string) ($chapter->summary ?? ''),
+            'key_takeaways' => (string) ($chapter->key_takeaways ?? ''),
+        ]);
+    }
+
+    /**
      * A student's own assessment for a chapter, generated on first request.
      *
      * The chapter must belong to a course the student is actually enrolled
@@ -333,7 +373,10 @@ class StudentDashboardController extends Controller
         $level = $student->level ? (int) $student->level : 100;
 
         $plc = ProgrammeLevelCourse::with([
-            'course.chapters',
+            // lessons was lazy-loaded per chapter inside the view loop, so a
+            // twenty-chapter course issued one extra query per chapter on top of
+            // everything else. Fetched once with the rest of the graph.
+            'course.chapters.lessons',
             'course.outlines',
         ])
             ->where('academic_program_id', $programme->id)
