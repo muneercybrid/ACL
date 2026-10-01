@@ -164,6 +164,449 @@ class CourseContentGenerator
         return $found ? trim($window) : '';
     }
 
+
+    /**
+     * Generates the end-of-chapter material: exercises, a chapter quiz, and
+     * revision flashcards.
+     *
+     * All of it is derived from the chapter's own text, so a question can only
+     * be about something the chapter actually taught. Everything is written as
+     * draft and nothing is attached to a student: exercises carry their
+     * solutions, the quiz questions carry their explanations, and the
+     * assessment that holds the questions stays in draft until a person
+     * approves it.
+     *
+     * @return array{exercises: int, questions: int, assessment: ?int, flashcards: int, errors: array<int, string>}
+     */
+    public function generateChapterMaterial(int $chapterId, bool $apply = false): array
+    {
+        $chapter = DB::table('course_chapters')->where('id', $chapterId)->first();
+
+        if (! $chapter) {
+            return ['exercises' => 0, 'questions' => 0, 'assessment' => null, 'flashcards' => 0, 'errors' => ['chapter ' . $chapterId . ' not found']];
+        }
+
+        $course = DB::table('courses')->where('id', $chapter->course_id)->first();
+        $body = trim((string) $chapter->introduction . "\n" . (string) $chapter->summary . "\n" . (string) $chapter->key_takeaways);
+
+        if ($course === null || $body === '') {
+            // Without the chapter's own text there is nothing to base questions
+            // on, and inventing them would put material in front of students
+            // that the chapter never taught.
+            return ['exercises' => 0, 'questions' => 0, 'assessment' => null, 'flashcards' => 0, 'errors' => ['chapter ' . $chapterId . ' has no generated text to build questions from']];
+        }
+
+        $exercises = $this->askFor($this->exercisePrompt($course, $chapter, $body), ['questions']);
+        $quiz = $this->askFor($this->quizPrompt($course, $chapter, $body), ['questions']);
+        $cards = $this->askFor($this->flashcardPrompt($course, $chapter, $body), ['cards']);
+
+        $exerciseRows = $this->exerciseRows($exercises);
+        $questionRows = $this->questionRows($quiz);
+        $cardRows = $this->flashcardRows($cards);
+
+        $errors = [];
+
+        if ($apply) {
+            if ($exerciseRows !== []) {
+                $this->storeExercises($chapter, $exerciseRows);
+            }
+
+            if ($questionRows !== []) {
+                $this->storeQuiz($chapter, $course, $questionRows);
+            }
+
+            if ($cardRows !== []) {
+                $this->storeFlashcards($chapter, $cardRows);
+            }
+        }
+
+        if ($exerciseRows === [] && $questionRows === []) {
+            $errors[] = 'no material generated for chapter ' . $chapterId;
+        }
+
+        return [
+            'exercises' => count($exerciseRows),
+            'questions' => count($questionRows),
+            'assessment' => $apply && $questionRows !== [] ? $chapterId : null,
+            'flashcards' => count($cardRows),
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * Exercises ask the student to work something out, not just recall it. The
+     * solution and the explanation are stored with the question so the same
+     * chapter can be marked without a second pass over the material.
+     */
+    private function exercisePrompt(object $course, object $chapter, string $body): string
+    {
+        return <<<TEXT
+You are writing the end-of-chapter exercises for a Nigerian university course.
+
+Course: {$course->code} - {$course->title}
+Chapter: {$chapter->title}
+
+Chapter text:
+<<<BODY
+{$body}
+BODY
+
+Write 3 exercises a student works through after reading this chapter. Vary the
+difficulty (beginner, intermediate, advanced) and prefer practical, applied
+questions over recall. Make each one understandable on its own: a student
+should never need to guess what is being asked.
+
+Return ONLY a JSON array. Each element must have exactly these keys:
+"question": what is asked, stated clearly
+"exercise_type": "application" | "problem_solving" | "analysis"
+"difficulty": "beginner" | "intermediate" | "advanced"
+"options": array of 4 strings, or an empty array if it is not multiple choice
+"correct_answer": the answer itself
+"solution": how to arrive at it, step by step
+"explanation": why that is the answer, in one or two sentences
+"title": a short label for the exercise
+
+Return no prose outside the JSON.
+TEXT;
+    }
+
+    private function quizPrompt(object $course, object $chapter, string $body): string
+    {
+        return <<<TEXT
+You are writing the end-of-chapter quiz for a Nigerian university course.
+
+Course: {$course->code} - {$course->title}
+Chapter: {$chapter->title}
+
+Chapter text:
+<<<BODY
+{$body}
+BODY
+
+Write 5 multiple-choice questions that test whether a student understood this
+chapter. Every question must be answerable from the chapter text above. Keep the
+wording plain and the distractor options plausible but clearly wrong, so the
+question measures understanding rather than guessing.
+
+Return ONLY a JSON array. Each element must have exactly these keys:
+"question": the question
+"options": array of exactly 4 strings
+"correct_answer": the exact text of the correct option
+"explanation": why that option is right, and why the others are not
+"position": the question number starting at 1
+
+Return no prose outside the JSON.
+TEXT;
+    }
+
+    private function flashcardPrompt(object $course, object $chapter, string $body): string
+    {
+        return <<<TEXT
+You are writing revision flashcards for a Nigerian university course.
+
+Course: {$course->code} - {$course->title}
+Chapter: {$chapter->title}
+
+Chapter text:
+<<<BODY
+{$body}
+BODY
+
+Write 8 flashcards for revising this chapter. The front is a short prompt a
+student can answer in one or two sentences; the back states the answer plainly
+and completely enough to revise from.
+
+Return ONLY a JSON array. Each element must have exactly these keys:
+"front": the question side
+"back": the answer side
+
+Return no prose outside the JSON.
+TEXT;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function askFor(string $prompt, array $keys): array
+    {
+        $response = $this->ask($prompt);
+
+        if ($response === null) {
+            return [];
+        }
+
+        $parsed = $this->parseJson($this->stripFence($response));
+
+        if (! is_array($parsed)) {
+            return [];
+        }
+
+        // The model sometimes wraps the array in a single key such as
+        // {"questions": [...]}. Unwrap it rather than discarding the content.
+        foreach ($keys as $key) {
+            if (isset($parsed[$key]) && is_array($parsed[$key])) {
+                return $parsed[$key];
+            }
+        }
+
+        if (array_is_list($parsed)) {
+            return $parsed;
+        }
+
+        // Unwrap whatever single list the model did return, rather than
+        // discarding content just because it used a different key name.
+        foreach ($parsed as $value) {
+            if (is_array($value) && $value !== [] && array_is_list($value)) {
+                return $value;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function exerciseRows(array $items): array
+    {
+        $rows = [];
+
+        foreach ($items as $index => $item) {
+            if (! is_array($item) || blank($item['question'] ?? null)) {
+                continue;
+            }
+
+            $rows[] = [
+                'position' => $index + 1,
+                'title' => $this->plain($item['title'] ?? ('Exercise ' . ($index + 1))),
+                // The columns are enums with their own vocabulary, which is
+                // not the vocabulary the prompt asks for. Writing the prompt's
+                // words straight in truncated the value and lost the exercise
+                // entirely, so the two vocabularies are mapped explicitly.
+                'difficulty' => match (strtolower((string) ($item['difficulty'] ?? ''))) {
+                    'beginner', 'basic', 'easy' => 'basic',
+                    'advanced', 'hard' => 'advanced',
+                    default => 'intermediate',
+                },
+                'exercise_type' => match (strtolower((string) ($item['exercise_type'] ?? ''))) {
+                    'application' => 'scenario',
+                    'analysis' => 'discussion',
+                    'multiple_choice' => 'multiple_choice',
+                    default => in_array(
+                        strtolower((string) ($item['exercise_type'] ?? '')),
+                        ['short_answer', 'multiple_choice', 'fill_blank', 'scenario', 'problem_solving', 'practical', 'discussion'],
+                        true
+                    ) ? strtolower((string) $item['exercise_type']) : 'short_answer',
+                },
+                'question' => $this->plain($item['question']),
+                'solution' => $this->plain($item['solution'] ?? ''),
+                'explanation' => $this->plain($item['explanation'] ?? ''),
+                'options' => $this->stringList($item['options'] ?? []),
+                'correct_answer' => $this->plain($item['correct_answer'] ?? ''),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function questionRows(array $items): array
+    {
+        $rows = [];
+
+        foreach ($items as $index => $item) {
+            if (! is_array($item) || blank($item['question'] ?? null)) {
+                continue;
+            }
+
+            $options = $this->stringList($item['options'] ?? []);
+
+            if (count($options) < 2) {
+                // A question with fewer than two options cannot be marked.
+                continue;
+            }
+
+            $rows[] = [
+                'position' => (int) ($item['position'] ?? $index + 1),
+                'question' => $this->plain($item['question']),
+                'options' => $options,
+                'correct_answer' => $this->plain($item['correct_answer'] ?? ''),
+                'explanation' => $this->plain($item['explanation'] ?? ''),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function flashcardRows(array $items): array
+    {
+        $rows = [];
+
+        foreach ($items as $item) {
+            if (! is_array($item) || blank($item['front'] ?? null) || blank($item['back'] ?? null)) {
+                continue;
+            }
+
+            $rows[] = [
+                'front' => $this->plain($item['front']),
+                'back' => $this->plain($item['back']),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function storeExercises(object $chapter, array $rows): void
+    {
+        $now = now();
+
+        // Same partial-run protection as the flashcards: (chapter_id, position)
+        // is unique, so a re-run must continue past what is already there.
+        if ($rows === []) {
+            return;
+        }
+
+        $start = ((int) DB::table('exercises')->where('chapter_id', $chapter->id)->max('position'));
+
+        DB::table('exercises')->insert(array_map(fn (array $row) => [
+            'chapter_id' => $chapter->id,
+            'position' => $start + $row['position'],
+            'title' => $row['title'],
+            'difficulty' => $row['difficulty'],
+            'exercise_type' => $row['exercise_type'],
+            'question' => $row['question'],
+            'solution' => $row['solution'],
+            'explanation' => $row['explanation'],
+            'options' => json_encode($row['options']),
+            'correct_answer' => $row['correct_answer'],
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $rows));
+    }
+
+    /**
+     * The quiz is a draft assessment on the chapter. It is created once and
+     * reused, so a re-run adds questions to the existing quiz rather than
+     * stacking duplicate assessments on the same chapter.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function storeQuiz(object $chapter, object $course, array $rows): void
+    {
+        $now = now();
+
+        $assessmentId = DB::table('assessments')
+            ->where('chapter_id', $chapter->id)
+            ->where('scope', 'chapter')
+            ->value('id');
+
+        if (! $assessmentId) {
+            $assessmentId = DB::table('assessments')->insertGetId([
+                'course_id' => $chapter->course_id,
+                'chapter_id' => $chapter->id,
+                'title' => 'Chapter ' . $chapter->position . ' quiz: ' . $chapter->title,
+                'scope' => 'chapter',
+                'description' => 'End-of-chapter quiz for ' . $course->code . '.',
+                'passing_score' => 50,
+                // Draft. A generated quiz is not marked until a person has
+                // read it, so it must not be servable yet.
+                'status' => 'draft',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $start = ((int) DB::table('assessment_questions')->where('assessment_id', $assessmentId)->max('position')) + 1;
+
+        DB::table('assessment_questions')->insert(array_map(function (array $row, int $offset) use ($assessmentId, $start, $now) {
+            return [
+                'assessment_id' => $assessmentId,
+                'position' => $start + $offset,
+                'question_type' => 'mcq',
+                'question' => $row['question'],
+                'options' => json_encode($row['options']),
+                'correct_answer' => $row['correct_answer'],
+                'explanation' => $row['explanation'],
+                'marks' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }, $rows, array_keys($rows)));
+    }
+
+    /**
+     * @param  array<int, array<string, string>>  $rows
+     */
+    private function storeFlashcards(object $chapter, array $rows): void
+    {
+        $now = now();
+
+        // Resume from the highest position already stored. The unique index is
+        // on (chapter_id, position), so re-running after a partial failure --
+        // which is the normal case, since the three writes are sequential --
+        // would otherwise collide on position 1 and abort before writing
+        // anything.
+        if ($rows === []) {
+            return;
+        }
+
+        $start = ((int) DB::table('chapter_flashcards')->where('chapter_id', $chapter->id)->max('position'));
+
+        DB::table('chapter_flashcards')->insert(array_map(function (array $row, int $offset) use ($chapter, $now, $start) {
+            return [
+                'chapter_id' => $chapter->id,
+                'position' => $start + $offset + 1,
+                'front' => $row['front'],
+                'back' => $row['back'],
+                'status' => 'draft',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }, $rows, array_keys($rows)));
+    }
+
+    private function plain($value): string
+    {
+        if (is_array($value)) {
+            $value = implode(', ', array_filter($value, 'is_string'));
+        }
+
+        if (! is_string($value)) {
+            return '';
+        }
+
+        $value = str_replace(['\\r\\n', '\\n', '\\r'], ["\n", "\n", ''], $value);
+
+        return trim($value);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function stringList($value): array
+    {
+        if (is_string($value)) {
+            $value = array_map('trim', explode(',', $value));
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn ($v) => is_string($v) ? $this->plain($v) : '',
+            $value
+        )));
+    }
+
     /**
      * Asks for a chapter outline first, so the chapters are planned as a
      * coherent sequence rather than generated independently and repeating
@@ -258,7 +701,12 @@ TEXT;
     {
         try {
             $request = new AIRequest(
-                model: 'auto',
+                // Resolved from config, never hardcoded. "auto" is an omniroute
+                // route name that was left here when the base URL moved to
+                // OpenRouter, where no model of that name exists -- every
+                // request failed on the primary and silently succeeded on the
+                // first fallback, which is why it went unnoticed.
+                model: (string) config('acli.providers.openrouter.model'),
                 messages: [
                     ['role' => 'system', 'content' => 'You are a senior Nigerian academic. You reply with JSON only, no markdown fences, no commentary.'],
                     ['role' => 'user', 'content' => $prompt],
