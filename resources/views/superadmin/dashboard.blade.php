@@ -5,7 +5,7 @@
 @section('header')
     <div>
         <h1 class="text-xl font-extrabold tracking-tight text-text">Command Center</h1>
-        <p class="text-sm text-muted">Platform overview · Real-time activity · System health</p>
+        <p class="text-sm text-muted">Command Center</p>
     </div>
 @endsection
 

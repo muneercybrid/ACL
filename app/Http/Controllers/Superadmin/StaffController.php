@@ -15,6 +15,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -38,7 +39,7 @@ class StaffController extends Controller
         $invitations = $query->orderBy('created_at', 'desc')->paginate(20)->withQueryString();
 
         $organizations = Organization::orderBy('name')->get();
-        $invitableRoles = Role::whereIn('slug', ['level.coordinator', 'moderator', 'tutor'])->get();
+        $invitableRoles = Role::whereIn('slug', ['institution.admin', 'level.coordinator', 'moderator', 'tutor'])->get();
 
         return view('superadmin.staff.index', [
             'invitations' => $invitations,
@@ -147,6 +148,9 @@ class StaffController extends Controller
             'token' => Str::random(64),
             'expires_at' => now()->addDays(7),
         ]);
+
+        \Illuminate\Support\Facades\Mail::to($data['email'])
+            ->queue(new \App\Mail\StaffInvitationMail($invitation));
 
         SuperadminAuditLog::log([
             'action' => 'staff.invited',

@@ -277,13 +277,12 @@ class AcliChatController extends Controller
         // A course chosen explicitly by the student wins over the programme.
         $focusCourseId = $validated['course_id'] ?? null;
 
-        if (! $focusCourseId) {
-            $focusCourseId = DB::table('enrollments')
-                ->join('course_offerings', 'course_offerings.id', '=', 'enrollments.course_offering_id')
-                ->where('enrollments.user_id', $user->id)
-                ->where('enrollments.status', 'active')
-                ->orderByDesc('enrollments.updated_at')
-                ->value('course_offerings.course_id');
+        // Direct chat (no course_id in validated) = programme-wide context only,
+        // not a single arbitrary enrolled course. The student may be asking
+        // about anything in their B.Sc Cybersecurity programme; anchoring to
+        // COS101 just because it was the last enrollment is wrong.
+        if (! $focusCourseId && isset($validated['course_id']) && $validated['course_id']) {
+            $focusCourseId = $validated['course_id'];
         }
 
         if (! $focusCourseId) {

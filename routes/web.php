@@ -331,3 +331,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/set-password', [SetPasswordController::class, 'create'])->name('password.set');
     Route::post('/set-password', [SetPasswordController::class, 'store'])->name('password.set.store');
 });
+
+// Role-based invitation acceptance — secure, expiring, organization-scoped.
+Route::middleware('guest')->group(function () {
+    Route::get('/invitation/{token}', [\App\Http\Controllers\InvitationAcceptController::class, 'show'])->name('invitation.show');
+    Route::post('/invitation/{token}', [\App\Http\Controllers\InvitationAcceptController::class, 'store'])->name('invitation.store');
+});
