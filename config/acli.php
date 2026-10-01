@@ -39,7 +39,7 @@ return [
     'gateway' => [
         'base_url' => env('ACLI_AI_BASE_URL', 'http://127.0.0.1:20128/v1'),
         'api_key' => env('ACLI_AI_API_KEY'),
-        'model' => env('ACLI_AI_MODEL', 'auto'),
+        'model' => env('ACLI_AI_MODEL', 'deepseek/deepseek-v4-flash-0731'),
         'timeout' => (int) env('ACLI_REQUEST_TIMEOUT', 120),
         'connect_timeout' => (int) env('ACLI_CONNECT_TIMEOUT', 10),
         'max_retries' => (int) env('ACLI_MAX_RETRIES', 2),
