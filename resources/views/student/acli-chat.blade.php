@@ -268,7 +268,26 @@
             }
         }
 
-        if (bubbleEl) addFeedback(bubbleEl);
+        if (! bubbleEl) {
+            // No frame ever arrived. The body is probably a JSON refusal -- a
+            // missing entitlement or an expired session -- which the frame
+            // parser above cannot see, so without this the chat just goes
+            // silent and looks broken.
+            const text = await response.text().catch(() => '');
+
+            if (text.trim()) {
+                try {
+                    const parsed = JSON.parse(text);
+                    if (parsed.error || parsed.message) {
+                        appendMessage('assistant', parsed.error || parsed.message);
+                    }
+                } catch (e) {
+                    appendMessage('assistant', 'ACLi did not return a reply. Please try again.');
+                }
+            }
+        } else {
+            addFeedback(bubbleEl);
+        }
 
         return { conversation_id: activeConvId ? activeConvId.value : null };
     }

@@ -232,6 +232,15 @@ Route::middleware('auth')->group(function () {
 // ─── Superadmin Command Center ───────────────────────────────────────────────
 // Platform-wide operational interface. Every route independently enforces the
 // superadmin role — relying on hidden links is never a security control.
+// A dedicated door for the platform Superadmin, kept outside the general
+// login so an administrator is never returned to the student area and never
+// has to pick a role that does not apply to them. It authenticates only
+// accounts that actually hold the superadmin role.
+Route::middleware('guest')->prefix('superadmin')->name('superadmin.auth.')->group(function () {
+    Route::get('/login', [\App\Http\Controllers\Auth\SuperadminLoginController::class, 'create'])->name('login');
+    Route::post('/login', [\App\Http\Controllers\Auth\SuperadminLoginController::class, 'store'])->name('store');
+});
+
 Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
     // Command Center
     Route::get('/', [Superadmin\DashboardController::class, 'index'])->name('dashboard');
