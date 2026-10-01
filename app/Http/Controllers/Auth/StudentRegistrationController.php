@@ -321,15 +321,21 @@ class StudentRegistrationController extends Controller
                     'jamb_registration_number_hash' => $verification->jamb_registration_number_hash,
                 ]);
 
-                // Assign student role scoped to the institution (only if org exists)
-                if ($verification->organization) {
-                    $studentRole = Role::where('slug', 'student')->firstOrFail();
-                    RoleAssignment::create([
-                        'user_id' => $user->id,
-                        'role_id' => $studentRole->id,
-                        'entity_type' => get_class($verification->organization),
-                        'entity_id' => $verification->organization->id,
-                    ]);
+                // Every verified student gets the student role. If the
+                // verification is tied to an institution, scope the role
+                // to it; otherwise grant it at platform scope so the
+                // superadmin listing still finds them.
+                $studentRole = Role::where('slug', 'student')->firstOrFail();
+                RoleAssignment::create([
+                    'user_id' => $user->id,
+                    'role_id' => $studentRole->id,
+                    'entity_type' => $verification->organization
+                        ? get_class($verification->organization)
+                        : null,
+                    'entity_id' => $verification->organization
+                        ? $verification->organization->id
+                        : null,
+                ]);
 
                     OrganizationMembership::create([
                         'organization_id' => $verification->organization->id,
@@ -340,7 +346,6 @@ class StudentRegistrationController extends Controller
                         'status' => 'active',
                         'joined_at' => now(),
                     ]);
-                }
 
                 // Create student record with nationality, state, lga
                 \App\Models\Student::create([
