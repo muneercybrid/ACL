@@ -100,10 +100,21 @@ class CourseContentGenerator
 
             $seenTitles[] = (string) $plan['title'];
 
+            // One retry. A chapter write is a single model call and it
+            // intermittently comes back empty or unparseable; without a second
+            // attempt a course lost whole chapters to a transient fault and
+            // was marked failed, then regenerated from scratch on the next
+            // run. AAE101 lost seven of twenty this way.
             $content = $this->writeChapter($course, $plan, $source);
 
             if ($content === null) {
-                $errors[] = $course->code . ' chapter ' . $position . ' generation failed';
+                $content = $this->writeChapter($course, $plan, $source);
+            }
+
+            if ($content === null) {
+                $errors[] = $course->code . ' chapter ' . $position . ' generation failed after a retry';
+                $nextPosition--;
+
                 continue;
             }
 

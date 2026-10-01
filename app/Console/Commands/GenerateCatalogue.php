@@ -32,6 +32,7 @@ class GenerateCatalogue extends Command
                             {--chapters= : Chapters per course (defaults to the service floor of 20)}
                             {--only-missing : Skip courses that already have real chapters}
                             {--start-from= : Resume from this course code}
+                            {--material : Also generate exercises, quizzes and flashcards per chapter}
                             {--dry-run : List what would be processed, generate nothing}';
 
     protected $description = 'Generate course content across the catalogue, one course at a time, resumably';
@@ -189,6 +190,11 @@ class GenerateCatalogue extends Command
     /** @var array<int, int>|null */
     protected ?array $completed = null;
 
+    protected function wantsMaterial(): bool
+    {
+        return (bool) $this->option('material');
+    }
+
     protected function generateOne(CourseContentGenerator $generator, array $course, int $chapters): bool
     {
         $courseId = (int) $course['id'];
@@ -219,7 +225,10 @@ class GenerateCatalogue extends Command
 
             $material = ['exercises' => 0, 'questions' => 0, 'flashcards' => 0];
 
-            foreach ($chapterIds as $chapterId) {
+            // Per-chapter material is now generated per student when they open
+            // an assessment, so writing it here costs a full course's worth of
+            // assessment that most students never see. Off unless asked for.
+            foreach ($this->wantsMaterial() ? $chapterIds : [] as $chapterId) {
                 $m = $generator->generateChapterMaterial((int) $chapterId, apply: true);
                 $material['exercises'] += $m['exercises'];
                 $material['questions'] += $m['questions'];
