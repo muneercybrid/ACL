@@ -29,6 +29,7 @@ class AcliOrchestrator
         protected ProviderManager $providerManager,
         protected AcliCapabilityService $capabilityService,
         protected AcliEntitlementService $entitlementService,
+        protected AcliContextService $contextService,
     ) {}
 
     /**
@@ -154,7 +155,7 @@ class AcliOrchestrator
                 'user_id' => $user->id,
                 'conversation_id' => $conversation->id,
                 'capability_id' => $capability?->id,
-                'provider' => $e->getProvider(),
+                'provider' => $e->provider,
                 'model' => config('acli.gateway.model', 'auto'),
                 'status' => 'failed',
                 'latency_ms' => $latencyMs,
@@ -245,6 +246,22 @@ class AcliOrchestrator
                 'produce course material, explain briefly that it is outside what you can do, and offer instead to ' .
                 'help them understand or work through the material they already have access to.',
         ];
+
+        // The student's own academic record, scoped to the authenticated user.
+        //
+        // Without this ACLi truthfully reports it has no access to registrations,
+        // which is why asking "what courses am I taking?" used to bounce to the
+        // dashboard. The snapshot is assembled by AcliContextService from the
+        // authenticated user only -- there is no parameter that can widen it --
+        // so it cannot leak another student's record even if the student asks for
+        // one. It is reference data for answering questions, never a capability:
+        // it grants no permission and authorizes no write.
+        $context = $this->contextService->forUser(Auth::user());
+
+        if ($context['profile'] !== [] || $context['enrollments'] !== []) {
+            $systemMessage['content'] .= "\n\n--- Student's own record ---\n\n"
+                . $this->contextService->render($context);
+        }
 
         // Combine: system + history + new messages
         return array_merge([$systemMessage], $history, $newMessages);
