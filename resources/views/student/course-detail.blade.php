@@ -136,16 +136,45 @@
                                         </div>
                                     </div>
                                     @if ($chapter->introduction)
-                                        <p class="mt-2 text-sm text-muted">{{ $chapter->introduction }}</p>
+                                        @php
+                                            // A short preview in the list; the full
+                                            // explanation only when the student asks for
+                                            // it. Twenty chapters of full text rendered
+                                            // inline is a wall a student gives up on.
+                                            $preview = \Illuminate\Support\Str::limit(
+                                                \Illuminate\Support\Str::squish($chapter->introduction),
+                                                150
+                                            );
+                                        @endphp
+                                        <p class="mt-2 text-sm text-muted">{{ $preview }}</p>
+
+                                        @if (mb_strlen($chapter->introduction) > 150)
+                                            <details class="mt-2">
+                                                <summary class="cursor-pointer text-xs font-semibold text-primary">
+                                                    Read the full explanation
+                                                </summary>
+                                                <div class="mt-2 whitespace-pre-line text-sm leading-relaxed text-text">
+                                                    {{ $chapter->introduction }}
+                                                </div>
+                                            </details>
+                                        @endif
                                     @endif
                                 </div>
-                                @if ($enrollment)
+                                @php $hasLesson = $enrollment && $chapter->lessons->isNotEmpty(); @endphp
+                                @if ($hasLesson)
                                 <a href="{{ route('courses.lessons.show', [$enrollment->courseOffering, $chapter->lessons->first()]) }}" class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-raised px-3 py-1.5 text-sm font-semibold text-text transition hover:border-primary hover:bg-bg">
+                                @elseif ($enrollment)
+                                {{-- Enrolled, but this chapter has no lesson yet. Lessons
+                                     are created per enrollment, so there is nothing to
+                                     open. This was the 500: calling first() on an empty
+                                     relation for a student who had already enrolled. --}}
+                                <span class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-raised px-3 py-1.5 text-sm font-semibold text-text">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Enrolled
+                                </span>
                                 @else
-                                {{-- This was a disabled <span>: no route, no action, so
-                                     "Enroll to view" could never do anything. It posts to
-                                     the enroll endpoint, which re-checks that the course
-                                     belongs to this student's programme and level. --}}
+                                {{-- Posts to the enroll endpoint, which re-checks that the
+                                     course belongs to this student's programme and level. --}}
                                 <form method="POST" action="{{ route('student.course.enroll', [$courseRef]) }}" class="shrink-0">
                                     @csrf
                                     <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-primary bg-primary px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90">
@@ -153,6 +182,14 @@
                                         Enroll to view
                                     </button>
                                 </form>
+                                @endif
+
+                                @if ($enrollment)
+                                    <a href="{{ route('student.chapter.assessment', $chapter->id) }}"
+                                       class="ml-2 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-raised px-3 py-1.5 text-sm font-semibold text-text transition hover:border-primary">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"></path></svg>
+                                        Take the quiz
+                                    </a>
                                 @endif
                             </div>
                         </div>

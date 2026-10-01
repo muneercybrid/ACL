@@ -193,6 +193,10 @@ Route::middleware('auth')->group(function () {
         // all, so no student could ever enroll.
         Route::post('/course/{courseRef}/enroll', [StudentDashboardController::class, 'enrollInCourse'])->name('course.enroll')
             ->where('courseRef', '[cp][0-9]+');
+        // Generated when the student asks, not written ahead of time, so two
+        // students on the same chapter receive different questions.
+        Route::get('/course/chapter/{chapterId}/assessment', [StudentDashboardController::class, 'chapterAssessment'])
+            ->name('chapter.assessment');
     });
 
     // Course Viewer

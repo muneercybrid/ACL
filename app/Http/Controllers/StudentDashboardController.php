@@ -7,6 +7,7 @@ use App\Models\ProgrammeLevelCourse;
 use App\Services\Courses\ProgrammeCourseResolver;
 use App\Services\StudentDashboardService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -224,6 +225,48 @@ class StudentDashboardController extends Controller
             ->enroll($request->user()->id, $courseId);
 
         return back()->with($result['enrollment'] ? 'status' : 'error', $result['message']);
+    }
+
+    /**
+     * A student's own assessment for a chapter, generated on first request.
+     *
+     * The chapter must belong to a course the student is actually enrolled
+     * in. Without that check a student could request an assessment for any
+     * chapter id, including another institution's material.
+     */
+    public function chapterAssessment(Request $request, int $chapterId)
+    {
+        $student = $request->user()?->student;
+
+        if (! $student) {
+            abort(403, 'This course is only available to registered students.');
+        }
+
+        $chapter = DB::table('course_chapters')->where('id', $chapterId)->first();
+
+        if ($chapter === null) {
+            abort(404);
+        }
+
+        $enrolledCourseIds = DB::table('enrollments')
+            ->join('course_offerings', 'course_offerings.id', '=', 'enrollments.course_offering_id')
+            ->where('enrollments.user_id', $request->user()->id)
+            ->where('enrollments.status', 'active')
+            ->pluck('course_offerings.course_id');
+
+        if (! $enrolledCourseIds->contains($chapter->course_id)) {
+            abort(403, 'Enroll in this course before opening its assessment.');
+        }
+
+        $result = app(\App\Services\Courses\OnDemandAssessmentService::class)
+            ->forStudent($student->id, $chapterId);
+
+        return view('student.chapter-assessment', [
+            'student' => $student,
+            'chapter' => $chapter,
+            'questions' => $result['questions'],
+            'reused' => $result['reused'],
+        ]);
     }
 
     /**
