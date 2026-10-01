@@ -152,7 +152,7 @@
             // explicitly so what was captured is what gets sent.
             const formData = new FormData(form);
             formData.set('message', message);
-            const response = await fetch('{{ route('acli.chat.send') }}', {
+            const response = await fetch('{{ route('acli.chat.stream') }}', {
                 method: 'POST',
                 body: formData,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },

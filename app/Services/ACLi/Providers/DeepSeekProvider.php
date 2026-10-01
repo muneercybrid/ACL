@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Http;
 
 final class DeepSeekProvider implements AIProvider
 {
+    use StreamsViaBufferedCall;
+
     public function name(): string { return 'deepseek'; }
 
     public function isAvailable(): bool { return true; }

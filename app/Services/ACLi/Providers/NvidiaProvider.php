@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Http;
 
 final class NvidiaProvider implements AIProvider
 {
+    use StreamsViaBufferedCall;
+
     public function chat(AIRequest $request): AIResponse
     {
         if (! $this->isAvailable()) {

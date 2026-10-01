@@ -39,6 +39,65 @@ class AcliOrchestrator
      * @param array $options Additional options (conversation_id, course_offering_id, etc.)
      * @return array Result with 'success', 'message', 'conversation_id', etc.
      */
+    /**
+     * Student chat that emits each token group as it arrives.
+     *
+     * Same path as studentChat -- same entitlement check, same conversation,
+     * same persistence. Only the delivery differs, so a student watches the
+     * answer being written instead of waiting through three dots for the whole
+     * thing to appear at once.
+     *
+     * @param  callable(string): void  $onDelta
+     */
+    public function streamStudentChat(array $messages, array $options, callable $onDelta): array
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return ['success' => false, 'error' => 'Unauthenticated'];
+        }
+
+        $entitlement = $this->entitlementService->check($user, 'student.chat');
+        if (! $entitlement['allowed']) {
+            return [
+                'success' => false,
+                'error' => $entitlement['reason'] ?? 'ACLi chat not available for your account.',
+                'code' => 'ENTITLEMENT_DENIED',
+            ];
+        }
+
+        $conversation = $this->getOrCreateConversation($user, $options);
+        $this->storeMessage($conversation, 'user', end($messages)['content'], ['capability' => 'student.chat']);
+        $providerMessages = $this->buildProviderMessages($conversation, $messages);
+
+        $provider = $this->providerManager->provider();
+
+        try {
+            $request = new AIRequest(
+                model: (string) config('acli.gateway.model'),
+                messages: $providerMessages,
+                maxTokens: (int) config('acli.gateway.max_tokens', 2000),
+            );
+
+            $response = $provider->streamChat($request, $onDelta);
+        } catch (\Throwable $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+
+        $this->storeMessage($conversation, 'assistant', $response->content, [
+            'capability' => 'student.chat',
+            'provider' => $response->provider,
+            'model' => $response->model,
+        ]);
+
+        return [
+            'success' => true,
+            'conversation_id' => $conversation->id,
+            'provider' => $response->provider,
+            'model' => $response->model,
+        ];
+    }
+
     public function studentChat(array $messages, array $options = []): array
     {
         $user = Auth::user();

@@ -21,4 +21,12 @@ interface AIProvider
      * Determine whether the provider is configured and available.
      */
     public function isAvailable(): bool;
+
+    /**
+     * Streams a completion, invoking $onChunk with each delta.
+     *
+     * @param  callable(string): void  $onChunk
+     */
+    public function streamChat(AIRequest $request, callable $onChunk): AIResponse;
+
 }

@@ -108,6 +108,96 @@ class AcliChatController extends Controller
      * superadmin can see which answers were useful and which were not. Only
      * the student who asked can attach feedback to their own exchange.
      */
+    /**
+     * Streaming variant of send(): the answer is emitted as it is produced.
+     *
+     * send() buffered the whole completion and returned it as one JSON body, so
+     * the browser had nothing to show until the model had finished. That is what
+     * produced the three bouncing dots followed by a fully-formed message, and
+     * it read as a hang rather than as thinking.
+     *
+     * Each frame carries the text so far rather than the newest fragment: the
+     * client re-renders markdown as a whole, and a half-written table row is not
+     * valid markdown, so deltas would make tables flicker as they assembled.
+     */
+    public function stream(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return response()->json(['success' => false, 'error' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'message' => 'required|string|max:10000',
+            'conversation_id' => 'nullable|exists:acli_conversations,id',
+            'course_offering_id' => 'nullable|exists:course_offerings,id',
+        ]);
+
+        $messages = [['role' => 'user', 'content' => $validated['message']]];
+
+        $grounding = $this->courseGrounding($user, $validated);
+
+        if ($grounding !== null) {
+            array_unshift($messages, ['role' => 'system', 'content' => $grounding]);
+        }
+
+        $orchestrator = $this->orchestrator;
+
+        return response()->stream(function () use ($orchestrator, $messages, $validated) {
+            $buffer = '';
+
+            // Clear the typing indicator without waiting for the first token.
+            echo 'data: ' . json_encode(['message' => '', 'status' => 'thinking']) . "\n\n";
+            $this->flushBuffer();
+
+            $result = $orchestrator->streamStudentChat(
+                $messages,
+                array_filter([
+                    'conversation_id' => $validated['conversation_id'] ?? null,
+                    'course_offering_id' => $validated['course_offering_id'] ?? null,
+                ]),
+                function (string $delta) use (&$buffer) {
+                    $buffer .= $delta;
+
+                    echo 'data: ' . json_encode(['message' => $buffer]) . "\n\n";
+                    $this->flushBuffer();
+                },
+            );
+
+            if (! $result['success']) {
+                echo 'data: ' . json_encode(['error' => $result['error'] ?? 'ACLi could not answer.']) . "\n\n";
+                $this->flushBuffer();
+
+                return;
+            }
+
+            echo 'data: ' . json_encode([
+                'message' => $buffer,
+                'conversation_id' => $result['conversation_id'],
+                'done' => true,
+            ]) . "\n\n";
+            $this->flushBuffer();
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache, no-transform',
+            'Connection' => 'keep-alive',
+            // Stops nginx buffering the stream back into one lump, which would
+            // defeat the entire point of streaming.
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    /** Pushes bytes to the client now rather than at the end of the request. */
+    private function flushBuffer(): void
+    {
+        if (ob_get_level() > 0) {
+            @ob_flush();
+        }
+
+        @flush();
+    }
+
     public function feedback(Request $request): JsonResponse
     {
         $user = Auth::user();
