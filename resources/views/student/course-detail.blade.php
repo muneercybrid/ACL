@@ -163,14 +163,17 @@
                                         @endif
                                     @endif
                                 </div>
-                                @php $hasLesson = $enrollment && $chapter->lessons->isNotEmpty(); @endphp
-                                @if ($hasLesson)
-                                <a href="{{ route('courses.lessons.show', [$enrollment->courseOffering, $chapter->lessons->first()]) }}" class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-raised px-3 py-1.5 text-sm font-semibold text-text transition hover:border-primary hover:bg-bg">
-                                @elseif ($enrollment)
-                                {{-- Enrolled, but this chapter has no lesson yet. Lessons
-                                     are created per enrollment, so there is nothing to
-                                     open. This was the 500: calling first() on an empty
-                                     relation for a student who had already enrolled. --}}
+                                {{-- No lesson link here.
+                                     Lessons hang off the offering-scoped chapters
+                                     table, which has no column pointing back at a
+                                     central course_chapters row, so a lesson cannot
+                                     be resolved from the chapter being shown. The
+                                     earlier $chapter->lessons call returned null
+                                     and took the page down; querying lessons per
+                                     chapter then cost one query per chapter and
+                                     still found nothing. Resolving it properly
+                                     needs a course_chapter_id on chapters. --}}
+                                @if ($enrollment)
                                 <span class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-raised px-3 py-1.5 text-sm font-semibold text-text">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     Enrolled

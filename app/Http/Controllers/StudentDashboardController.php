@@ -173,8 +173,24 @@ class StudentDashboardController extends Controller
         // Server-side scope: the course version must belong to the
         // student's curriculum programme.
         $programme = $this->dashboard->curriculumProgramme($student);
-        if (! $programme
-            || $curriculumCourse->curriculumVersion->programme_id !== $programme->id) {
+        $inProgramme = $programme
+            && $curriculumCourse->curriculumVersion->programme_id === $programme->id;
+
+        // A shared course has one curriculum_course row per programme, so the
+        // same course id carries a different ref depending on who opens it. A
+        // ref belonging to another programme must not be honoured on its own --
+        // but a student who is genuinely enrolled in the course has already
+        // been granted access, and rejecting them on a ref they cannot control
+        // left the page blank. Enrollment is the entitlement; the ref is only
+        // how they arrived.
+        $enrolledHere = DB::table('enrollments')
+            ->join('course_offerings', 'course_offerings.id', '=', 'enrollments.course_offering_id')
+            ->where('enrollments.user_id', $request->user()->id)
+            ->where('enrollments.status', 'active')
+            ->where('course_offerings.course_id', $curriculumCourse->course_id)
+            ->exists();
+
+        if (! $inProgramme && ! $enrolledHere) {
             abort(403, 'This course is not part of your programme.');
         }
 
@@ -373,10 +389,6 @@ class StudentDashboardController extends Controller
         $level = $student->level ? (int) $student->level : 100;
 
         $plc = ProgrammeLevelCourse::with([
-            // lessons was lazy-loaded per chapter inside the view loop, so a
-            // twenty-chapter course issued one extra query per chapter on top of
-            // everything else. Fetched once with the rest of the graph.
-            'course.chapters.lessons',
             'course.outlines',
         ])
             ->where('academic_program_id', $programme->id)
