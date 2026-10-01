@@ -44,7 +44,7 @@ class GenerateCatalogue extends Command
         $pending = $this->pendingCourses();
 
         if ($this->option('only-missing')) {
-            $pending = $pending->filter(fn (array $r) => ! $this->isComplete($r['id']));
+            $pending = $pending->reject(fn (array $r) => $this->isComplete($r['id']));
         }
 
         if ($start = $this->option('start-from')) {
@@ -130,18 +130,64 @@ class GenerateCatalogue extends Command
      */
     protected function isComplete(int $courseId): bool
     {
+        return in_array($courseId, $this->completedCourseIds(), true);
+    }
+
+    /**
+     * Every course that already meets the standard, in one query.
+     *
+     * Computed once per run. Asking per course meant three extra round trips
+     * for each of nearly six thousand courses before any generation began,
+     * which is long enough to look like a hang.
+     *
+     * @return array<int, int>
+     */
+    protected function completedCourseIds(): array
+    {
+        if ($this->completed !== null) {
+            return $this->completed;
+        }
+
+        $min = CourseContentGenerator::MIN_CHAPTERS;
+
+        $withChapters = DB::table('course_chapters')
+            ->where('placeholder', 0)
+            ->groupBy('course_id')
+            ->havingRaw('COUNT(*) >= ?', [$min])
+            ->pluck('course_id');
+
+        if ($withChapters->isEmpty()) {
+            return $this->completed = [];
+        }
+
         $chapterIds = DB::table('course_chapters')
-            ->where('course_id', $courseId)
+            ->whereIn('course_id', $withChapters)
             ->where('placeholder', 0)
             ->pluck('id');
 
-        if ($chapterIds->count() < CourseContentGenerator::MIN_CHAPTERS) {
-            return false;
-        }
+        $withFlashcards = DB::table('chapter_flashcards')
+            ->whereIn('chapter_id', $chapterIds)
+            ->distinct()
+            ->pluck('chapter_id');
 
-        return DB::table('chapter_flashcards')->whereIn('chapter_id', $chapterIds)->exists()
-            && DB::table('exercises')->whereIn('chapter_id', $chapterIds)->exists();
+        $withExercises = DB::table('exercises')
+            ->whereIn('chapter_id', $chapterIds)
+            ->distinct()
+            ->pluck('chapter_id');
+
+        $complete = $withFlashcards->intersect($withExercises);
+
+        return $this->completed = $complete->isEmpty()
+            ? []
+            : DB::table('course_chapters')
+                ->whereIn('id', $complete)
+                ->distinct()
+                ->pluck('course_id')
+                ->all();
     }
+
+    /** @var array<int, int>|null */
+    protected ?array $completed = null;
 
     protected function generateOne(CourseContentGenerator $generator, array $course, int $chapters): bool
     {
@@ -151,8 +197,8 @@ class GenerateCatalogue extends Command
             'job_code' => 'catalogue:' . $course['normalized_code'],
             'course_id' => $courseId,
             'action' => 'generate_chapters_and_material',
-            'scope' => 'national',
-            'status' => 'running',
+            'scope' => 'course',
+            'status' => 'processing',
             'total_items' => $chapters,
             'processed_items' => 0,
             'failed_items' => 0,
@@ -183,7 +229,7 @@ class GenerateCatalogue extends Command
             $ok = $chapterIds->count() >= CourseContentGenerator::MIN_CHAPTERS;
 
             DB::table('content_generation_jobs')->where('id', $jobId)->update([
-                'status' => $ok ? 'completed' : 'partial',
+                'status' => $ok ? 'completed' : 'failed',
                 'processed_items' => $chapterIds->count(),
                 'failed_items' => count($result['errors'] ?? []),
                 'metadata' => json_encode([
