@@ -51,7 +51,7 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'default_provider' => env('ACLI_PROVIDER', 'omniroute'),
+    'default_provider' => env('ACLI_PROVIDER', 'openrouter'),
 
     /*
     |--------------------------------------------------------------------------
@@ -89,6 +89,8 @@ return [
 
     'model_providers' => [
         'auto' => 'omniroute',
+        'omniroute/auto' => 'omniroute',
+        'omniroute/fast' => 'omniroute',
     ],
 
     /*

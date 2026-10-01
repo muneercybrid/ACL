@@ -4,11 +4,15 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Services\ACLi\AcliCapabilityService;
+use App\Services\ACLi\AcliContextService;
 use App\Services\ACLi\AcliEntitlementService;
 use App\Services\ACLi\AcliOrchestrator;
+use App\Services\ACLi\CurriculumContextService;
 use App\Services\ACLi\ProviderManager;
 use App\Services\ACLi\Providers\OmniRouteProvider;
+use App\Services\ACLi\Providers\OpenRouterProvider;
 use App\Services\EntitlementService;
+use App\Services\StudentDashboardService;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -20,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ProviderManager::class, function ($app) {
             $manager = new ProviderManager();
             $manager->register(new OmniRouteProvider());
+            $manager->register(new OpenRouterProvider());
             return $manager;
         });
 
@@ -28,10 +33,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AcliEntitlementService::class, fn ($app) => new AcliEntitlementService(
             $app->make(EntitlementService::class)
         ));
+        $this->app->singleton(AcliContextService::class, fn ($app) => new AcliContextService(
+            $app->make(StudentDashboardService::class),
+            $app->make(CurriculumContextService::class),
+        ));
         $this->app->singleton(AcliOrchestrator::class, fn ($app) => new AcliOrchestrator(
             $app->make(ProviderManager::class),
             $app->make(AcliCapabilityService::class),
             $app->make(AcliEntitlementService::class),
+            $app->make(AcliContextService::class),
         ));
     }
 

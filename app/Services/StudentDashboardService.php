@@ -54,19 +54,56 @@ class StudentDashboardService
         if ($record?->academicProgram) {
             return $record->academicProgram;
         }
+
         // Fallback: verified JAMB programme when institution record is incomplete
         $verification = $this->latestVerification($student);
-        if ($verification?->verified_programme) {
-            $needle = $this->normaliseName($verification->verified_programme);
-            return \App\Models\AcademicProgram::query()
-                ->get()
-                ->filter(function (\App\Models\AcademicProgram $p) use ($needle) {
-                    $haystack = $this->normaliseName($p->name);
-                    return $needle !== '' && (str_contains($haystack, $needle) || str_contains($needle, $haystack));
-                })
-                ->first();
+        if (! $verification?->verified_programme) {
+            return null;
         }
-        return null;
+
+        $needle = $this->normaliseName($verification->verified_programme);
+        if ($needle === '') {
+            return null;
+        }
+
+        $candidates = \App\Models\AcademicProgram::query()
+            ->get()
+            ->filter(function (\App\Models\AcademicProgram $p) use ($needle) {
+                $haystack = $this->normaliseName($p->name);
+                return str_contains($haystack, $needle) || str_contains($needle, $haystack);
+            });
+
+        // Scope isolation. AcademicProgram rows belong to a specific
+        // organization, and several universities run the same programme, so a
+        // name match alone can return another school's programme. That would let
+        // a student be shown -- and, through the institution course layer, be
+        // served -- a curriculum belonging to a university they are not enrolled
+        // at.
+        //
+        // When the student has an institution, only that institution's
+        // programme may be returned. When they have none, a match is still
+        // allowed, because the national curriculum layer is organization
+        // agnostic and legitimately shared; but it must not be treated as an
+        // institutional enrolment either, and callers that need the institution
+        // layer check for a membership themselves.
+        $organizationId = $record?->organization_id;
+
+        if ($organizationId !== null) {
+            $scoped = $candidates->filter(
+                fn (\App\Models\AcademicProgram $p) => $p->organization_id === $organizationId
+            );
+
+            if ($scoped->isNotEmpty()) {
+                return $scoped->first();
+            }
+
+            // The student's institution is known but runs no matching
+            // programme. Returning another university's here would be a scope
+            // breach, so nothing is returned instead.
+            return null;
+        }
+
+        return $candidates->first();
     }
 
     /**
@@ -192,7 +229,18 @@ class StudentDashboardService
         $normalised = preg_replace('/[^a-z0-9 ]+/u', ' ', $normalised);
         $normalised = preg_replace('/\s+/u', ' ', $normalised);
 
-        return trim($normalised);
+        // Then remove the remaining spaces, so both sides of a comparison are in
+        // the same shape.
+        //
+        // A student verified for "Cyber Security" and a programme named
+        // "B.Sc Cybersecurity" are the same subject, but they do not match here
+        // without this step: the prefix is stripped from one and not the other,
+        // so one side ends up "cyber security" and the other "cybersecurity",
+        // and str_contains() never matches across that space. That left every
+        // such student resolving to no programme and their dashboard empty.
+        $normalised = preg_replace('/\s+/u', '', $normalised);
+
+        return trim((string) $normalised);
     }
 
     /**

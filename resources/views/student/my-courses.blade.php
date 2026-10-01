@@ -46,7 +46,7 @@
                             @php $offering = $cc->current_offering; @endphp
                             <a href="{{ $offering ? route('courses.show', $offering) : '#' }}" class="group block rounded-xl border border-emerald-300/60 bg-emerald-50/40 p-5 transition hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring">
                                 <div class="flex items-start justify-between gap-3">
-                                    <h4 class="font-bold text-text group-hover:text-primary transition">{{ $cc->course->title }}</h4>
+                                    <h4 class="font-bold text-text group-hover:text-primary transition">{{ $cc->course->title ?? $cc->title }}</h4>
                                     <span class="inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">Enrolled</span>
                                 </div>
                                 <p class="mt-2 text-sm text-muted">{{ $cc->course->description ?? 'No description available.' }}</p>
@@ -103,11 +103,11 @@
                                             $offering = $cc->current_offering;
                                             $isEnrolled = $offering && in_array($offering->id, $enrolledOfferingIds);
                                         @endphp
-                                        <a href="{{ route('student.course.show', $cc->id) }}"
+                                        <a href="{{ route('student.course.show', $cc->route_ref) }}"
                                            class="group block rounded-xl border p-5 shadow-sm transition hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring {{ $isEnrolled ? 'border-emerald-300/60 bg-emerald-50/40' : 'border-border bg-surface/80' }}">
                                             <div class="flex items-start justify-between gap-3">
-                                                <h4 class="font-bold text-text group-hover:text-primary transition">{{ $cc->course->title }}</h4>
-                                                <span class="inline-flex shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $isEnrolled ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-border bg-raised text-muted' }}">{{ $cc->course->code ?? 'N/A' }}</span>
+                                                <h4 class="font-bold text-text group-hover:text-primary transition">{{ $cc->course->title ?? $cc->title }}</h4>
+                                                <span class="inline-flex shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $isEnrolled ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-border bg-raised text-muted' }}">{{ $cc->code ?? $cc->course->code ?? 'N/A' }}</span>
                                             </div>
                                             <p class="mt-2 text-sm text-muted">{{ $cc->course->description ?? 'No description available.' }}</p>
                                             <div class="mt-4 flex items-center gap-3 text-xs text-muted">

@@ -186,7 +186,8 @@ Route::middleware('auth')->group(function () {
         // the flow is server-enforced, so the POST is the only way a
         // selection is recorded and the GET never mutates anything.
         Route::post('/course-register', [Student\CourseRegistrationController::class, 'store'])->name('course.register.store');
-        Route::get('/course/{curriculumCourse}', [StudentDashboardController::class, 'showCourse'])->name('course.show');
+        Route::get('/course/{courseRef}', [StudentDashboardController::class, 'showCourse'])->name('course.show')
+            ->where('courseRef', '[cp][0-9]+');
     });
 
     // Course Viewer

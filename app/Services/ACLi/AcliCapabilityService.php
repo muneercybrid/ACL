@@ -23,11 +23,29 @@ class AcliCapabilityService
 
     /**
      * Get a capability by slug.
+     *
+     * Config keys the capability list by PHP array key ('student_chat') while the
+     * capability slug -- the identifier the rest of ACLi passes around, and the one
+     * stored against requests in the database -- is 'student.chat'. Matching on the
+     * array key alone made every lookup miss, so permission checks silently
+     * returned false for every capability. Match the slug first, then fall back to
+     * the array key for callers that pass either form.
      */
     public function getCapability(string $slug): ?array
     {
         $capabilities = $this->getAllCapabilities();
-        return $capabilities[$slug] ?? null;
+
+        if (isset($capabilities[$slug])) {
+            return $capabilities[$slug];
+        }
+
+        foreach ($capabilities as $key => $capability) {
+            if (($capability['slug'] ?? $key) === $slug) {
+                return $capability;
+            }
+        }
+
+        return null;
     }
 
     /**

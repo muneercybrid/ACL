@@ -134,7 +134,13 @@
         scrollToBottom();
 
         try {
+            // The textarea is cleared above so the user sees their message in the
+            // transcript immediately, but FormData reads the live DOM -- building
+            // it after the clear submitted an empty `message`, which Laravel
+            // rejected with "The message field is required." Set the captured text
+            // explicitly so what was captured is what gets sent.
             const formData = new FormData(form);
+            formData.set('message', message);
             const response = await fetch('{{ route('acli.chat.send') }}', {
                 method: 'POST',
                 body: formData,
@@ -144,10 +150,21 @@
             removeTyping(typingEl);
 
             if (! response.ok) {
+                // Laravel reports failures on `message` (validation, CSRF, 403/419/500),
+                // while the orchestrator reports on `error` (provider/entitlement). Read
+                // both, and fall back to the status line only when neither is present --
+                // previously only `error` was read, so every Laravel-shaped failure
+                // collapsed into "An error occurred." with no diagnostic.
                 const data = await response.json().catch(() => ({}));
-                appendMessage('assistant', data.error || 'An error occurred.');
+                const detail = data.error || data.message
+                    || (data.errors ? Object.values(data.errors).flat().join(' ') : null)
+                    || `Request failed (HTTP ${response.status}). Please try again.`;
+                appendMessage('assistant', detail);
                 if (response.status === 401) {
                     window.location.href = '{{ route('login') }}';
+                }
+                if (response.status === 419) {
+                    appendMessage('assistant', 'Your session expired. Reload the page and try again.');
                 }
             } else {
                 const data = await response.json();

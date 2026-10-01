@@ -41,11 +41,15 @@ class DashboardTest extends TestCase
         // zero-curriculum branch is what this student legitimately gets. What
         // matters here is that an enrolled student is served a working page
         // with their courses section present and the enrolment count reflected.
+        // The card is now "Enrolled Courses" and is counted from the student's
+        // own courses rather than written into the template. The old card read
+        // "Courses Active" and held a hardcoded 13, so it reported the same
+        // number for a student with no courses as for one with forty.
         $this->actingAs($student)
             ->get(route('student.dashboard'))
             ->assertOk()
             ->assertSee('My Courses')
-            ->assertSee('Courses Active');
+            ->assertSee('Enrolled Courses');
     }
 
     public function test_dashboard_shows_empty_state_without_enrolments(): void
@@ -54,12 +58,13 @@ class DashboardTest extends TestCase
         $admin = User::where('email', 'admin@acl.local')->firstOrFail();
         $this->assertSame(0, $admin->enrollments()->count());
 
-        // Asserted against the message the view actually renders. The previous
-        // expectation of 'No courses yet' belonged to a placeholder dashboard
-        // that has since been replaced by the data-driven student experience.
+        // Asserted against the message the view actually renders. The dashboard
+        // was rebuilt as a hero plus summary counts, so the empty state explains
+        // that nothing is mapped yet instead of implying the student has failed
+        // to register for anything.
         $this->actingAs($admin)
             ->get(route('student.dashboard'))
             ->assertOk()
-            ->assertSee('No curriculum courses mapped for your current level yet.');
+            ->assertSee('No courses are mapped to your programme and level yet.');
     }
 }
