@@ -29,76 +29,102 @@ class DashboardController extends Controller
         $weekStart = $now->copy()->startOfWeek();
         $monthStart = $now->copy()->startOfMonth();
 
-        // Platform Overview
-        $platformStats = [
-            'institutions' => [
-                'total' => Organization::count(),
-                'active' => Organization::where('is_active', true)->count(),
-                'pending_onboarding' => InstitutionOnboarding::whereIn('status', ['pending', 'invited', 'started', 'partially_completed'])->count(),
-            ],
-            'users' => [
-                'students' => Student::count(),
-                'active_students' => Student::where('verification_status', 'verified')->count(),
-                'external_learners' => OrganizationMembership::where('membership_type', 'external_learner')->where('status', 'active')->count(),
-                'staff' => OrganizationMembership::where('membership_type', 'staff')->where('status', 'active')->count(),
-                'administrators' => OrganizationMembership::where('membership_type', 'administrator')->where('status', 'active')->count(),
-            ],
-            'academic' => [
-                'courses' => \App\Models\Course::where('is_active', true)->count(),
-                'active_courses' => CourseOffering::where('is_active', true)->count(),
-                'programmes' => \App\Models\Curriculum\Programme::where('status', 'active')->count(),
-                'departments' => \App\Models\Department::where('is_active', true)->count(),
-                'faculties' => \App\Models\Faculty::where('is_active', true)->count(),
-            ],
-        ];
+        // Twenty-two separate round trips to TiDB Cloud cost roughly seven
+        // seconds on every dashboard load -- a trivial count() alone takes
+        // 0.2-0.9s over the network. None of this needs to be exact to the
+        // second, so the panel is cached briefly and rebuilt in one go.
+        //
+        // 60 seconds: short enough that the numbers stay honest, long enough
+        // that navigating the Command Center does not pay for it every click.
+        $platformStats = \Illuminate\Support\Facades\Cache::remember(
+            'superadmin.dashboard.platform-stats',
+            now()->addSeconds(60),
+            fn () => $this->computePlatformStats($now, $todayStart, $weekStart, $monthStart),
+        );
 
-        // Activity Overview
-        $activity = [
-            'registrations' => [
-                'today' => StudentRegistrationVerification::where('created_at', '>=', $todayStart)->count(),
-                'this_week' => StudentRegistrationVerification::where('created_at', '>=', $weekStart)->count(),
-                'this_month' => StudentRegistrationVerification::where('created_at', '>=', $monthStart)->count(),
-            ],
-            'jamb' => [
-                'requests_today' => StudentRegistrationVerification::where('created_at', '>=', $todayStart)->count(),
-                'successful' => StudentRegistrationVerification::where('status', 'verified')->where('verified_at', '>=', $todayStart)->count(),
-                'failed' => StudentRegistrationVerification::whereIn('status', ['not_found', 'invalid_input', 'provider_timeout', 'provider_unavailable', 'temporary_failure'])->where('created_at', '>=', $todayStart)->count(),
-                'manual_required' => StudentRegistrationVerification::where('status', 'manual_verification_required')->count(),
-            ],
-            'logins' => [
-                // Would need login tracking table - placeholder for now
-                'today' => 0,
-                'failed' => 0,
-            ],
-            'content_changes' => [
-                'today' => SuperadminAuditLog::where('action', 'like', '%content%')->where('created_at', '>=', $todayStart)->count(),
-                'this_week' => SuperadminAuditLog::where('action', 'like', '%content%')->where('created_at', '>=', $weekStart)->count(),
-            ],
-        ];
 
-        // System Health
-        $health = $this->getSystemHealth();
+        // The same reasoning as the stats panel, and the same round trips: the
+        // activity counters, system health, alerts and the activity feed are all
+        // read-only views of tables nobody expects to change by the second.
+        // Grouped into a single cached payload so a warm dashboard is one read
+        // rather than a dozen.
+        $dashboardData = \Illuminate\Support\Facades\Cache::remember(
+            'superadmin.dashboard.panels',
+            now()->addSeconds(60),
+            function () use ($todayStart, $weekStart, $monthStart) {
+            // Activity Overview
+            $activity = [
+                'registrations' => [
+                    'today' => StudentRegistrationVerification::where('created_at', '>=', $todayStart)->count(),
+                    'this_week' => StudentRegistrationVerification::where('created_at', '>=', $weekStart)->count(),
+                    'this_month' => StudentRegistrationVerification::where('created_at', '>=', $monthStart)->count(),
+                ],
+                'jamb' => [
+                    'requests_today' => StudentRegistrationVerification::where('created_at', '>=', $todayStart)->count(),
+                    'successful' => StudentRegistrationVerification::where('status', 'verified')->where('verified_at', '>=', $todayStart)->count(),
+                    'failed' => StudentRegistrationVerification::whereIn('status', ['not_found', 'invalid_input', 'provider_timeout', 'provider_unavailable', 'temporary_failure'])->where('created_at', '>=', $todayStart)->count(),
+                    'manual_required' => StudentRegistrationVerification::where('status', 'manual_verification_required')->count(),
+                ],
+                'logins' => [
+                    // Would need login tracking table - placeholder for now
+                    'today' => 0,
+                    'failed' => 0,
+                ],
+                'content_changes' => [
+                    'today' => SuperadminAuditLog::where('action', 'like', '%content%')->where('created_at', '>=', $todayStart)->count(),
+                    'this_week' => SuperadminAuditLog::where('action', 'like', '%content%')->where('created_at', '>=', $weekStart)->count(),
+                ],
+            ];
 
-        // Recent Alerts
+            // System Health
+            $health = $this->getSystemHealth();
+
+            // Recent Alerts
+            $alerts = SystemAlert::active()
+                ->orderBy('severity', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+
+            // Recent Activity Feed
+            $recentActivity = SuperadminAuditLog::with(['actor', 'organization'])
+                ->orderBy('created_at', 'desc')
+                ->limit(20)
+                ->get();
+
+            // Institutions needing attention
+            $institutionsNeedingAttention = $this->getInstitutionsNeedingAttention();
+
+                // Only the scalar aggregates are cached. Eloquent collections do
+                // not survive a cache round trip as objects -- they come back as
+                // arrays, and the view reads $alert->severity and builds route
+                // keys from the models. Those are fetched fresh below instead.
+                return [
+                    'activity' => $activity,
+                    'health' => $health,
+                ];
+            },
+        );
+
+        // Not cached: alerts and the activity feed are models, not numbers.
+        // These are small, indexed reads and cheap next to the counts above.
         $alerts = SystemAlert::active()
             ->orderBy('severity', 'desc')
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
 
-        // Recent Activity Feed
         $recentActivity = SuperadminAuditLog::with(['actor', 'organization'])
             ->orderBy('created_at', 'desc')
             ->limit(20)
             ->get();
 
-        // Institutions needing attention
         $institutionsNeedingAttention = $this->getInstitutionsNeedingAttention();
 
         return view('superadmin.dashboard', [
             'platformStats' => $platformStats,
-            'activity' => $activity,
-            'health' => $health,
+            'activity' => $dashboardData['activity'],
+            'health' => $dashboardData['health'],
             'alerts' => $alerts,
             'recentActivity' => $recentActivity,
             'institutionsNeedingAttention' => $institutionsNeedingAttention,
@@ -229,4 +255,39 @@ class DashboardController extends Controller
         $health = $this->getSystemHealth();
         return view('superadmin.partials.health-detail', compact('health'));
     }
+
+    /**
+     * Builds the platform statistics panel.
+     *
+     * Split out of index() so the cache can wrap it. The queries are unchanged;
+     * they simply no longer run on every request.
+     */
+    private function computePlatformStats($now, $todayStart, $weekStart, $monthStart): array
+    {
+        // Platform Overview
+        $platformStats = [
+            'institutions' => [
+                'total' => Organization::count(),
+                'active' => Organization::where('is_active', true)->count(),
+                'pending_onboarding' => InstitutionOnboarding::whereIn('status', ['pending', 'invited', 'started', 'partially_completed'])->count(),
+            ],
+            'users' => [
+                'students' => Student::count(),
+                'active_students' => Student::where('verification_status', 'verified')->count(),
+                'external_learners' => OrganizationMembership::where('membership_type', 'external_learner')->where('status', 'active')->count(),
+                'staff' => OrganizationMembership::where('membership_type', 'staff')->where('status', 'active')->count(),
+                'administrators' => OrganizationMembership::where('membership_type', 'administrator')->where('status', 'active')->count(),
+            ],
+            'academic' => [
+                'courses' => \App\Models\Course::where('is_active', true)->count(),
+                'active_courses' => CourseOffering::where('is_active', true)->count(),
+                'programmes' => \App\Models\Curriculum\Programme::where('status', 'active')->count(),
+                'departments' => \App\Models\Department::where('is_active', true)->count(),
+                'faculties' => \App\Models\Faculty::where('is_active', true)->count(),
+            ],
+        ];
+
+        return $platformStats;
+    }
+
 }
