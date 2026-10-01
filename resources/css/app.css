@@ -69,6 +69,52 @@
     color-scheme: light;
 }
 
+/* ─── Superadmin theme ──────────────────────────────────────────────────────────
+   The Command Center is a different product surface from the student app and
+   should not look like it. Scoped to body.admin-surface so every existing
+   `bg-primary`, `text-muted`, `border-border` utility re-colours itself without
+   one template needing to change.
+
+   Deliberately not green: green means "learner" everywhere else in ACL, and a
+   control panel that looks like a classroom invites the wrong response to a
+   privileged screen. This is a slate and amber console.
+   ------------------------------------------------------------------------- */
+body.admin-surface {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --raised: #eceef1;
+    --border: #d5d9e0;
+    --text: #10151f;
+    --muted: #5b6474;
+    --primary: #b45309;      /* amber-700: white text clears 4.5:1 */
+    --primary-fg: #ffffff;
+    --accent: #92400e;
+    --ring: #b45309;
+    --info: #334155;
+}
+
+.dark body.admin-surface,
+body.admin-surface.dark {
+    --bg: #0b0f16;
+    --surface: #131a25;
+    --raised: #1b2432;
+    --border: #2a3547;
+    --text: #e8ecf3;
+    --muted: #94a1b5;
+    --primary: #f59e0b;     /* amber-500 */
+    --primary-fg: #1a1206;
+    --accent: #fbbf24;
+    --ring: #f59e0b;
+    --info: #94a3b8;
+}
+
+/* A standing marker so a superadmin always knows which surface they are on. */
+body.admin-surface .acl-surface-bar {
+    background-image: linear-gradient(90deg,
+        var(--primary) 0%,
+        color-mix(in srgb, var(--primary) 55%, transparent) 100%);
+}
+
 /* ─── Dark theme ─────────────────────────────────────────────────────────────── */
 .dark {
     --bg: #0a0f1c;

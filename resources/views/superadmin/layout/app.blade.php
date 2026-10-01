@@ -13,7 +13,9 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>x-cloak{display:none!important}</style>
 </head>
-<body class="bg-bg font-display text-text antialiased">
+{{-- admin-surface scopes the Command Center palette so it reads as a
+     different product from the student app without editing every view. --}}
+<body class="admin-surface acl-surface-bar bg-bg font-display text-text antialiased">
 <div x-data="{ navOpen: false, searchOpen: false }" class="flex min-h-dvh">
 
     @php
