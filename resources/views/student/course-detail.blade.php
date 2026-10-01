@@ -137,16 +137,14 @@
                                     </div>
                                     @if ($chapter->introduction)
                                         @php
-                                            // A short preview in the list; the full
-                                            // explanation only when the student asks for
-                                            // it. Twenty chapters of full text rendered
-                                            // inline is a wall a student gives up on.
+                                            // A minimal box per chapter. The full text is
+                                            // only fetched when the student asks.
                                             $preview = \Illuminate\Support\Str::limit(
-                                                \Illuminate\Support\Str::squish($chapter->introduction),
-                                                150
+                                                \Illuminate\Support\Str::squish((string) $chapter->introduction),
+                                                90
                                             );
                                         @endphp
-                                        <p class="mt-2 text-sm text-muted">{{ $preview }}</p>
+                                        <p class="mt-1.5 line-clamp-2 text-xs text-muted">{{ $preview ?: 'No summary yet.' }}</p>
 
                                         @if (mb_strlen($chapter->introduction) > 150)
                                             {{-- The full explanation is fetched only when
@@ -174,10 +172,13 @@
                                      still found nothing. Resolving it properly
                                      needs a course_chapter_id on chapters. --}}
                                 @if ($enrollment)
-                                <span class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-raised px-3 py-1.5 text-sm font-semibold text-text">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                    Enrolled
-                                </span>
+                                <button type="button"
+                                        class="chapter-start ml-2 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary bg-primary px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90"
+                                        data-title="{{ $chapter->title }}"
+                                        data-url="{{ route('student.chapter.content', $chapter->id) }}">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                                    Start
+                                </button>
                                 @else
                                 {{-- Posts to the enroll endpoint, which re-checks that the
                                      course belongs to this student's programme and level. --}}
@@ -256,6 +257,74 @@
             document.getElementById('tab-' + tabId).classList.remove('text-text');
             document.getElementById('tab-' + tabId).classList.add('bg-primary', 'text-primary-fg', 'shadow-sm');
         }
+    </script>
+
+    {{-- Start opens a focused reading view. The full text arrives only then. --}}
+    <div id="study-panel" class="hidden rounded-xl border border-border bg-raised p-5">
+        <div class="flex items-start justify-between gap-3">
+            <h3 id="study-title" class="text-base font-semibold text-text"></h3>
+            <button type="button" id="study-close" class="shrink-0 text-xs font-semibold text-muted hover:text-text">Close</button>
+        </div>
+        <div id="study-body" class="mt-3 whitespace-pre-line text-sm leading-relaxed text-text"></div>
+        <div id="study-loading" class="mt-3 text-sm text-muted">Loading...</div>
+        <div class="mt-4 flex items-center gap-3">
+            <button type="button" id="study-prev" class="rounded-lg border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text">Previous</button>
+            <button type="button" id="study-next" class="rounded-lg border border-primary bg-primary px-3 py-1.5 text-sm font-semibold text-white">Next chapter</button>
+            <span class="text-xs text-muted" id="study-progress"></span>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const panel = document.getElementById('study-panel');
+            const titleEl = document.getElementById('study-title');
+            const bodyEl = document.getElementById('study-body');
+            const loadingEl = document.getElementById('study-loading');
+            const progressEl = document.getElementById('study-progress');
+            const buttons = Array.from(document.querySelectorAll('.chapter-start'));
+            const cache = {};
+            let index = 0;
+
+            function show(i) {
+                index = Math.max(0, Math.min(buttons.length - 1, i));
+                const btn = buttons[index];
+                if (! btn) return;
+
+                panel.classList.remove('hidden');
+                titleEl.textContent = btn.dataset.title;
+                progressEl.textContent = 'Chapter ' + (index + 1) + ' of ' + buttons.length;
+                bodyEl.innerHTML = '';
+
+                if (cache[index]) {
+                    loadingEl.classList.add('hidden');
+                    bodyEl.textContent = cache[index];
+                    return;
+                }
+
+                loadingEl.classList.remove('hidden');
+                fetch(btn.dataset.url, { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { if (! r.ok) throw new Error(); return r.json(); })
+                    .then(function (data) {
+                        const text = data.introduction || data.summary || '';
+                        cache[index] = text;
+                        loadingEl.classList.add('hidden');
+                        bodyEl.textContent = text || 'No written explanation for this chapter yet.';
+                    })
+                    .catch(function () {
+                        loadingEl.textContent = 'Could not load this chapter. Try again.';
+                    });
+            }
+
+            buttons.forEach(function (btn, i) {
+                btn.addEventListener('click', function () { show(i); });
+            });
+
+            document.getElementById('study-prev').addEventListener('click', function () { show(index - 1); });
+            document.getElementById('study-next').addEventListener('click', function () { show(index + 1); });
+            document.getElementById('study-close').addEventListener('click', function () {
+                panel.classList.add('hidden');
+            });
+        })();
     </script>
 
     {{-- Fetches a chapter's full explanation the first time it is asked for,

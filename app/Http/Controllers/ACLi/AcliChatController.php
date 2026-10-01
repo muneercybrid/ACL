@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\ACLi\AcliOrchestrator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
 class AcliChatController extends Controller
@@ -59,6 +60,20 @@ class AcliChatController extends Controller
             ['role' => 'user', 'content' => $validated['message']],
         ];
 
+        // ACLi kept replying "I don't have access to your actual course
+        // materials" to a student sitting on the COS101 chapter page. It was
+        // true of the prompt -- no course content was ever put in front of the
+        // model. The student's own enrolled chapter is supplied here, so ACLi
+        // answers from the material the student is actually reading.
+        $grounding = $this->courseGrounding($user, $validated);
+
+        if ($grounding !== null) {
+            array_unshift($messages, [
+                'role' => 'system',
+                'content' => $grounding,
+            ]);
+        }
+
         // If context is provided (e.g., highlighted text), add as system context
         if (! empty($validated['context']['selected_text'])) {
             array_unshift($messages, [
@@ -84,6 +99,97 @@ class AcliChatController extends Controller
         }
 
         return response()->json($result);
+    }
+
+    /**
+     * Records a student's verdict on an ACLi answer.
+     *
+     * The content is stored against the conversation and the student, so a
+     * superadmin can see which answers were useful and which were not. Only
+     * the student who asked can attach feedback to their own exchange.
+     */
+    public function feedback(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return response()->json(['success' => false, 'error' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'conversation_id' => 'nullable|integer',
+            'content' => 'nullable|string|max:4000',
+            'verdict' => 'required|in:like,dislike',
+        ]);
+
+        $conversationId = $validated['conversation_id'] ?? null;
+
+        // Never accept feedback against a conversation belonging to someone
+        // else.
+        if ($conversationId !== null
+            && ! \App\Models\AcliConversation::whereKey($conversationId)
+                ->where('user_id', $user->id)
+                ->exists()) {
+            return response()->json(['success' => false, 'error' => 'Not your conversation.'], 403);
+        }
+
+        DB::table('acli_message_feedback')->insert([
+            'user_id' => $user->id,
+            'conversation_id' => $conversationId,
+            'content' => mb_substr((string) ($validated['content'] ?? ''), 0, 4000),
+            'verdict' => $validated['verdict'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Builds system context from the course the student is actually enrolled in.
+     */
+    protected function courseGrounding($user, array $validated): ?string
+    {
+        $courseId = DB::table('enrollments')
+            ->join('course_offerings', 'course_offerings.id', '=', 'enrollments.course_offering_id')
+            ->where('enrollments.user_id', $user->id)
+            ->where('enrollments.status', 'active')
+            ->select('course_offerings.course_id')
+            ->distinct()
+            ->pluck('course_id');
+
+        if ($courseId->isEmpty()) {
+            return null;
+        }
+
+        $course = DB::table('courses')->whereIn('id', $courseId)->first();
+
+        if (! $course) {
+            return null;
+        }
+
+        $chapters = DB::table('course_chapters')
+            ->where('course_id', $course->id)
+            ->where('placeholder', 0)
+            ->orderBy('position')
+            ->limit(40)
+            ->get(['position', 'title', 'introduction']);
+
+        if ($chapters->isEmpty()) {
+            return null;
+        }
+
+        $outline = $chapters->map(function ($c) {
+            return $c->position . '. ' . $c->title . "\n"
+                . mb_substr((string) ($c->introduction ?? ''), 0, 600);
+        })->implode("\n\n");
+
+        return "You are ACLi, a tutor inside ACL. The student is enrolled in "
+            . $course->title . " (" . $course->code . "). Its chapters are listed below.\n\n"
+            . "Answer from this material when it is relevant. Do not claim you lack "
+            . "access to the course -- you have it here. If a question goes beyond these "
+            . "chapters, say so plainly rather than refusing.\n\n"
+            . "Course outline:\n" . $outline;
     }
 
     /**

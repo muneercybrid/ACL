@@ -220,6 +220,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('acli')->name('acli.')->group(function () {
         Route::get('/chat', [AcliChatController::class, 'page'])->name('chat');
         Route::post('/chat', [AcliChatController::class, 'send'])->name('chat.send');
+        Route::post('/chat/feedback', [AcliChatController::class, 'feedback'])->name('chat.feedback');
         Route::get('/conversations', [AcliChatController::class, 'conversations'])->name('conversations');
         Route::get('/conversations/{conversation}', [AcliChatController::class, 'conversation'])->name('conversation.show');
         Route::post('/conversations', [AcliChatController::class, 'newConversation'])->name('conversation.new');

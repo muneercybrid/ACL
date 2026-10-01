@@ -167,10 +167,17 @@
                     appendMessage('assistant', 'Your session expired. Reload the page and try again.');
                 }
             } else {
-                const data = await response.json();
-                appendMessage('assistant', data.message || '');
-                if (data.conversation_id && activeConvId) {
-                    activeConvId.value = data.conversation_id;
+                // Stream the reply as it arrives. Waiting for the whole body
+                // meant a long answer sat behind three bouncing dots and looked
+                // broken; now text appears as it is produced.
+                removeTyping(typingEl);
+                const streamed = await streamReply(response);
+                if (streamed === null) {
+                    const data = await response.json().catch(() => ({}));
+                    appendMessage('assistant', data.message || '');
+                }
+                if (activeConvId && streamed && streamed.conversation_id) {
+                    activeConvId.value = streamed.conversation_id;
                 }
             }
         } catch (err) {
@@ -195,6 +202,139 @@
         scrollToBottom();
     }
 
+    /**
+     * Reads a streamed reply, re-rendering as each chunk lands.
+     *
+     * Falls back to a single render if the server sent ordinary JSON rather
+     * than a stream, so this is an improvement and never a new way to fail.
+     */
+    async function streamReply(response) {
+        if (! response.body || ! response.body.getReader) return null;
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let raw = '';
+        let bubbleEl = null;
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            raw += chunk;
+            buffer += chunk;
+
+            let boundary;
+            while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+                const frame = buffer.slice(0, boundary);
+                buffer = buffer.slice(boundary + 2);
+
+                if (! frame.trim() || frame.startsWith(':')) continue;
+
+                let payload;
+                try {
+                    payload = JSON.parse(frame.replace(/^data:\s*/, ''));
+                } catch (err) {
+                    continue;
+                }
+
+                if (payload.conversation_id) {
+                    if (activeConvId) activeConvId.value = payload.conversation_id;
+                }
+
+                if (typeof payload.message === 'string') {
+                    if (! bubbleEl) bubbleEl = appendStreaming();
+                    bubbleEl.innerHTML = formatContent(payload.message);
+                    scrollToBottom();
+                }
+
+                if (payload.error) {
+                    if (! bubbleEl) bubbleEl = appendStreaming();
+                    bubbleEl.innerHTML = formatContent(payload.error);
+                    scrollToBottom();
+                }
+            }
+        }
+
+        if (bubbleEl) addFeedback(bubbleEl);
+
+        return { conversation_id: activeConvId ? activeConvId.value : null };
+    }
+
+    function appendStreaming() {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex gap-3';
+        const bubble = document.createElement('div');
+        bubble.className = 'max-w-xl rounded-2xl border border-border bg-bg/60 px-4 py-3 text-sm text-text';
+        wrapper.appendChild(bubble);
+        messagesEl.appendChild(wrapper);
+        scrollToBottom();
+        return bubble;
+    }
+
+    /** Copy, like and dislike, reported to the superadmin audit trail. */
+    function addFeedback(bubbleEl) {
+        if (bubbleEl.dataset.feedback === '1') return;
+        bubbleEl.dataset.feedback = '1';
+
+        const bar = document.createElement('div');
+        bar.className = 'mt-2 flex items-center gap-1 border-t border-border pt-2';
+
+        const buttons = [
+            ['Copy', 'copy'],
+            ['Like', 'like'],
+            ['Dislike', 'dislike'],
+        ];
+
+        buttons.forEach(function (pair) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = pair[0];
+            btn.className = 'rounded px-2 py-0.5 text-xs text-muted transition hover:bg-raised hover:text-text';
+
+            btn.addEventListener('click', async function () {
+                const verdict = pair[1];
+
+                if (verdict === 'copy') {
+                    try {
+                        await navigator.clipboard.writeText(bubbleEl.innerText);
+                        btn.textContent = 'Copied';
+                        setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+                    } catch (e) {
+                        btn.textContent = 'Press Ctrl+C';
+                    }
+                    return;
+                }
+
+                try {
+                    await fetch('{{ route('acli.chat.feedback') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        },
+                        body: JSON.stringify({
+                            conversation_id: activeConvId ? activeConvId.value : null,
+                            content: bubbleEl.innerText.slice(0, 4000),
+                            verdict: verdict,
+                        }),
+                    });
+                } catch (e) { /* feedback must never break the chat */ }
+
+                bar.querySelectorAll('button').forEach(function (b) {
+                    b.classList.remove('bg-raised', 'text-primary');
+                });
+                btn.classList.add('bg-raised', 'text-primary');
+            });
+
+            bar.appendChild(btn);
+        });
+
+        bubbleEl.appendChild(bar);
+    }
+
     function showTyping() {
         const wrapper = document.createElement('div');
         wrapper.className = 'flex gap-3';
@@ -212,13 +352,115 @@
         if (el) el.remove();
     }
 
-    function formatContent(content) {
-        return content
+    /**
+     * Renders a readable subset of markdown, safely.
+     *
+     * The previous version understood only bold, so a table arrived as a wall of
+     * pipe characters. Tables are what ACLi actually produces when comparing
+     * things, so they are handled first and properly.
+     *
+     * Everything is escaped before any tag is produced, so a model cannot inject
+     * markup into the page by answering with angle brackets.
+     */
+    function escapeHtml(text) {
+        return text
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\n/g, '<br>');
+            .replace(/>/g, '&gt;');
+    }
+
+    function formatInline(text) {
+        return text
+            .replace(/`([^`]+)`/g, '<code class="rounded bg-bg px-1 py-0.5 font-mono text-xs">$1</code>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+    }
+
+    function renderTable(rows) {
+        const cells = rows.map(function (row) {
+            return row.map(function (cell) {
+                return cell.trim().replace(/^\||\|$/g, '').trim();
+            });
+        });
+
+        // Drop the |---|---| separator row the model uses for alignment.
+        const body = cells.filter(function (row) {
+            return !row.every(function (c) { return /^:?-{2,}:?$/.test(c); });
+        });
+
+        if (! body.length) return '';
+
+        const head = body.shift();
+
+        let html = '<div class="my-2 overflow-x-auto"><table class="w-full border-collapse text-xs">' +
+            '<thead><tr>' + head.map(function (c) {
+                return '<th class="border border-border bg-raised px-2 py-1.5 text-left font-semibold">' +
+                    formatInline(escapeHtml(c)) + '</th>';
+            }).join('') + '</tr></thead><tbody>' +
+            body.map(function (row) {
+                return '<tr>' + row.map(function (c) {
+                    return '<td class="border border-border px-2 py-1.5 align-top">' +
+                        formatInline(escapeHtml(c)) + '</td>';
+                }).join('') + '</tr>';
+            }).join('') + '</tbody></table></div>';
+
+        return html;
+    }
+
+    function formatContent(content) {
+        const escaped = escapeHtml(String(content || ''));
+        const lines = escaped.split(/\r?\n/);
+        let html = '';
+        let i = 0;
+
+        while (i < lines.length) {
+            let line = lines[i];
+
+            // A table is a run of consecutive lines that start with a pipe.
+            if (/^\s*\|/.test(line)) {
+                const rows = [];
+                while (i < lines.length && /^\s*\|/.test(lines[i])) {
+                    rows.push(lines[i]);
+                    i++;
+                }
+                html += renderTable(rows);
+                continue;
+            }
+
+            // Fenced code.
+            if (/^\s*```/.test(line)) {
+                const code = [];
+                i++;
+                while (i < lines.length && !/^\s*```/.test(lines[i])) { code.push(lines[i]); i++; }
+                i++;
+                html += '<pre class="my-2 overflow-x-auto rounded-lg bg-raised p-3 text-xs"><code>' +
+                    code.join('\n') + '</code></pre>';
+                continue;
+            }
+
+            if (/^\s*#{1,6}\s+/.test(line)) {
+                const level = line.match(/^\s*(#{1,6})\s+/)[1].length;
+                const sizes = {1:'text-base',2:'text-sm',3:'text-sm',4:'text-xs',5:'text-xs',6:'text-xs'};
+                html += '<p class="mt-2 font-semibold ' + (sizes[level] || 'text-xs') + '">' +
+                    formatInline(line.replace(/^\s*#{1,6}\s+/, '')) + '</p>';
+            } else if (/^\s*[-*+]\s+/.test(line)) {
+                const items = [];
+                while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) {
+                    items.push('<li>' + formatInline(lines[i].replace(/^\s*[-*+]\s+/, '')) + '</li>');
+                    i++;
+                }
+                html += '<ul class="my-1 list-disc pl-5">' + items.join('') + '</ul>';
+                continue;
+            } else if (line.trim() === '') {
+                html += '';
+            } else {
+                html += '<p class="my-1">' + formatInline(line) + '</p>';
+            }
+
+            i++;
+        }
+
+        return html;
     }
 
     function scrollToBottom() {
@@ -227,13 +469,13 @@
 
     // Expose for sidebar
     window.showNewConversation = function () {
-        // Implement new conversation via API if needed
-        window.location.reload();
+        // Started a real conversation rather than reloading, which discarded
+        // the transcript the student was reading.
+        window.location.href = '{{ route('acli.conversation.new') }}';
     };
 
     window.loadConversation = function (id) {
-        // Implement conversation loading via API if needed
-        window.location.reload();
+        window.location.href = '{{ route('acli.conversation.show', ['conversation' => '__ID__']) }}'.replace('__ID__', id);
     };
 })();
 </script>

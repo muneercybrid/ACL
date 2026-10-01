@@ -1,9 +1,9 @@
 {{-- A student's own assessment for one chapter, generated on first request. --}}
-<x-app-layout>
-    <x-slot name="header">
-        <h2 class="text-lg font-semibold text-text">Chapter assessment</h2>
-    </x-slot>
+@extends('layouts.app')
 
+@section('title', 'Chapter assessment')
+
+@section('content')
     <div class="py-6">
         <div class="mx-auto max-w-3xl space-y-6">
 
@@ -47,7 +47,7 @@
                     </ol>
 
                     <div class="mt-6">
-                        <x-primary-button>Submit answers</x-primary-button>
+                        <button type="submit" class="rounded-lg border border-primary bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Submit answers</button>
                     </div>
                 </form>
             @else
@@ -65,4 +65,4 @@
             </a>
         </div>
     </div>
-</x-app-layout>
+@endsection
