@@ -174,6 +174,78 @@ class CourseEnrollmentTest extends TestCase
         $this->assertSame(0, DB::table('enrollments')->where('user_id', $student->id)->count());
     }
 
+    /**
+     * Renders the real course page.
+     *
+     * The enroll form broke in production because the route is registered as
+     * student.course.enroll -- it sits inside a student-prefixed group -- while
+     * the template asked for route('course.enroll'). Every earlier test posted
+     * to a literal URL path, so the name mismatch was invisible until a student
+     * opened the page and got a 500. This asserts the rendered page, which is
+     * the only thing that actually catches it.
+     */
+    public function test_the_course_page_renders_a_working_enroll_form(): void
+    {
+        $this->makeSession();
+        $student = $this->student();
+        $courseId = $this->makeCourse();
+
+        $session = DB::table('academic_sessions')->first();
+        $semesterId = DB::table('semesters')->insertGetId([
+            'academic_session_id' => $session->id, 'name' => 'First Semester', 'slug' => 'first-semester',
+            'start_date' => $session->start_date, 'end_date' => $session->end_date,
+            'is_active' => true, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('course_offerings')->insert([
+            'course_id' => $courseId, 'semester_id' => $semesterId, 'is_active' => true,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        // A national placement the student is entitled to see. curriculum_versions
+        // hangs off programmes (the national catalogue), not academic_programs
+        // (the school's own programme), which is the distinction the whole
+        // two-layer design rests on.
+        $orgId = (int) DB::table('organization_memberships')
+            ->where('user_id', $student->id)->value('organization_id');
+
+        $nationalProgrammeId = DB::table('programmes')->insertGetId([
+            'organization_id' => $orgId, 'name' => 'B.Sc Cybersecurity', 'code' => 'CSC-B',
+            'degree_type' => 'bachelor', 'scope' => 'national', 'status' => 'active',
+            'verification_status' => 'verified', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $versionId = DB::table('curriculum_versions')->insertGetId([
+            'programme_id' => $nationalProgrammeId, 'scope' => 'national',
+            'version_label' => '2026 Baseline', 'slug' => '2026-baseline', 'is_active' => true,
+            'verification_status' => 'verified', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $placementId = DB::table('curriculum_courses')->insertGetId([
+            'curriculum_version_id' => $versionId, 'course_id' => $courseId, 'level' => 100,
+            'semester' => 1, 'status' => 'active', 'is_mandatory' => true,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        // The enroll control is rendered per chapter, so a course with no
+        // chapters never shows one. That is true of the page as built and is
+        // worth knowing, but it is not what this test is checking.
+        DB::table('course_chapters')->insert([
+            'course_id' => $courseId, 'position' => 1, 'title' => 'Course Orientation',
+            'slug' => 'course-orientation', 'summary' => '', 'version' => 1, 'status' => 'draft',
+            'placeholder' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($student)->get('/student/course/c' . $placementId);
+
+        $response->assertOk();
+        $response->assertSee('Enroll to view', false);
+
+        // The form must post to a route that actually exists.
+        $this->assertTrue(
+            app('router')->has('student.course.enroll'),
+            'the enroll route must be registered under the name the template uses'
+        );
+    }
+
     public function test_the_enroll_route_exists_and_rejects_a_get(): void
     {
         $this->makeSession();
