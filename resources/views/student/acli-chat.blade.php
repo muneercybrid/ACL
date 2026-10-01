@@ -41,14 +41,16 @@
         <aside id="conv-sidebar"
                class="absolute inset-y-0 left-0 z-20 w-72 max-w-[85vw] shrink-0 -translate-x-full flex-col border-r border-border bg-surface transition-transform duration-200 sm:static sm:w-64 sm:translate-x-0">
             <div class="p-3">
-                <button onclick="showNewConversation()" class="flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-fg transition hover:opacity-90">
+                <a href="{{ route('acli.chat') }}" class="flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-fg transition hover:opacity-90">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                     New chat
-                </button>
+                </a>
             </div>
             <div id="conversations-list" class="flex-1 overflow-y-auto px-2">
                 @foreach ($conversations ?? [] as $conversation)
-                    <a href="#" onclick="loadConversation({{ $conversation->id }}); return false;" class="block rounded-lg px-3 py-2 text-sm text-text transition hover:bg-raised">
+                    <a href="{{ route('acli.chat.show', $conversation->id) }}"
+                       class="block rounded-lg px-3 py-2 text-sm text-text transition hover:bg-raised
+                              {{ (int) ($activeConversationId ?? 0) === (int) $conversation->id ? 'bg-raised font-medium' : '' }}">
                         <p class="truncate font-medium">{{ $conversation->title }}</p>
                         <p class="text-xs text-muted">{{ $conversation->messages_count }} messages</p>
                     </a>
@@ -60,6 +62,16 @@
         <main class="flex flex-1 flex-col min-h-0">
             <!-- Messages -->
             <div id="messages" class="flex flex-1 flex-col gap-3 overflow-y-auto p-4 min-h-0">
+                @foreach (($initialMessages ?? collect()) as $stored)
+                    {{-- Stored text is handed to the same markdown renderer as a
+                         live reply, so a restored transcript is formatted
+                         identically to one just streamed. --}}
+                    <div class="flex gap-3 {{ $stored->role === 'user' ? 'justify-end' : '' }}"
+                         data-role="{{ $stored->role === 'user' ? 'user' : 'assistant' }}">
+                        <div class="max-w-xl rounded-2xl px-4 py-3 text-sm {{ $stored->role === 'user' ? 'bg-primary text-primary-fg' : 'border border-border bg-bg/60 text-text' }}"
+                             data-raw="{{ base64_encode($stored->content) }}"></div>
+                    </div>
+                @endforeach
                 @forelse ($messages ?? [] as $message)
                     <div class="flex gap-3 {{ $message->role === 'user' ? 'justify-end' : '' }}">
                         @if ($message->role === 'user')
@@ -498,15 +510,34 @@
     }
 
     // Expose for sidebar
+    // A new chat is just the empty page -- the conversation id is allocated by
+    // the server on the first message, and this avoids POST-only routes being
+    // navigated to with GET, which is why the old links did nothing.
     window.showNewConversation = function () {
-        // Started a real conversation rather than reloading, which discarded
-        // the transcript the student was reading.
-        window.location.href = '{{ route('acli.conversation.new') }}';
+        window.location.href = '{{ route('acli.chat') }}';
     };
 
     window.loadConversation = function (id) {
-        window.location.href = '{{ route('acli.conversation.show', ['conversation' => '__ID__']) }}'.replace('__ID__', id);
+        window.location.href = '{{ route('acli.chat.show', ['conversation' => '__ID__']) }}'.replace('__ID__', id);
     };
+
+    // Render the restored transcript with the same markdown renderer used for
+    // a live reply, so a reloaded chat looks identical to one just streamed.
+    document.querySelectorAll('[data-raw]').forEach(function (el) {
+        var raw = el.getAttribute('data-raw');
+        try {
+            el.innerHTML = formatContent(new TextDecoder().decode(Uint8Array.from(atob(raw), function (c) {
+                return c.charCodeAt(0);
+            })));
+        } catch (e) {
+            el.textContent = raw;
+        }
+
+        var role = el.closest('[data-role]');
+        if (role && role.getAttribute('data-role') === 'assistant') {
+            addFeedback(el);
+        }
+    });
 })();
 </script>
 @endsection
@@ -550,5 +581,3 @@
             window.closeConversationDrawer = close;
         })();
     </script>
-
-    {{-- Fetches a chapter's full explanation the first time it is asked for,

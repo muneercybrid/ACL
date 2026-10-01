@@ -219,6 +219,9 @@ Route::middleware('auth')->group(function () {
     // ACLi - AI Chat
     Route::prefix('acli')->name('acli.')->group(function () {
         Route::get('/chat', [AcliChatController::class, 'page'])->name('chat');
+        // A chat opened by its own URL, so a refresh restores the transcript
+        // instead of returning an empty page.
+        Route::get('/chat/{conversation}', [AcliChatController::class, 'page'])->name('chat.show');
         Route::post('/chat', [AcliChatController::class, 'send'])->name('chat.send');
         Route::post('/chat/feedback', [AcliChatController::class, 'feedback'])->name('chat.feedback');
         Route::post('/chat/stream', [AcliChatController::class, 'stream'])->name('chat.stream');

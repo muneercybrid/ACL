@@ -16,7 +16,7 @@ class AcliChatController extends Controller
     /**
      * Show the ACLi chat page.
      */
-    public function page(): \Illuminate\View\View
+    public function page(?int $conversation = null): \Illuminate\View\View
     {
         $user = Auth::user();
 
@@ -24,9 +24,32 @@ class AcliChatController extends Controller
             ? $this->orchestrator->getConversations($user)
             : collect();
 
+        // Restores a chat when it is opened by its own URL. Without this a
+        // refresh landed on an empty page and the whole transcript was gone,
+        // because the only entry point rendered an empty shell.
+        $messages = collect();
+
+        if ($conversation && $user) {
+            $conversationModel = \App\Models\ACLi\Conversation::whereKey($conversation)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (! $conversationModel) {
+                // Someone else's conversation id must not disclose that it
+                // exists; treat it as "no such chat".
+                abort(404);
+            }
+
+            $messages = $conversationModel->messages()
+                ->where('role', '!=', 'system')
+                ->orderBy('created_at')
+                ->get();
+        }
+
         return view('student.acli-chat', [
             'conversations' => $conversations,
-            'activeConversationId' => old('conversation_id', null),
+            'activeConversationId' => $conversation,
+            'initialMessages' => $messages,
         ]);
     }
 
@@ -217,7 +240,7 @@ class AcliChatController extends Controller
         // Never accept feedback against a conversation belonging to someone
         // else.
         if ($conversationId !== null
-            && ! \App\Models\AcliConversation::whereKey($conversationId)
+            && ! \App\Models\ACLi\Conversation::whereKey($conversationId)
                 ->where('user_id', $user->id)
                 ->exists()) {
             return response()->json(['success' => false, 'error' => 'Not your conversation.'], 403);
@@ -236,23 +259,38 @@ class AcliChatController extends Controller
     }
 
     /**
-     * Builds system context from the course the student is actually enrolled in.
+     * Grounds ACLi in the student's programme, not one arbitrary course.
+     *
+     * The first version took whichever enrolled course came back first, so a
+     * student saying "hi" was greeted as if they were sitting in COS101 no
+     * matter what they were doing. Course is a poor unit of context here: the
+     * student has a programme, and that is the thing that should shape ACLi.
+     * Where the conversation is attached to a specific course -- opening the
+     * chat from a course page -- that course is used, because it is a fact the
+     * student supplied rather than an arbitrary pick.
      */
     protected function courseGrounding($user, array $validated): ?string
     {
-        $courseId = DB::table('enrollments')
-            ->join('course_offerings', 'course_offerings.id', '=', 'enrollments.course_offering_id')
-            ->where('enrollments.user_id', $user->id)
-            ->where('enrollments.status', 'active')
-            ->select('course_offerings.course_id')
-            ->distinct()
-            ->pluck('course_id');
+        $programme = app(\App\Services\StudentDashboardService::class)
+            ->curriculumProgramme($user->student ?? null);
 
-        if ($courseId->isEmpty()) {
+        // A course chosen explicitly by the student wins over the programme.
+        $focusCourseId = $validated['course_id'] ?? null;
+
+        if (! $focusCourseId) {
+            $focusCourseId = DB::table('enrollments')
+                ->join('course_offerings', 'course_offerings.id', '=', 'enrollments.course_offering_id')
+                ->where('enrollments.user_id', $user->id)
+                ->where('enrollments.status', 'active')
+                ->orderByDesc('enrollments.updated_at')
+                ->value('course_offerings.course_id');
+        }
+
+        if (! $focusCourseId) {
             return null;
         }
 
-        $course = DB::table('courses')->whereIn('id', $courseId)->first();
+        $course = DB::table('courses')->where('id', $focusCourseId)->first();
 
         if (! $course) {
             return null;
@@ -262,24 +300,28 @@ class AcliChatController extends Controller
             ->where('course_id', $course->id)
             ->where('placeholder', 0)
             ->orderBy('position')
-            ->limit(40)
+            ->limit(30)
             ->get(['position', 'title', 'introduction']);
 
         if ($chapters->isEmpty()) {
             return null;
         }
 
-        $outline = $chapters->map(function ($c) {
-            return $c->position . '. ' . $c->title . "\n"
-                . mb_substr((string) ($c->introduction ?? ''), 0, 600);
-        })->implode("\n\n");
+        $outline = $chapters->map(fn ($c) => $c->position . '. ' . $c->title . "\n"
+            . mb_substr((string) ($c->introduction ?? ''), 0, 500))->implode("\n\n");
 
-        return "You are ACLi, a tutor inside ACL. The student is enrolled in "
-            . $course->title . " (" . $course->code . "). Its chapters are listed below.\n\n"
-            . "Answer from this material when it is relevant. Do not claim you lack "
-            . "access to the course -- you have it here. If a question goes beyond these "
-            . "chapters, say so plainly rather than refusing.\n\n"
-            . "Course outline:\n" . $outline;
+        $scope = $programme
+            ? "The student is enrolled in {$programme->name}."
+            : '';
+
+        return "You are ACLi, a tutor inside ACL. {$scope} They are currently working on "
+            . "{$course->title} ({$course->code}). Its chapters are below.\n\n"
+            . "Answer from this material when it is relevant, but remember the student has a "
+            . "whole programme behind this one course -- answer questions from elsewhere in it too, "
+            . "and do not claim this course is all they are studying.\n\n"
+            . "Do not claim you lack access to the course: you have it here. If something is "
+            . "outside everything above, say so plainly rather than refusing.\n\n"
+            . "Chapter outline:\n" . $outline;
     }
 
     /**
