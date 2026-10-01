@@ -59,7 +59,34 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended($this->roles->homeFor($user));
+        // A privileged account belongs in its own console, not wherever it was
+        // last bounced from. redirect()->intended() wins over the role home, so
+        // a superadmin who had touched /student while signed out was returned
+        // to the student dashboard after a perfectly good sign-in -- which reads
+        // as "the login did not work" and leaves them with no route to the
+        // Command Center.
+        //
+        // Intended is still honoured for the student experience, where landing
+        // back on the page they asked for is the useful behaviour.
+        $home = $this->roles->homeFor($user);
+        $intended = (string) $request->session()->get('url.intended', '');
+
+        // A privileged account belongs in its own console. intended() wins over
+        // the role home, so a superadmin who had touched /student while signed
+        // out was returned to the student dashboard after a perfectly good
+        // sign-in -- which reads as "the login did not work" and leaves them no
+        // route to the Command Center. Only an intended URL that already points
+        // into /superadmin is honoured.
+        //
+        // Students keep intended(), where landing back on the page they asked
+        // for is the useful behaviour.
+        if ($user->isSuperadmin() && ! str_starts_with($intended, '/superadmin')) {
+            $request->session()->forget('url.intended');
+
+            return redirect()->to($home);
+        }
+
+        return redirect()->intended($home);
     }
 
     public function destroy(Request $request): RedirectResponse
