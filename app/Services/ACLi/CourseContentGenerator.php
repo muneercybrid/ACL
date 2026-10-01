@@ -5,6 +5,7 @@ namespace App\Services\ACLi;
 use App\Services\ACLi\DTO\AIRequest;
 use App\Services\ACLi\ProviderManager;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -196,9 +197,9 @@ class CourseContentGenerator
             return ['exercises' => 0, 'questions' => 0, 'assessment' => null, 'flashcards' => 0, 'errors' => ['chapter ' . $chapterId . ' has no generated text to build questions from']];
         }
 
-        $exercises = $this->askFor($this->exercisePrompt($course, $chapter, $body), ['questions']);
+        $exercises = $this->askFor($this->exercisePrompt($course, $chapter, $body), ['questions', 'exercises']);
         $quiz = $this->askFor($this->quizPrompt($course, $chapter, $body), ['questions']);
-        $cards = $this->askFor($this->flashcardPrompt($course, $chapter, $body), ['cards']);
+        $cards = $this->askFor($this->flashcardPrompt($course, $chapter, $body), ['cards', 'flashcards']);
 
         $exerciseRows = $this->exerciseRows($exercises);
         $questionRows = $this->questionRows($quiz);
@@ -329,7 +330,7 @@ TEXT;
      */
     private function askFor(string $prompt, array $keys): array
     {
-        $response = $this->ask($prompt);
+        $response = $this->askWithRetry($prompt);
 
         if ($response === null) {
             return [];
@@ -378,7 +379,7 @@ TEXT;
 
             $rows[] = [
                 'position' => $index + 1,
-                'title' => $this->plain($item['title'] ?? ('Exercise ' . ($index + 1))),
+                'title' => $this->clamp($this->plain($item['title'] ?? ('Exercise ' . ($index + 1))), 255),
                 // The columns are enums with their own vocabulary, which is
                 // not the vocabulary the prompt asks for. Writing the prompt's
                 // words straight in truncated the value and lost the exercise
@@ -402,7 +403,11 @@ TEXT;
                 'solution' => $this->plain($item['solution'] ?? ''),
                 'explanation' => $this->plain($item['explanation'] ?? ''),
                 'options' => $this->stringList($item['options'] ?? []),
-                'correct_answer' => $this->plain($item['correct_answer'] ?? ''),
+                // title and correct_answer are varchar(255). A model that
+                // restates the correct option as a full sentence overruns it,
+                // and TiDB rejects the whole insert rather than truncating,
+                // so the batch was lost even though the generation succeeded.
+                'correct_answer' => $this->clamp($this->plain($item['correct_answer'] ?? ''), 255),
             ];
         }
 
@@ -432,12 +437,31 @@ TEXT;
                 'position' => (int) ($item['position'] ?? $index + 1),
                 'question' => $this->plain($item['question']),
                 'options' => $options,
-                'correct_answer' => $this->plain($item['correct_answer'] ?? ''),
+                'correct_answer' => $this->clamp($this->plain($item['correct_answer'] ?? ''), 255),
                 'explanation' => $this->plain($item['explanation'] ?? ''),
             ];
         }
 
         return $rows;
+    }
+
+    /**
+     * Clamps a string to a column's width without cutting mid-word.
+     */
+    private function clamp(string $value, int $limit): string
+    {
+        if (mb_strlen($value) <= $limit) {
+            return $value;
+        }
+
+        $trimmed = mb_substr($value, 0, $limit - 1);
+        $lastSpace = mb_strrpos($trimmed, ' ');
+
+        if ($lastSpace !== false && $lastSpace > $limit * 0.6) {
+            $trimmed = mb_substr($trimmed, 0, $lastSpace);
+        }
+
+        return rtrim($trimmed, " ,.;:");
     }
 
     /**
@@ -706,18 +730,53 @@ TEXT;
                 // OpenRouter, where no model of that name exists -- every
                 // request failed on the primary and silently succeeded on the
                 // first fallback, which is why it went unnoticed.
-                model: (string) config('acli.providers.openrouter.model'),
+                model: (string) config('acli.gateway.model'),
                 messages: [
                     ['role' => 'system', 'content' => 'You are a senior Nigerian academic. You reply with JSON only, no markdown fences, no commentary.'],
                     ['role' => 'user', 'content' => $prompt],
                 ],
-                maxTokens: 4000,
+                // Three exercises, each with four options, a worked solution
+                // and an explanation, run past 4000 tokens and came back
+                // truncated and unparseable.
+                maxTokens: 6000,
             );
 
             return $this->providers->chat($request)->content;
         } catch (\Throwable $e) {
+            // Swallowing this silently is what made both the dead provider and
+            // the bad model name look like "the model had nothing to say". A
+            // failed generation must be visible, not indistinguishable from a
+            // model declining to answer.
+            Log::warning('CourseContentGenerator: generation call failed', [
+                'message' => $e->getMessage(),
+                'model' => (string) config('acli.gateway.model'),
+                'exception' => $e::class,
+            ]);
+
             return null;
         }
+    }
+
+    /**
+     * Asks, retrying an empty answer.
+     *
+     * The provider intermittently returns an empty body -- a transient fault
+     * rather than a refusal -- and the previous behaviour took that as the
+     * answer and silently produced a chapter with no exercises. Two attempts
+     * make that rare enough not to matter, and a still-empty result is
+     * reported rather than passed off as "nothing to generate".
+     */
+    private function askWithRetry(string $prompt, int $attempts = 2): ?string
+    {
+        for ($i = 0; $i < $attempts; $i++) {
+            $response = $this->ask($prompt);
+
+            if (is_string($response) && trim($response) !== '') {
+                return $response;
+            }
+        }
+
+        return null;
     }
 
     private function parseTitles(string $response, int $count, object $course): array

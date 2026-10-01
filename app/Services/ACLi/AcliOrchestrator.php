@@ -112,7 +112,7 @@ class AcliOrchestrator
 
         try {
             $aiRequest = new AIRequest(
-                model: config('acli.gateway.model', 'auto'),
+                model: config('acli.gateway.model'),
                 messages: $messages,
                 temperature: $options['temperature'] ?? 0.7,
                 maxTokens: $options['max_tokens'] ?? 2000,
@@ -156,7 +156,7 @@ class AcliOrchestrator
                 'conversation_id' => $conversation->id,
                 'capability_id' => $capability?->id,
                 'provider' => $e->provider,
-                'model' => config('acli.gateway.model', 'auto'),
+                'model' => config('acli.gateway.model'),
                 'status' => 'failed',
                 'latency_ms' => $latencyMs,
                 'error_message' => $e->getMessage(),

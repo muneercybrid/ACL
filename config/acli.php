@@ -31,8 +31,10 @@ return [
     | AI Gateway
     |--------------------------------------------------------------------------
     |
-    | ACLi uses OmniRoute as the AI gateway. OmniRoute handles provider
-    | routing and model selection via model=auto.
+    | The gateway is OpenRouter (see ACLI_AI_BASE_URL). The model must be a
+    | real OpenRouter model slug: names like 'auto' are OmniRoute route names
+    | and do not exist here, so they fail on the primary and only appear to
+    | work because the fallback answers.
     |
     */
 
@@ -59,7 +61,7 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'default_model' => env('ACLI_MODEL', 'auto'),
+    'default_model' => env('ACLI_MODEL', env('ACLI_AI_MODEL', 'deepseek/deepseek-v4-flash-0731')),
 
     /*
     |--------------------------------------------------------------------------
@@ -68,7 +70,9 @@ return [
     */
 
     'models' => [
-        'primary' => env('ACLI_PRIMARY_MODEL', 'auto'),
+        // Chains to the gateway model rather than naming a legacy route, so
+        // an unset ACLI_PRIMARY_MODEL cannot reintroduce a dead model name.
+        'primary' => env('ACLI_PRIMARY_MODEL', env('ACLI_AI_MODEL', 'deepseek/deepseek-v4-flash-0731')),
 
         'fallbacks' => array_values(array_filter(
             array_map(
@@ -88,6 +92,8 @@ return [
     */
 
     'model_providers' => [
+        // Left in place so an old omniroute route name still resolves to a
+        // provider, but these must not be sent to the gateway as a model.
         'auto' => 'omniroute',
         'omniroute/auto' => 'omniroute',
         'omniroute/fast' => 'omniroute',

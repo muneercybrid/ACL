@@ -140,7 +140,12 @@ class MaterialImporter
 
         try {
             $response = $this->providers->chat(new \App\Services\ACLi\DTO\AIRequest(
-                model: 'auto',
+                // Resolved from config, never hardcoded. 'auto' is an omniroute
+                // route name; with the gateway on OpenRouter no such model
+                // exists, so this request failed on the primary every time and
+                // only succeeded through the first fallback -- which is why it
+                // looked healthy.
+                model: (string) config('acli.gateway.model'),
                 messages: [
                     ['role' => 'system', 'content' => 'You are a senior Nigerian academic. You reply with the formatted text only, no preamble, no markdown fences.'],
                     ['role' => 'user', 'content' => "Rewrite the following extracted material as clear teaching text for the chapter \"{$title}\""

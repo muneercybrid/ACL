@@ -28,11 +28,11 @@ final class OpenRouterProvider implements AIProvider
         if ($request->options !== []) $payload = array_replace_recursive($payload, $request->options);
 
         try {
-            $response = Http::withToken(config('acli.providers.openrouter.api_key'))
+            $response = Http::withToken(config('acli.providers.openrouter.api_key', config('acli.gateway.api_key')))
                 ->acceptJson()
-                ->timeout((int) config('acli.providers.openrouter.timeout', 120))
-                ->connectTimeout((int) config('acli.providers.openrouter.connect_timeout', 10))
-                ->post(config('acli.providers.openrouter.base_url', 'https://openrouter.ai/api/v1') . '/chat/completions', $payload);
+                ->timeout((int) config('acli.providers.openrouter.timeout', config('acli.gateway.timeout', 120)))
+                ->connectTimeout((int) config('acli.providers.openrouter.connect_timeout', config('acli.gateway.connect_timeout', 10)))
+                ->post(config('acli.providers.openrouter.base_url', config('acli.gateway.base_url', 'https://openrouter.ai/api/v1')) . '/chat/completions', $payload);
         } catch (\Exception $e) {
             throw new ProviderException('OpenRouter API connection failed.', provider: $this->name(), retryable: true, previous: $e);
         }
@@ -59,6 +59,6 @@ final class OpenRouterProvider implements AIProvider
     }
 
     public function name(): string { return 'openrouter'; }
-    public function isAvailable(): bool { return filled(config('acli.providers.openrouter.api_key')); }
+    public function isAvailable(): bool { return filled(config('acli.providers.openrouter.api_key', config('acli.gateway.api_key'))); }
     private function nullableInt(mixed $value): ?int { return is_numeric($value) ? (int) $value : null; }
 }

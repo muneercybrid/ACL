@@ -15,7 +15,7 @@ class AcliTest extends Command
 
         // Phase 2: diagnostic metadata only — never expose secret
         $this->line('ACLi CLI test');
-        $this->line('Model: ' . config('acli.model', config('app.acli_model', 'auto')));
+        $this->line('Model: ' . config('acli.gateway.model'));
         $this->line('Base URL configured: ' . (config('acli.omni_route_base_url') ? 'yes' : 'no'));
         $this->line('API key present: ' . (config('acli.omni_route_api_key') ? 'yes' : 'no'));
 
