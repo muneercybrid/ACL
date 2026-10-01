@@ -22,6 +22,18 @@ use Illuminate\Support\Str;
  */
 class CourseContentGenerator
 {
+    /**
+     * The floor on chapters per course.
+     *
+     * The CCMAS Course Contents paragraphs list far more distinct topics than
+     * six. Six chapters compress a full syllabus into headings that repeat each
+     * other, which is what produced near-duplicate titles: the plan had too few
+     * slots for the material, so the model reached for the same topic twice.
+     * Twenty is the floor rather than the target -- a course with less to teach
+     * gets fewer, and the near-duplicate guard still applies.
+     */
+    public const MIN_CHAPTERS = 20;
+
     public function __construct(
         private readonly ProviderManager $providers,
     ) {
@@ -32,7 +44,7 @@ class CourseContentGenerator
      *
      * @return array{generated: int, skipped: int, errors: array<int, string>}
      */
-    public function generateForCourse(int $courseId, int $chapterCount = 6, bool $apply = false): array
+    public function generateForCourse(int $courseId, int $chapterCount = self::MIN_CHAPTERS, bool $apply = false): array
     {
         $course = DB::table('courses')->where('id', $courseId)->first();
 
@@ -40,7 +52,7 @@ class CourseContentGenerator
             return ['generated' => 0, 'skipped' => 0, 'errors' => ['course ' . $courseId . ' not found']];
         }
 
-        $source = mb_substr($this->ccmasOutlineFor($course), 0, 1200);
+        $source = mb_substr($this->ccmasContentFor($course), 0, 4000);
 
         $prompts = $this->chapterPlan($course, $chapterCount, $source);
 
@@ -131,6 +143,35 @@ class CourseContentGenerator
      * Returning the real outline is the difference between material derived
      * from the NUC standard and material invented to fill a schema.
      */
+    /**
+     * The course's CCMAS content: learning outcomes and course contents.
+     *
+     * Read from ccmas_course_content, which ccmas:import-content populates
+     * from the seventeen discipline documents. That table is the source rather
+     * than the documents directly, because the files are build-time artefacts
+     * and the whole catalogue depends on this text.
+     *
+     * The document scan is kept as a fallback so a course whose content has
+     * not been imported yet still gets something better than its title. A
+     * course with neither is generated from its title and flagged, rather than
+     * being quietly given confident-sounding invented content.
+     */
+    private function ccmasContentFor(object $course): string
+    {
+        $code = strtoupper((string) $course->normalized_code);
+
+        if ($code !== '') {
+            $row = DB::table('ccmas_course_content')->where('code', $code)->first();
+
+            if ($row !== null) {
+                return "Learning Outcomes\n" . $row->learning_outcomes
+                    . "\n\nCourse Contents\n" . $row->course_contents;
+            }
+        }
+
+        return $this->ccmasOutlineFor($course);
+    }
+
     private function ccmasOutlineFor(object $course): string
     {
         $document = $course->source_document;
@@ -660,8 +701,10 @@ TEXT;
     private function chapterPlan(object $course, int $count, string $source): array
     {
         $outline = $source !== ''
-            ? "The NUC CCMAS outline for this course is:\n" . mb_substr($source, 0, 2500)
-            : 'The NUC CCMAS outline for this course was not recoverable from the document.';
+            ? "The NUC CCMAS document states the following for this course. "
+                ."Every learning outcome must be covered by at least one chapter, and the "
+                ."chapters must follow the course contents in the order given.\n\n" . mb_substr($source, 0, 4000)
+            : 'The NUC CCMAS document for this course was not recoverable. Write the chapter titles from the course title alone and keep them broad.';
 
         $prompt = <<<TEXT
 You are writing a course handbook for a Nigerian university, following the NUC Core Curriculum and Minimum Academic Standards (CCMAS).
