@@ -33,6 +33,8 @@ class GenerateCatalogue extends Command
                             {--only-missing : Skip courses that already have real chapters}
                             {--start-from= : Resume from this course code}
                             {--material : Also generate exercises, quizzes and flashcards per chapter}
+                            {--pause=8 : Seconds to wait between courses, to stay inside the provider rate limit}
+                            {--rate-limit-retries=5 : Times to back off when the provider reports HTTP 429}
                             {--dry-run : List what would be processed, generate nothing}';
 
     protected $description = 'Generate course content across the catalogue, one course at a time, resumably';
@@ -84,7 +86,15 @@ class GenerateCatalogue extends Command
         $failed = 0;
         $startedAt = now();
 
-        foreach ($pending as $row) {
+        $pause = (int) $this->option('pause');
+
+        foreach ($pending as $index => $row) {
+            // Pace the run. Two hundred courses back to back drew HTTP 429 from
+            // the provider and the entire batch failed in a second.
+            if ($index > 0 && $pause > 0) {
+                sleep($pause);
+            }
+
             $outcome = $this->generateOne($generator, $row, $chapters);
 
             if ($outcome) {
@@ -195,6 +205,40 @@ class GenerateCatalogue extends Command
     /** Distinguishes job rows written by different runs of this command. */
     protected string $runToken = '';
 
+    /**
+     * Runs generation, waiting out a rate limit rather than giving up.
+     *
+     * A 429 is the provider saying come back later, not that the course cannot
+     * be generated. Backing off exponentially and retrying keeps a large run
+     * alive; without it every course after the first burst fails identically.
+     */
+    protected function generateWithBackoff(CourseContentGenerator $generator, int $courseId, int $chapters): array
+    {
+        $retries = (int) $this->option('rate-limit-retries');
+
+        for ($attempt = 0; $attempt <= $retries; $attempt++) {
+            $result = $generator->generateForCourse($courseId, $chapters, apply: true);
+
+            if (($result['generated'] ?? 0) > 0 || $attempt === $retries) {
+                return $result;
+            }
+
+            $wait = min(300, 30 * (2 ** $attempt));
+
+            $this->warn(sprintf(
+                '  %s: no chapters generated, waiting %ds (attempt %d/%d).',
+                $courseId,
+                $wait,
+                $attempt + 1,
+                $retries
+            ));
+
+            sleep($wait);
+        }
+
+        return [];
+    }
+
     protected function wantsMaterial(): bool
     {
         return (bool) $this->option('material');
@@ -224,7 +268,7 @@ class GenerateCatalogue extends Command
         ]);
 
         try {
-            $result = $generator->generateForCourse($courseId, $chapters, apply: true);
+            $result = $this->generateWithBackoff($generator, $courseId, $chapters);
 
             $chapterIds = DB::table('course_chapters')
                 ->where('course_id', $courseId)

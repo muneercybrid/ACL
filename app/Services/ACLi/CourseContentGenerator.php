@@ -60,6 +60,13 @@ class CourseContentGenerator
         $skipped = 0;
         $errors = [];
 
+        if ($prompts === []) {
+            // A failed plan used to leave both counts at zero, so a course that
+            // could not be generated at all was indistinguishable from one with
+            // nothing to do. Name it.
+            $errors[] = $course->code . ' chapter plan failed; the provider returned no usable plan';
+        }
+
         // Positions already taken for this course. The unique constraint is on
         // (course_id, position), not on the slug, so resuming has to start after
         // the highest existing position rather than checking titles -- otherwise
