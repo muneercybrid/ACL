@@ -56,16 +56,37 @@ class CourseContentGenerator
             ->where('course_id', $courseId)
             ->max('position')) + 1;
 
+        // Titles already stored for this course count as seen too, so a re-run
+        // cannot reintroduce a chapter the course already had.
+        $seenTitles = DB::table('course_chapters')
+            ->where('course_id', $courseId)
+            ->pluck('title')
+            ->map(fn ($t) => (string) $t)
+            ->all();
+
         foreach ($prompts as $plan) {
             $position = $nextPosition;
             $nextPosition++;
             $slug = Str::slug($plan['title']);
 
-            if (DB::table('course_chapters')->where('course_id', $courseId)->where('slug', $slug)->exists()) {
+            // Exact slug equality is not enough. A chapter plan came back with
+            // both "History and Evolution of Computing Systems" and "History
+            // and Evolution of Computing" -- different slugs, the same
+            // chapter -- and both were stored, so a student opened a course
+            // and found the same topic listed twice. Near-duplicates are
+            // detected against every title already planned in this run as
+            // well as against what is stored.
+            if ($this->isNearDuplicate($plan['title'], $seenTitles)
+                || DB::table('course_chapters')
+                    ->where('course_id', $courseId)
+                    ->where('slug', $slug)
+                    ->exists()) {
                 $nextPosition--;
                 $skipped++;
                 continue;
             }
+
+            $seenTitles[] = (string) $plan['title'];
 
             $content = $this->writeChapter($course, $plan, $source);
 
@@ -755,6 +776,56 @@ TEXT;
 
             return null;
         }
+    }
+
+    /**
+     * Whether two chapter titles describe the same chapter.
+     *
+     * Word-set overlap, not string distance: the duplicates that actually
+     * occurred differ only by a trailing word ("...Computing Systems" vs
+     * "...Computing"), which a length-normalised distance would call
+     * different. Requiring most of the significant words to be shared
+     * catches that, and shared stop words are ignored so "Introduction to
+     * Cyber Security" and "Introduction to Data Protection" are not treated
+     * as the same chapter.
+     */
+    private function isNearDuplicate(string $title, array $seen): bool
+    {
+        $words = $this->significantWords($title);
+
+        if ($words === []) {
+            return false;
+        }
+
+        foreach ($seen as $other) {
+            $otherWords = $this->significantWords((string) $other);
+
+            if ($otherWords === []) {
+                continue;
+            }
+
+            $shared = count(array_intersect($words, $otherWords));
+            $smaller = min(count($words), count($otherWords));
+
+            if ($smaller > 0 && $shared / $smaller >= 0.8) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function significantWords(string $title): array
+    {
+        $stop = ['and', 'the', 'of', 'in', 'to', 'for', 'a', 'an', 'with', 'on', 'its'];
+
+        $words = preg_split('/[^a-z0-9]+/i', mb_strtolower($title)) ?: [];
+        $words = array_filter($words, fn ($w) => $w !== '' && ! in_array($w, $stop, true));
+
+        return array_values(array_unique($words));
     }
 
     /**
