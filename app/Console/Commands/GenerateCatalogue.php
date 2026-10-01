@@ -78,6 +78,8 @@ class GenerateCatalogue extends Command
             return self::SUCCESS;
         }
 
+        $this->runToken = substr((string) now()->format('YmdHis'), 0, 14) . '-' . substr(bin2hex(random_bytes(3)), 0, 6);
+
         $done = 0;
         $failed = 0;
         $startedAt = now();
@@ -190,6 +192,9 @@ class GenerateCatalogue extends Command
     /** @var array<int, int>|null */
     protected ?array $completed = null;
 
+    /** Distinguishes job rows written by different runs of this command. */
+    protected string $runToken = '';
+
     protected function wantsMaterial(): bool
     {
         return (bool) $this->option('material');
@@ -200,7 +205,11 @@ class GenerateCatalogue extends Command
         $courseId = (int) $course['id'];
 
         $jobId = DB::table('content_generation_jobs')->insertGetId([
-            'job_code' => 'catalogue:' . $course['normalized_code'],
+            // job_code is unique, so a bare code/code pair means a course can
+            // only ever be attempted once and the run dies on the first retry.
+            // The run token keeps the history of every attempt while letting
+            // the same course be retried.
+            'job_code' => 'catalogue:' . $course['normalized_code'] . ':' . $this->runToken,
             'course_id' => $courseId,
             'action' => 'generate_chapters_and_material',
             'scope' => 'course',
