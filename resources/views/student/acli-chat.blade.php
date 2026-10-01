@@ -3,7 +3,10 @@
 @section('title', 'ACLi — AI Assistant')
 
 @section('content')
-<div class="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl flex-col px-4 sm:px-6">
+{{-- Capped rather than full-viewport. A chat pinned to 100dvh pushes the page
+     header off and leaves the transcript running to the bottom of the screen
+     with no end in sight. The box stays a box. --}}
+<div class="mx-auto flex h-[calc(100dvh-9rem)] max-h-[42rem] min-h-[26rem] max-w-6xl flex-col px-4 sm:px-6">
     <!-- Header -->
     <div class="mb-4 flex items-center justify-between border-b border-border py-4 shrink-0">
         <div class="flex items-center gap-3">
@@ -16,6 +19,10 @@
             </div>
         </div>
         <div class="flex items-center gap-2">
+            <button type="button" id="conv-toggle" aria-label="Show previous chats" aria-expanded="false"
+                    class="rounded-lg border border-border bg-raised p-2 text-text transition hover:bg-bg sm:hidden">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+            </button>
             <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">Online</span>
         </div>
     </div>
@@ -26,9 +33,13 @@
         </div>
     @endif
 
-    <div class="flex flex-1 gap-4 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm min-h-0">
+    <div class="relative flex flex-1 gap-4 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm min-h-0">
         <!-- Sidebar -->
-        <aside class="hidden w-64 shrink-0 flex-col border-r border-border bg-surface sm:flex">
+        {{-- Reachable on a phone. Previously `hidden sm:flex`, which meant no history
+     list at all on the device most students actually use. It slides in from
+     the left on small screens and is a permanent column from sm up. --}}
+        <aside id="conv-sidebar"
+               class="absolute inset-y-0 left-0 z-20 w-72 max-w-[85vw] shrink-0 -translate-x-full flex-col border-r border-border bg-surface transition-transform duration-200 sm:static sm:w-64 sm:translate-x-0">
             <div class="p-3">
                 <button onclick="showNewConversation()" class="flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-fg transition hover:opacity-90">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
@@ -480,3 +491,45 @@
 })();
 </script>
 @endsection
+
+    <script>
+        (function () {
+            var sidebar = document.getElementById('conv-sidebar');
+            var toggle = document.getElementById('conv-toggle');
+            if (! sidebar || ! toggle) return;
+
+            var backdrop = document.createElement('div');
+            backdrop.className = 'absolute inset-0 z-10 hidden bg-black/30 sm:hidden';
+            backdrop.addEventListener('click', close);
+            sidebar.parentElement.insertBefore(backdrop, sidebar);
+
+            function open() {
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+                toggle.setAttribute('aria-expanded', 'true');
+            }
+
+            function close() {
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+
+            toggle.addEventListener('click', function () {
+                sidebar.classList.contains('-translate-x-full') ? open() : close();
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') close();
+            });
+
+            // A chosen conversation should close the drawer behind it.
+            sidebar.addEventListener('click', function (e) {
+                if (e.target.closest('a')) close();
+            });
+
+            window.closeConversationDrawer = close;
+        })();
+    </script>
+
+    {{-- Fetches a chapter's full explanation the first time it is asked for,
