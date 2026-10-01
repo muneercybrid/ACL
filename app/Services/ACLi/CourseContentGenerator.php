@@ -714,12 +714,24 @@ Course title: {$course->title}
 
 {$outline}
 
-Propose exactly {$count} chapter titles for this course. They must:
-- cover the CCMAS outline above in order, without repeating each other
-- be specific to this course, not generic study skills
-- each be a short noun phrase of at most 8 words
+Propose exactly {$count} chapter titles for this course.
 
-Return ONLY a JSON array of strings. No prose, no markdown, no code fence.
+Order them as a student should learn them, easiest first:
+- open with what a beginner must already know and what the subject is
+- build one idea on the next, each chapter depending only on earlier ones
+- put the harder, more abstract and more applied material later
+- finish with the material a student needs in professional practice
+
+Every learning outcome in the CCMAS statement above must be covered by at least
+one chapter. Follow the course contents in order; do not rearrange them into
+some sequence you think is better.
+
+Titles must be specific to this course and name the actual idea being taught --
+"Photosynthesis and Light Absorption", not "Core Concepts". No two titles may
+cover the same ground. Each is a short noun phrase of at most 8 words.
+
+Return ONLY a JSON array of strings, in teaching order. No prose, no markdown,
+no code fence.
 TEXT;
 
         $response = $this->ask($prompt);

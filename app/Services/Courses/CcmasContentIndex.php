@@ -118,7 +118,7 @@ class CcmasContentIndex
     {
         $text = $this->normalise($text);
 
-        $pattern = '/^([A-Z]{2,4}\s?\d{3}):\s*(.+?)\n(.*?)(?=^[A-Z]{2,4}\s?\d{3}:|\z)/ms';
+        $pattern = '/^([A-Z]{2,8}\s?\d{3}):\s*(.+?)\n(.*?)(?=^[A-Z]{2,8}\s?\d{3}:|\z)/ms';
 
         $entries = [];
 
@@ -146,7 +146,7 @@ class CcmasContentIndex
             // win on length and become the canonical entry.
             foreach (['Learning Outcomes' => $outcomes, 'Course Contents' => $contents] as $label2 => $text) {
                 if (preg_match('/(?:^|\n)\s*' . preg_quote($label2, '/') . '\s*\n/i', $text)
-                    || preg_match('/(?:^|\n)[A-Z]{2,4}\s?\d{3}\s*:/', $text)) {
+                    || preg_match('/(?:^|\n)[A-Z]{2,8}\s?\d{3}\s*:/', $text)) {
                     $outcomes = null;
                     break;
                 }
