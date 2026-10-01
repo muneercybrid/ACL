@@ -188,6 +188,11 @@ Route::middleware('auth')->group(function () {
         Route::post('/course-register', [Student\CourseRegistrationController::class, 'store'])->name('course.register.store');
         Route::get('/course/{courseRef}', [StudentDashboardController::class, 'showCourse'])->name('course.show')
             ->where('courseRef', '[cp][0-9]+');
+        // POST, not GET: enrollment is a state change. The button that used to
+        // read "Enroll to view" was a disabled span with no route behind it at
+        // all, so no student could ever enroll.
+        Route::post('/course/{courseRef}/enroll', [StudentDashboardController::class, 'enrollInCourse'])->name('course.enroll')
+            ->where('courseRef', '[cp][0-9]+');
     });
 
     // Course Viewer

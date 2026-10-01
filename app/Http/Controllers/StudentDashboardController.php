@@ -160,7 +160,7 @@ class StudentDashboardController extends Controller
         }
 
         if ($kind === 'p') {
-            return $this->showInstitutionCourse($student, $id, $user);
+            return $this->showInstitutionCourse($student, $id, $user, $ref);
         }
 
         $curriculumCourse = CurriculumCourse::with([
@@ -197,7 +197,76 @@ class StudentDashboardController extends Controller
             'curriculumCourse' => $curriculumCourse,
             'currentOffering' => $offering,
             'enrollment' => $enrollment,
+            'courseRef' => $ref,
         ]);
+    }
+
+    /**
+     * Enrolls the student in a course they opened.
+     *
+     * The same scope checks as showCourse apply and are not bypassed: the
+     * route alone must not let a student enroll in a course belonging to
+     * another institution, or at a level they are not sitting. The course is
+     * re-resolved through exactly the same ownership check the GET used, and
+     * anything else is a 403.
+     */
+    public function enrollInCourse(Request $request, string $ref)
+    {
+        $student = $request->user()?->student;
+
+        if (! $student) {
+            abort(403, 'This course is only available to registered students.');
+        }
+
+        $courseId = $this->resolveCourseIdForStudent($ref, $student);
+
+        $result = app(\App\Services\Courses\CourseEnrollmentService::class)
+            ->enroll($request->user()->id, $courseId);
+
+        return back()->with($result['enrollment'] ? 'status' : 'error', $result['message']);
+    }
+
+    /**
+     * Resolves a course ref to a course id for this student, applying the same
+     * scope rules the course page applies.
+     *
+     * Enrollment is a POST and carries its own route, so a route-scoped check
+     * is not enough on its own: a student could otherwise post to the enroll
+     * endpoint with an id belonging to another institution or to a level they
+     * are not sitting. Both layers are re-checked here exactly as showCourse
+     * checks them.
+     */
+    private function resolveCourseIdForStudent(string $ref, $student): int
+    {
+        $kind = substr($ref, 0, 1);
+        $id = (int) substr($ref, 1);
+
+        if ($id < 1 || ! in_array($kind, ['c', 'p'], true)) {
+            abort(404);
+        }
+
+        if ($kind === 'c') {
+            $curriculumCourse = CurriculumCourse::with('curriculumVersion')->findOrFail($id);
+            $programme = $this->dashboard->curriculumProgramme($student);
+
+            if (! $programme
+                || $curriculumCourse->curriculumVersion->programme_id !== $programme->id) {
+                abort(403, 'This course is not part of your programme.');
+            }
+
+            return (int) $curriculumCourse->course_id;
+        }
+
+        $levelCourse = ProgrammeLevelCourse::with('academicProgram')->findOrFail($id);
+        $programme = $this->dashboard->academicProgramme($student);
+
+        if (! $programme
+            || (int) $levelCourse->academic_program_id !== (int) $programme->id
+            || (int) $levelCourse->level !== (int) ($student->level ?? 100)) {
+            abort(403, 'This course is not part of your programme.');
+        }
+
+        return (int) $levelCourse->course_id;
     }
 
     /**
@@ -210,7 +279,7 @@ class StudentDashboardController extends Controller
      * level they are not sitting, and neither may be reachable by guessing an
      * id.
      */
-    private function showInstitutionCourse($student, int $programmeLevelCourseId, $user): View
+    private function showInstitutionCourse($student, int $programmeLevelCourseId, $user, string $ref): View
     {
         $programme = $this->dashboard->academicProgramme($student);
 
@@ -259,6 +328,7 @@ class StudentDashboardController extends Controller
             'curriculumCourse' => $placement,
             'currentOffering' => $offering,
             'enrollment' => $enrollment,
+            'courseRef' => $ref,
         ]);
     }
 }
