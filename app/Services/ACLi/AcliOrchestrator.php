@@ -76,7 +76,7 @@ class AcliOrchestrator
             $request = new AIRequest(
                 model: (string) config('acli.gateway.model'),
                 messages: $providerMessages,
-                maxTokens: min(300, (int) config('acli.gateway.max_tokens', 300)),
+                maxTokens: min(500, (int) config('acli.gateway.max_tokens', 500)),
             );
 
             $response = $provider->streamChat($request, $onDelta);
