@@ -36,51 +36,12 @@
             </div>
         @endif
 
-        <!-- Active Enrollments (ground truth) -->
-        @if ($activeEnrollments->count() > 0 || ($enrollments->count() > 0 && !$academicProgramme))
-            <div class="mb-8">
-                <h3 class="mb-4 text-lg font-bold text-text">Currently Enrolled</h3>
-                <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                    @if ($academicProgramme)
-                        @foreach ($activeEnrollments as $cc)
-                            @php $offering = $cc->current_offering; @endphp
-                            <a href="{{ $offering ? route('courses.show', $offering) : '#' }}" class="group block rounded-xl border border-emerald-300/60 bg-emerald-50/40 p-5 transition hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring">
-                                <div class="flex items-start justify-between gap-3">
-                                    <h4 class="font-bold text-text group-hover:text-primary transition">{{ $cc->course->title ?? $cc->title }}</h4>
-                                    <span class="inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">Enrolled</span>
-                                </div>
-                                <p class="mt-2 text-sm text-muted">{{ $cc->course->description ?? 'No description available.' }}</p>
-                                <div class="mt-4 flex items-center gap-3 text-xs text-muted">
-                                    <span>{{ $cc->course->credit_units ?? '-' }} credits</span>
-                                    <span aria-hidden="true">•</span>
-                                    <span>{{ $offering?->semester?->name ?? 'Current semester' }}</span>
-                                </div>
-                                <div class="mt-4 text-sm font-semibold text-primary">Continue learning →</div>
-                            </a>
-                        @endforeach
-                    @else
-                        @foreach ($enrollments as $enrollment)
-                            <a href="{{ route('courses.show', $enrollment->courseOffering) }}"
-                               class="group block rounded-xl border border-emerald-300/60 bg-emerald-50/40 p-5 transition hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring">
-                                <div class="flex items-start justify-between gap-3">
-                                    <h4 class="font-bold text-text group-hover:text-primary transition">{{ $enrollment->courseOffering->course->title }}</h4>
-                                    <span class="inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">Enrolled</span>
-                                </div>
-                                <p class="mt-2 text-sm text-muted">{{ $enrollment->courseOffering->course->description ?? 'No description available.' }}</p>
-                                <div class="mt-4 flex items-center gap-3 text-xs text-muted">
-                                    <span>{{ $enrollment->courseOffering->course->credit_units ?? '-' }} credits</span>
-                                    <span aria-hidden="true">•</span>
-                                    <span>{{ $enrollment->courseOffering->semester?->name ?? 'Current semester' }}</span>
-                                </div>
-                                <div class="mt-4 text-sm font-semibold text-primary">Open course →</div>
-                            </a>
-                        @endforeach
-                    @endif
-                </div>
-            </div>
-        @endif
-
-        <!-- Available Courses (not yet enrolled) -->
+        {{-- Enrollment is shown as a tag on the course card itself rather than a
+             separate section. A course the student is taking appeared twice
+             before -- once under "Currently Enrolled" and again under the
+             programme curriculum -- which read as two different courses. One
+             card, one tag. --}}
+        <!-- Programme curriculum with enrollment tags -->
         @if ($programmeCourses->count() > 0)
             <div>
                 <h3 class="mb-4 text-lg font-bold text-text">Programme Curriculum</h3>
