@@ -112,6 +112,10 @@ class GenerateCatalogueTitles extends Command
                         if (count($titles) < 5) { $fail++; continue; }
                         $this->applyTitles($id, $course, $titles);
                         $ok++;
+                        // Pace the requests. The chat shares
+                        // these credentials, so a burst here
+                        // shows up as 429s in the chat box.
+                        usleep(3 * 1000000); // 3s
                         if ($ok % 20 === 0) {
                             $this->line("  [$code] $ok done, $fail failed");
                         }
@@ -167,7 +171,7 @@ class GenerateCatalogueTitles extends Command
                 ['role' => 'system', 'content' => 'You reply with JSON only. No markdown, no commentary.'],
                 ['role' => 'user', 'content' => $prompt],
             ],
-            maxTokens: 1200,
+            maxTokens: 4000,
         ))->content;
 
         return $this->parseTitles((string) $response, $count);
