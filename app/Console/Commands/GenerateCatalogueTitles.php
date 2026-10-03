@@ -117,6 +117,13 @@ class GenerateCatalogueTitles extends Command
                         }
                     } catch (\Throwable $e) {
                         $fail++;
+                        // A 429 means every credential for the model
+                        // is cooling down. Retrying the next course
+                        // immediately just extends the cooldown, so
+                        // pause before carrying on.
+                        if (str_contains($e->getMessage(), '429')) {
+                            usleep(15 * 1000000); // 15s
+                        }
                         Log::warning('titles: course failed', [
                             'course_id' => $id, 'message' => $e->getMessage(),
                         ]);
