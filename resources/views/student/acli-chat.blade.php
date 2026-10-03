@@ -39,7 +39,7 @@
      list at all on the device most students actually use. It slides in from
      the left on small screens and is a permanent column from sm up. --}}
         <aside id="conv-sidebar"
-               class="absolute inset-y-0 left-0 z-20 w-72 max-w-[85vw] shrink-0 -translate-x-full flex-col border-r border-border bg-surface transition-transform duration-200 sm:static sm:w-64 sm:translate-x-0">
+               class="absolute inset-y-0 left-0 z-20 flex w-72 max-w-[85vw] shrink-0 -translate-x-full flex-col border-r border-border bg-surface transition-transform duration-200 sm:static sm:w-64 sm:translate-x-0">
             <div class="p-3">
                 <a href="{{ route('acli.chat') }}" class="flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-fg transition hover:opacity-90">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
@@ -59,7 +59,7 @@
         </aside>
 
         <!-- Chat area -->
-        <main class="flex flex-1 flex-col min-h-0">
+        <main class="flex flex-1 flex-col min-h-0 overflow-hidden">
             <!-- Messages -->
             <div id="messages" class="flex flex-1 flex-col gap-3 overflow-y-auto p-4 min-h-0">
                 @foreach (($initialMessages ?? collect()) as $stored)
@@ -96,9 +96,14 @@
                 @if ($isTyping ?? false)
                     <div class="flex gap-3">
                         <div class="flex items-center gap-1 rounded-xl border border-border bg-bg/60 px-4 py-3">
-                            <span class="h-2 w-2 animate-bounce rounded-full bg-muted"></span>
-                            <span class="h-2 w-2 animate-bounce rounded-full bg-muted" style="animation-delay: 0.1s"></span>
-                            <span class="h-2 w-2 animate-bounce rounded-full bg-muted" style="animation-delay: 0.2s"></span>
+                            {{-- A small spinning ring, not three bouncing
+                                 dots: a single rotating circle reads as
+                                 "thinking" without bouncing around the
+                                 bottom of the chat box. --}}
+                            <svg class="h-4 w-4 animate-spin text-muted" viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
                         </div>
                     </div>
                 @endif
@@ -382,9 +387,9 @@
         wrapper.className = 'flex gap-3';
         wrapper.id = 'typing-indicator';
         wrapper.innerHTML = '<div class="flex items-center gap-1 rounded-xl border border-border bg-bg/60 px-4 py-3">' +
-            '<span class="h-2 w-2 animate-bounce rounded-full bg-muted"></span>' +
-            '<span class="h-2 w-2 animate-bounce rounded-full bg-muted" style="animation-delay: 0.1s"></span>' +
-            '<span class="h-2 w-2 animate-bounce rounded-full bg-muted" style="animation-delay: 0.2s"></span>' +
+            '<svg class="h-4 w-4 animate-spin text-muted" viewBox="0 0 24 24" fill="none">' +
+            '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
+            '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>' +
             '</div>';
         messagesEl.appendChild(wrapper);
         return wrapper;
