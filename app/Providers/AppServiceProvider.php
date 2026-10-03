@@ -24,7 +24,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ProviderManager::class, function ($app) {
             $manager = new ProviderManager();
             $manager->register(new OmniRouteProvider());
-            $manager->register(new OpenRouterProvider());
             return $manager;
         });
 

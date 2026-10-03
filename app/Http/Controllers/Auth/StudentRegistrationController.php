@@ -337,6 +337,7 @@ class StudentRegistrationController extends Controller
                         : null,
                 ]);
 
+                if ($verification->organization) {
                     OrganizationMembership::create([
                         'organization_id' => $verification->organization->id,
                         'user_id' => $user->id,
@@ -346,6 +347,7 @@ class StudentRegistrationController extends Controller
                         'status' => 'active',
                         'joined_at' => now(),
                     ]);
+                }
 
                 // Create student record with nationality, state, lga
                 \App\Models\Student::create([

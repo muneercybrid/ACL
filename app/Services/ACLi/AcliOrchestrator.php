@@ -76,7 +76,7 @@ class AcliOrchestrator
             $request = new AIRequest(
                 model: (string) config('acli.gateway.model'),
                 messages: $providerMessages,
-                maxTokens: (int) config('acli.gateway.max_tokens', 2000),
+                maxTokens: min(100, (int) config('acli.gateway.max_tokens', 100)),
             );
 
             $response = $provider->streamChat($request, $onDelta);
@@ -174,7 +174,7 @@ class AcliOrchestrator
                 model: config('acli.gateway.model'),
                 messages: $messages,
                 temperature: $options['temperature'] ?? 0.7,
-                maxTokens: $options['max_tokens'] ?? 2000,
+                maxTokens: min(100, (int) ($options["max_tokens"] ?? 100)),
             );
 
             $response = $this->providerManager->chat($aiRequest);
@@ -244,12 +244,18 @@ class AcliOrchestrator
             }
         }
 
+        $title = $options['title'] ?? 'New conversation';
+        if (empty($options['title']) && !empty($messages)) {
+            $firstText = end($messages)['content'] ?? '';
+            $title = mb_substr(trim($firstText), 0, 60);
+            if (mb_strlen($title) > 55) $title .= '...';
+        }
         return Conversation::create([
             'user_id' => $user->id,
             'course_offering_id' => $options['course_offering_id'] ?? null,
             'chapter_id' => $options['chapter_id'] ?? null,
             'lesson_id' => $options['lesson_id'] ?? null,
-            'title' => $options['title'] ?? 'New conversation',
+            'title' => $title,
             'status' => 'active',
         ]);
     }
