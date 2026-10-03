@@ -10,7 +10,6 @@ use App\Services\ACLi\AcliOrchestrator;
 use App\Services\ACLi\CurriculumContextService;
 use App\Services\ACLi\ProviderManager;
 use App\Services\ACLi\Providers\OmniRouteProvider;
-use App\Services\ACLi\Providers\OpenRouterProvider;
 use App\Services\EntitlementService;
 use App\Services\StudentDashboardService;
 use Illuminate\Support\Facades\URL;
