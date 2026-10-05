@@ -2,6 +2,7 @@
 
 namespace App\Services\ACLi;
 
+use App\Models\AcliSubscriptionSetting;
 use App\Models\User;
 use App\Services\EntitlementService;
 
@@ -11,9 +12,12 @@ use App\Services\EntitlementService;
  * Determines whether a user is entitled to use specific ACLi AI capabilities.
  * Separate from ACL platform entitlements (course access, etc.).
  *
- * Current model: ACLi is FREE for all students. The paid gate can be
- * re-enabled later by setting ACLI_REQUIRE_ENTITLEMENT=true in .env
- * (and then implementing the subscription check in checkAcliEntitlement).
+ * The paid gate is a single superadmin-editable row in
+ * acli_subscription_settings: enable payment, set the
+ * price, choose the payment type (one-time / monthly /
+ * yearly) and the grace period. With payment disabled
+ * every student is entitled; with it enabled the check
+ * in checkAcliEntitlement runs.
  */
 class AcliEntitlementService
 {
@@ -126,17 +130,26 @@ class AcliEntitlementService
     /**
      * Check if user has ACLi entitlement.
      *
-     * This is a paid capability separate from course enrollment.
-     * Currently checks for a simple flag on the user - in production
-     * this would check subscription/payment status.
+     * The paid gate is configurable by the superadmin:
+     * payment can be enabled or disabled, the price, the
+     * payment type (one-time / monthly / yearly) and the
+     * grace period are all stored in the single
+     * acli_subscription_settings row. While payment is
+     * disabled every student is entitled, which keeps the
+     * free tier working until the admin turns the gate on.
      */
     protected function checkAcliEntitlement(User $user): bool
     {
-        // TODO: Replace with actual subscription/entitlement check
-        // For now, check if user has the 'acli_entitled' flag or is a test user
-        // In production: check payment/subscription service
+        $settings = AcliSubscriptionSetting::current();
 
-        // Allow test accounts for development
+        // Payment gate disabled: every student is entitled.
+        if (! $settings->isPaymentEnabled()) {
+            return true;
+        }
+
+        // Gate enabled: the student needs an active
+        // entitlement. The test accounts stay entitled so
+        // the paid path can be exercised without charging.
         $testEmails = [
             'student@acl.local',
             'admin@acl.local',
@@ -146,10 +159,10 @@ class AcliEntitlementService
             return true;
         }
 
-        // Check for ACLi entitlement flag (to be added to users table)
-        // return (bool) $user->acli_entitled;
-
-        // For now, deny by default - user must be granted entitlement
+        // A real subscription check would live here once a
+        // payment provider is wired up. Until then the gate
+        // denies, which is the safe default: an unconfigured
+        // paid feature must not hand out access.
         return false;
     }
 }
