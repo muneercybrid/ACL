@@ -49,6 +49,78 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Unified Failover Chain
+    |--------------------------------------------------------------------------
+    |
+    | ACLi talks to a chain of backing AI providers in priority order.
+    | The first backend that returns a usable answer serves the request;
+    | a backend that is unconfigured is skipped silently, so the same
+    | code runs in environments where only some backends exist.
+    |
+    | Order matters. Token Harbor leads because its ":free" models cost
+    | nothing and showed no rate limit under load; Cloudflare is the
+    | second free tier; the local OmniRoute proxy is last because it
+    | shares credentials with background chapter generation and can
+    | return 429s. Each backend has its own model slug below.
+    |
+    */
+
+    'unified' => [
+        'chain' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('ACLI_UNIFIED_CHAIN', 'tokenharbor,cloudflare,omniroute'))
+        ))),
+
+        'models' => [
+            'tokenharbor' => env('ACLI_TOKENHARBOR_MODEL', 'mimo-v2.6-flash:free'),
+            'cloudflare' => env('ACLI_CLOUDFLARE_MODEL', '@cf/meta/llama-3.2-1b-instruct'),
+            'omniroute' => env('ACLI_OMNIROUTE_MODEL', env('ACLI_AI_MODEL', 'deepseek/deepseek-v4-flash-0731')),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Token Harbor (OpenAI-compatible gateway)
+    |--------------------------------------------------------------------------
+    |
+    | Multi-vendor gateway: Claude, GPT, Gemini, Grok, Kimi, DeepSeek,
+    | Qwen, GLM, MiMo. Models suffixed ":free" cost nothing. Requires
+    | the account's email to be verified or every call returns 403
+    | email_verification_required.
+    |
+    */
+
+    'tokenharbor' => [
+        'base_url' => env('ACLI_TOKENHARBOR_BASE_URL', 'https://tokenharbor.ai'),
+        'api_key' => env('ACLI_TOKENHARBOR_API_KEY'),
+        'model' => env('ACLI_TOKENHARBOR_MODEL', 'mimo-v2.6-flash:free'),
+        'timeout' => (int) env('ACLI_TOKENHARBOR_TIMEOUT', 120),
+        'connect_timeout' => (int) env('ACLI_TOKENHARBOR_CONNECT_TIMEOUT', 10),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cloudflare Workers AI
+    |--------------------------------------------------------------------------
+    |
+    | Uses the /client/v4/accounts/{account}/ai/run/{model} endpoint,
+    | which is not OpenAI-shaped — the provider adapter translates it.
+    | Free plan covers the "@cf/meta/llama-3.2-1b-instruct" class of
+    | models; image models (Stable Diffusion) return "No route for that
+    | URI" and need a Workers Paid plan.
+    |
+    */
+
+    'cloudflare' => [
+        'api_token' => env('ACLI_CLOUDFLARE_API_TOKEN'),
+        'account_id' => env('ACLI_CLOUDFLARE_ACCOUNT_ID'),
+        'model' => env('ACLI_CLOUDFLARE_MODEL', '@cf/meta/llama-3.2-1b-instruct'),
+        'timeout' => (int) env('ACLI_CLOUDFLARE_TIMEOUT', 120),
+        'connect_timeout' => (int) env('ACLI_CLOUDFLARE_CONNECT_TIMEOUT', 10),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Default Provider (legacy - kept for backward compatibility)
     |--------------------------------------------------------------------------
     */

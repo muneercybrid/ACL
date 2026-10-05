@@ -9,7 +9,10 @@ use App\Services\ACLi\AcliEntitlementService;
 use App\Services\ACLi\AcliOrchestrator;
 use App\Services\ACLi\CurriculumContextService;
 use App\Services\ACLi\ProviderManager;
+use App\Services\ACLi\Providers\CloudflareProvider;
 use App\Services\ACLi\Providers\OmniRouteProvider;
+use App\Services\ACLi\Providers\TokenHarborProvider;
+use App\Services\ACLi\Providers\UnifiedProvider;
 use App\Services\EntitlementService;
 use App\Services\StudentDashboardService;
 use Illuminate\Support\Facades\URL;
@@ -19,9 +22,16 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // ACLi Provider Manager
+        // ACLi Provider Manager. The unified provider is a
+        // failover chain over Token Harbor, Cloudflare and
+        // OmniRoute; the individual providers are registered
+        // too so they stay resolvable by name for tooling and
+        // for the superadmin model tests.
         $this->app->singleton(ProviderManager::class, function ($app) {
             $manager = new ProviderManager();
+            $manager->register(new UnifiedProvider());
+            $manager->register(new TokenHarborProvider());
+            $manager->register(new CloudflareProvider());
             $manager->register(new OmniRouteProvider());
             return $manager;
         });
