@@ -121,6 +121,34 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Image Generation
+    |--------------------------------------------------------------------------
+    |
+    | Text and image generation are separate problems here. None of the
+    | configured text backends can produce images on a free plan:
+    | Cloudflare's Stable Diffusion routes return "No route for that URI",
+    | Gemini's image models return 429 until billing is enabled, and Token
+    | Harbor's /v1/images/generations returns 402 until topped up.
+    |
+    | Pollinations needs no credentials at all, so it is the image backend
+    | that actually works without payment. Its anonymous tier is throttled
+    | to roughly one image per 20-30 seconds, which suits on-demand
+    | illustration but not bulk rendering. Swap in a funded provider later
+    | by pointing ACLI_IMAGE_MODEL at it.
+    |
+    */
+
+    'images' => [
+        'enabled' => (bool) env('ACLI_IMAGES_ENABLED', true),
+        'base_url' => env('ACLI_IMAGE_BASE_URL', 'https://image.pollinations.ai'),
+        'model' => env('ACLI_IMAGE_MODEL', 'sana'),
+        'timeout' => (int) env('ACLI_IMAGE_TIMEOUT', 90),
+        'max_width' => (int) env('ACLI_IMAGE_MAX_WIDTH', 1024),
+        'max_height' => (int) env('ACLI_IMAGE_MAX_HEIGHT', 1024),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Default Provider (legacy - kept for backward compatibility)
     |--------------------------------------------------------------------------
     */

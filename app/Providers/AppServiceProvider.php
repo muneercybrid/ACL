@@ -8,9 +8,11 @@ use App\Services\ACLi\AcliContextService;
 use App\Services\ACLi\AcliEntitlementService;
 use App\Services\ACLi\AcliOrchestrator;
 use App\Services\ACLi\CurriculumContextService;
+use App\Services\ACLi\ImageGenerationService;
 use App\Services\ACLi\ProviderManager;
 use App\Services\ACLi\Providers\CloudflareProvider;
 use App\Services\ACLi\Providers\OmniRouteProvider;
+use App\Services\ACLi\Providers\PollinationsImageProvider;
 use App\Services\ACLi\Providers\TokenHarborProvider;
 use App\Services\ACLi\Providers\UnifiedProvider;
 use App\Services\EntitlementService;
@@ -37,6 +39,14 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // ACLi Services
+        // Image generation is separate from the chat chain: none of the
+        // text backends can render images on a free plan, so image
+        // requests get their own service and provider.
+        $this->app->singleton(PollinationsImageProvider::class, fn ($app) => new PollinationsImageProvider());
+        $this->app->singleton(ImageGenerationService::class, fn ($app) => new ImageGenerationService(
+            $app->make(PollinationsImageProvider::class)
+        ));
+
         $this->app->singleton(AcliCapabilityService::class, fn ($app) => new AcliCapabilityService());
         $this->app->singleton(AcliEntitlementService::class, fn ($app) => new AcliEntitlementService(
             $app->make(EntitlementService::class)
