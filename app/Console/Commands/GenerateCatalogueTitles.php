@@ -279,15 +279,51 @@ class GenerateCatalogueTitles extends Command
     private function applyTitles(int $courseId, object $course, array $titles): void
     {
         DB::transaction(function () use ($courseId, $course, $titles) {
-            DB::table('course_chapters')
+            // Clear the course's chapter set before writing the new plan.
+            //
+            // course_chapters has a unique key on (course_id, position), so
+            // inserting a fresh 1..N plan collides whenever a partial set of
+            // real chapters from an earlier run already occupies those
+            // positions. That is why this used to fail with "Duplicate entry"
+            // for courses that had 1..19 real chapters.
+            //
+            // Only scaffolding and partial generations are removed: seeded
+            // placeholder rows, and real rows that have no introduction and
+            // no lessons (an interrupted run). A chapter that has been
+            // written is left untouched, so a course can never lose real work.
+            $chapterIds = DB::table('course_chapters')
                 ->where('course_id', $courseId)
-                ->where('placeholder', 1)
-                ->delete();
+                ->pluck('id');
 
-            // Renumber from 1. Continuing from max(position)
-            // left the real chapters at 45-64 because the seeded
-            // placeholders had already claimed 1-44.
+            if ($chapterIds->isNotEmpty()) {
+                $writtenIds = DB::table('lessons')
+                    ->whereIn('chapter_id', $chapterIds)
+                    ->distinct()
+                    ->pluck('chapter_id');
+
+                DB::table('course_chapters')
+                    ->where('course_id', $courseId)
+                    ->where(function ($q) use ($writtenIds) {
+                        $q->where('placeholder', 1)
+                            ->orWhere(function ($inner) use ($writtenIds) {
+                                $inner->where('introduction', '')
+                                    ->whereNotIn('id', $writtenIds);
+                            });
+                    })
+                    ->delete();
+            }
+
+            // Renumber whatever real chapters remain (usually none) so the
+            // new plan starts at a free position.
             $position = 1;
+            foreach (DB::table('course_chapters')
+                ->where('course_id', $courseId)
+                ->orderBy('position')
+                ->pluck('id') as $existingId) {
+                DB::table('course_chapters')
+                    ->where('id', $existingId)
+                    ->update(['position' => $position++]);
+            }
 
             $rows = [];
             $now = now();
