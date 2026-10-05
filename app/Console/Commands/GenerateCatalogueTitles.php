@@ -111,15 +111,35 @@ class GenerateCatalogueTitles extends Command
 
                         $titles = [];
                         for ($attempt = 1; $attempt <= 3; $attempt++) {
+                            // Honour a cluster-wide cooldown. Any
+                            // worker that saw a 429 stamps the
+                            // time the pool recovers; the others
+                            // sleep until then instead of each
+                            // hammering the endpoint on its own
+                            // timer and keeping the pool cold.
+                            $cooldownFile = self::LOG_DIR . '/cooldown-until.txt';
+                            if (is_file($cooldownFile)) {
+                                $until = (int) file_get_contents($cooldownFile);
+                                $wait = $until - time();
+                                if ($wait > 0) {
+                                    sleep(min($wait, 60));
+                                } else {
+                                    @unlink($cooldownFile);
+                                }
+                            }
+
                             try {
                                 $titles = $this->titlesFor($provider, $course, $target);
                             } catch (\Throwable $e) {
-                                // 429 means every credential for the
-                                // model is cooling down. Retrying
-                                // immediately only extends the
-                                // cooldown, so wait between attempts.
                                 if (str_contains($e->getMessage(), '429')) {
-                                    usleep(20 * 1000000); // 20s
+                                    // Every credential for the
+                                    // model is cooling down. Park
+                                    // the whole batch for a
+                                    // minute so the chat, which
+                                    // shares these credentials,
+                                    // gets its turn.
+                                    file_put_contents($cooldownFile, (string) (time() + 60));
+                                    sleep(60);
                                     continue;
                                 }
                                 usleep(2 * 1000000);

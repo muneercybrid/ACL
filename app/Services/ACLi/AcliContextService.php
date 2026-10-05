@@ -68,15 +68,29 @@ class AcliContextService
      *
      * Resolved through the user's own enrollment relation, so the result set can
      * only ever contain offerings this user is attached to.
+     *
+     * Semester labeling comes from the student's own curriculum placement
+     * (level -> first/second), NOT the "semesters" table name. That table
+     * holds a single row ("First Semester"), so relying on it mislabels every
+     * second-semester enrollment as first semester.
      */
     protected function enrollments(User $user): array
     {
+        $student = Student::where('user_id', $user->id)->first();
+        $curriculum = $student ? $this->curriculum->forStudent($student) : [];
+        $second = $curriculum['semester_second'] ?? collect();
+        $first = $curriculum['semester_first'] ?? collect();
+
         return $this->dashboard->activeEnrollments($user)
             ->map(fn ($enrollment) => [
                 'code' => $enrollment->courseOffering?->course?->code
                     ?? $enrollment->courseOffering?->custom_code,
                 'title' => $enrollment->courseOffering?->course?->title,
-                'semester' => $enrollment->courseOffering?->semester?->name,
+                'semester' => $enrollment->courseOffering?->course?->code
+                    ? (in_array($enrollment->courseOffering?->course?->code, $second->all())
+                        ? 'Second Semester'
+                        : 'First Semester')
+                    : null,
                 'status' => $enrollment->status,
                 'enrolled_at' => optional($enrollment->enrolled_at)->toDateString(),
                 'expires_at' => optional($enrollment->expires_at)->toDateString(),
