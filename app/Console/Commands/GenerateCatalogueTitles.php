@@ -108,7 +108,28 @@ class GenerateCatalogueTitles extends Command
                     try {
                         $course = DB::table('courses')->where('id', $id)->first();
                         if (! $course) { $fail++; continue; }
-                        $titles = $this->titlesFor($provider, $course, $target);
+
+                        $titles = [];
+                        for ($attempt = 1; $attempt <= 3; $attempt++) {
+                            try {
+                                $titles = $this->titlesFor($provider, $course, $target);
+                            } catch (\Throwable $e) {
+                                // 429 means every credential for the
+                                // model is cooling down. Retrying
+                                // immediately only extends the
+                                // cooldown, so wait between attempts.
+                                if (str_contains($e->getMessage(), '429')) {
+                                    usleep(20 * 1000000); // 20s
+                                    continue;
+                                }
+                                usleep(2 * 1000000);
+                            }
+                            if (count($titles) >= 5) {
+                                break;
+                            }
+                            usleep(2 * 1000000);
+                        }
+
                         if (count($titles) < 5) { $fail++; continue; }
                         $this->applyTitles($id, $course, $titles);
                         $ok++;
