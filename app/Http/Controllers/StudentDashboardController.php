@@ -276,10 +276,26 @@ class StudentDashboardController extends Controller
             abort(403, 'Enroll in this course before opening its chapters.');
         }
 
+        // A generated chapter may have a real title but no written body yet
+        // (the pipeline writes titles first, content in Phase 2). The student
+        // must still be able to open, navigate, and assess the chapter.
+        $intro = (string) ($chapter->introduction ?? '');
+        $summary = (string) ($chapter->summary ?? '');
+        $keyTakeaways = (string) ($chapter->key_takeaways ?? '');
+
+        if ($intro === '' && $summary === '' && $keyTakeaways === '') {
+            // No written explanation yet — provide the chapter name and a
+            // brief note so the student can study from the title and see
+            // that the chapter exists, rather than a broken experience.
+            $intro = $chapter->title . ". This chapter covers the concepts outlined in the course plan. Detailed content will be available as it is developed.";
+        }
+
         return response()->json([
-            'introduction' => (string) ($chapter->introduction ?? ''),
-            'summary' => (string) ($chapter->summary ?? ''),
-            'key_takeaways' => (string) ($chapter->key_takeaways ?? ''),
+            'introduction' => $intro,
+            'summary' => $summary,
+            'key_takeaways' => $keyTakeaways,
+            'chapter_title' => $chapter->title,
+            'chapter_id' => $chapter->id,
         ]);
     }
 

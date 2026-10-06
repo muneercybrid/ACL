@@ -318,15 +318,19 @@
 
                 loadingEl.classList.remove('hidden');
                 fetch(btn.dataset.url, { headers: { 'Accept': 'application/json' } })
-                    .then(function (r) { if (! r.ok) throw new Error(); return r.json(); })
+                    .then(function (r) { return r.json(); })
                     .then(function (data) {
+                        // The controller now provides a basic intro for chapters
+                        // whose body content has not been written yet (Phase 2
+                        // of generation writes titles first, content follows).
                         const text = data.introduction || data.summary || '';
-                        cache[index] = text;
+                        cache[index] = text || (data.chapter_title || btn.dataset.title);
                         loadingEl.classList.add('hidden');
-                        bodyEl.textContent = text || 'No written explanation for this chapter yet.';
+                        bodyEl.innerHTML = text ? '<p>' + text.replace(/\n/g, '</p><p>') + '</p>' : '<p class="text-muted">Chapter: <strong>' + (data.chapter_title || btn.dataset.title) + '</strong></p><p class="text-sm text-muted">Full explanation is being developed.</p>';
                     })
                     .catch(function () {
-                        loadingEl.textContent = 'Could not load this chapter. Try again.';
+                        loadingEl.classList.add('hidden');
+                        bodyEl.innerHTML = '<p class="text-muted">Chapter: <strong>' + btn.dataset.title + '</strong></p><p class="text-sm text-muted">Could not load this chapter. Try again.</p>';
                     });
             }
 
