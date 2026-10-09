@@ -58,6 +58,23 @@ final class TokenHarborProvider implements AIProvider
 
             if ($response->failed()) {
                 $status = $response->status();
+                $message = $this->errorMessage($response);
+
+                // A 429 that reports an exhausted free allowance is a
+                // rolling-period limit (Token Harbor's free tier resets
+                // on a 7-day clock). Retrying inside that window cannot
+                // succeed — every attempt in the next days returns the
+                // same 429 — so fail fast and let the unified chain fall
+                // through to Cloudflare or OmniRoute immediately instead
+                // of burning six backoff sleeps on a dead end.
+                if ($status === 429 && $this->isAllowanceExhausted($message)) {
+                    throw new ProviderException(
+                        'Token Harbor free allowance exhausted for this rolling period.',
+                        provider: $this->name(),
+                        status: $status,
+                        retryable: false,
+                    );
+                }
 
                 // 429 rate limit, 402 balance exhausted, 5xx transient
                 // — all recoverable with a backoff.
@@ -69,7 +86,7 @@ final class TokenHarborProvider implements AIProvider
                 }
 
                 throw new ProviderException(
-                    "Token Harbor API request failed with HTTP status {$status}: ".$this->errorMessage($response),
+                    "Token Harbor API request failed with HTTP status {$status}: ".$message,
                     provider: $this->name(),
                     status: $status,
                     retryable: $status >= 500 || $status === 429,
@@ -203,6 +220,19 @@ final class TokenHarborProvider implements AIProvider
         return (string) (data_get($data, 'error.message')
             ?? data_get($data, 'message')
             ?? 'no error detail');
+    }
+
+    /**
+     * Token Harbor's free-tier 429s come with a body that says the
+     * rolling-period allowance is exhausted ("next rolling 7-day period
+     * starts ..."). Retrying is pointless inside that window, so the
+     * unified chain must fall through immediately.
+     */
+    private function isAllowanceExhausted(string $message): bool
+    {
+        return str_contains(strtolower($message), 'allowance')
+            || str_contains(strtolower($message), 'rolling')
+            || str_contains(strtolower($message), '7-day');
     }
 
     private function http(): PendingRequest
