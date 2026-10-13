@@ -1,0 +1,8 @@
+- insert:
+    - id: figma-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: figma
+        transport: streamable-http
+        url: https://mcp.figma.com/mcp
+        failOnStartupError: true
