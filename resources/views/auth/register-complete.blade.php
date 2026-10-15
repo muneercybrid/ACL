@@ -30,7 +30,7 @@
             <p class="mt-0.5 text-sm text-text"><span class="font-semibold">Programme:</span> {{ $verification->verified_programme }}</p>
         </div>
 
-        <form method="POST" action="{{ route('register.student.complete') }}">
+        <form method="POST" action="{{ route('register.student.complete') }}" onsubmit="const b = this.querySelector('button[type=submit]'); if (b.disabled) { return false; } b.disabled = true; b.textContent = 'Creating account…';">
             @csrf
 
             <div class="mt-5">

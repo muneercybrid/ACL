@@ -312,8 +312,25 @@ class StudentRegistrationController extends Controller
             ]);
         }
 
+        $alreadyRegistered = false;
+
         try {
-            $user = DB::transaction(function () use ($verification, $validated) {
+            $user = DB::transaction(function () use (&$verification, $validated, &$alreadyRegistered) {
+                // Serialise concurrent submissions for the same verification.
+                // A double-tapped submit sends two requests that both pass the
+                // unique:users,email rule before either inserts; locking the
+                // verification row makes the second wait, then see the first
+                // request's user_id and skip creating a duplicate.
+                $verification = StudentRegistrationVerification::whereKey($verification->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($verification->user_id) {
+                    $alreadyRegistered = true;
+
+                    return User::find($verification->user_id);
+                }
+
                 $user = User::create([
                     'name' => $verification->verified_name,
                     'email' => $validated['email'],
@@ -370,17 +387,31 @@ class StudentRegistrationController extends Controller
 
                 return $user;
             });
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Expected when the email was taken between validation and insert;
+            // a user-facing outcome, not an application error.
+            return redirect()
+                ->route('register.student')
+                ->withErrors([
+                    'email' => 'This email is already registered. Please sign in instead.',
+                ]);
         } catch (\Illuminate\Database\QueryException $e) {
             report($e);
 
             return redirect()
                 ->route('register.student')
                 ->withErrors([
-                    'email' => 'This email is already registered. Please sign in instead.',
+                    'email' => 'We could not complete your registration. Please try again.',
                 ]);
         }
 
         $request->session()->forget('student_verification_token');
+
+        if ($alreadyRegistered) {
+            return redirect()
+                ->route('login')
+                ->with('success', 'Your student account has already been created. Please sign in.');
+        }
 
         // Send verification email if not already verified.
         //
