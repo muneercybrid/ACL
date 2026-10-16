@@ -92,7 +92,9 @@ class GoogleController extends Controller
                 $user = User::create([
                     'name' => $googleUser['name'] ?? $email,
                     'email' => $email,
-                    'password' => null,
+                    // users.password is NOT NULL; OAuth users get an unusable
+                    // random password (hashed by the model cast).
+                    'password' => Str::random(64),
                     'provider' => 'google',
                     'provider_id' => $googleUser['id'] ?? null,
                     'email_verified_at' => now(),
