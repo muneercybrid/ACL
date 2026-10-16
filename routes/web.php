@@ -307,6 +307,12 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     // AI activity
     Route::get('/ai', [Superadmin\AiController::class, 'index'])->name('ai');
 
+    // ACLi paid-feature settings. The superadmin owns the gate: enabling
+    // it, the price, the payment type and the schedule. Both routes sit
+    // behind the superadmin middleware above, so no student reaches them.
+    Route::get('/acli-payment', [Superadmin\AcliPaymentController::class, 'index'])->name('acli.payment');
+    Route::post('/acli-payment', [Superadmin\AcliPaymentController::class, 'store'])->name('acli.payment.update');
+
     // System
     Route::get('/system', [Superadmin\SystemController::class, 'index'])->name('system');
     Route::get('/system/jobs', [Superadmin\SystemController::class, 'jobs'])->name('system.jobs');

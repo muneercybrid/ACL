@@ -752,7 +752,7 @@ Return ONLY a JSON array of strings, in teaching order. No prose, no markdown,
 no code fence.
 TEXT;
 
-        $response = $this->ask($prompt);
+        $response = $this->askWithRetry($prompt, 3);
 
         if ($response === null) {
             // Falling back to a generic plan would produce material that is not
@@ -793,7 +793,7 @@ Return ONLY a JSON object with exactly these keys:
 Return no prose outside the JSON.
 TEXT;
 
-        $response = $this->ask($prompt);
+        $response = $this->askWithRetry($prompt, 3);
 
         if ($response === null) {
             return null;
@@ -832,7 +832,7 @@ TEXT;
                 // Three exercises, each with four options, a worked solution
                 // and an explanation, run past 4000 tokens and came back
                 // truncated and unparseable.
-                maxTokens: 6000,
+                maxTokens: 1500,
             );
 
             return $this->providers->chat($request)->content;

@@ -277,12 +277,34 @@ class AcliChatController extends Controller
         // A course chosen explicitly by the student wins over the programme.
         $focusCourseId = $validated['course_id'] ?? null;
 
-        // Direct chat (no course_id in validated) = programme-wide context only,
-        // not a single arbitrary enrolled course. The student may be asking
-        // about anything in their B.Sc Cybersecurity programme; anchoring to
-        // COS101 just because it was the last enrollment is wrong.
-        if (! $focusCourseId && isset($validated['course_id']) && $validated['course_id']) {
+        // A course chosen explicitly by the student wins.
+        if (! $focusCourseId && ! empty($validated['course_id'])) {
             $focusCourseId = $validated['course_id'];
+        }
+
+        // Direct chat (no course_id) = the student's own courses, both
+        // CCMAS (course_offerings) and organization-added
+        // (programme_level_courses, source='institution'). Without this
+        // the student sees only CCMAS courses and never their school's
+        // own additions.
+        if (! $focusCourseId) {
+            $focusCourseId = DB::table('enrollments')
+                ->join('course_offerings', 'course_offerings.id', '=', 'enrollments.course_offering_id')
+                ->where('enrollments.user_id', $user->id)
+                ->where('enrollments.status', 'active')
+                ->orderByDesc('enrollments.updated_at')
+                ->value('course_offerings.course_id');
+
+            if (! $focusCourseId) {
+                $focusCourseId = DB::table('programme_level_courses')
+                    ->join('academic_programs', 'academic_programs.id', '=', 'programme_level_courses.academic_program_id')
+                    ->join('organization_memberships', 'organization_memberships.academic_program_id', '=', 'academic_programs.id')
+                    ->where('organization_memberships.user_id', $user->id)
+                    ->where('organization_memberships.status', 'active')
+                    ->where('programme_level_courses.source', 'institution')
+                    ->orderByDesc('programme_level_courses.updated_at')
+                    ->value('programme_level_courses.course_id');
+            }
         }
 
         if (! $focusCourseId) {

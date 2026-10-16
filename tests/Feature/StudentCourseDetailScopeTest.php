@@ -214,6 +214,22 @@ class StudentCourseDetailScopeTest extends TestCase
             ->assertOk();
     }
 
+    /**
+     * An unenrolled student sees the Enroll form on a national course. Its
+     * action has to carry the reference the page was opened with: the
+     * curriculum model has no route_ref of its own, and reading one rendered
+     * the route with a missing parameter.
+     */
+    public function test_the_enroll_form_on_a_national_course_posts_to_its_own_reference(): void
+    {
+        $ref = 'c'.$this->curriculumCourseId;
+
+        $this->actingAsStudent()
+            ->get('/student/course/'.$ref)
+            ->assertOk()
+            ->assertSee(route('student.course.enroll', [$ref]), false);
+    }
+
     public function test_an_added_course_opens_from_its_programme_level_reference(): void
     {
         $this->actingAsStudent()

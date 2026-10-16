@@ -1,0 +1,8 @@
+- insert:
+    - id: penpot-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: penpot
+        transport: streamable-http
+        url: https://design.penpot.app/mcp/stream?userToken=eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2R0NNIn0.UX-OkHcp1b5MBSTFXLYqikMAPYcoqQAxoWVnBsCfry8ux5xzrJyN0g.lB6dND7sjYzeBg6M.EcyYBDD26dwo-vp3063W4yTJMAupa40wCMcoFG_hLTZE-rEjRaRQ026JtKXn4dDoU0eXBQAaPZ50SGent6W6fAzrTwKAvZN7UdZq7TBrll1N6ZlQkoZ6WhmbzAhMOBjHzuxi7yo-MrFO7-ltqq_7tGl3A-0YGgvWay0Bdbpv2R2gwRtS3YehaO4Fkk_kELVIxnfEEspS4eUfd1q2SZokedA.gqqVZ6lGnPbWgayx3X6ZNQ
+        failOnStartupError: true

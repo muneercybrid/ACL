@@ -39,7 +39,7 @@
             @endif
         </div>
 
-        <div class="mt-5 flex flex-wrap gap-3">
+        <div class="mt-5 flex flex-wrap gap-3 items-center">
             @if ($currentOffering?->semester?->name)
                 <span class="inline-flex items-center rounded-full bg-raised px-3 py-1 text-xs font-semibold text-muted">
                     <svg class="h-3 w-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -55,6 +55,21 @@
             <span class="inline-flex items-center rounded-full bg-raised px-3 py-1 text-xs font-semibold text-muted">
                 Level {{ $curriculumCourse->level ?? 'N/A' }} · Semester {{ $curriculumCourse->semester ?? 'N/A' }}
             </span>
+
+            @if ($enrollment)
+                <span class="inline-flex items-center rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700">
+                    <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Enrolled
+                </span>
+            @else
+                <form method="POST" action="{{ route('student.course.enroll', [$courseRef]) }}" class="shrink-0">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-fg shadow-sm transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                        Enroll
+                    </button>
+                </form>
+            @endif
         </div>
 
         <div class="mt-6 prose prose-sm max-w-none text-muted">
@@ -303,15 +318,19 @@
 
                 loadingEl.classList.remove('hidden');
                 fetch(btn.dataset.url, { headers: { 'Accept': 'application/json' } })
-                    .then(function (r) { if (! r.ok) throw new Error(); return r.json(); })
+                    .then(function (r) { return r.json(); })
                     .then(function (data) {
+                        // The controller now provides a basic intro for chapters
+                        // whose body content has not been written yet (Phase 2
+                        // of generation writes titles first, content follows).
                         const text = data.introduction || data.summary || '';
-                        cache[index] = text;
+                        cache[index] = text || (data.chapter_title || btn.dataset.title);
                         loadingEl.classList.add('hidden');
-                        bodyEl.textContent = text || 'No written explanation for this chapter yet.';
+                        bodyEl.innerHTML = text ? '<p>' + text.replace(/\n/g, '</p><p>') + '</p>' : '<p class="text-muted">Chapter: <strong>' + (data.chapter_title || btn.dataset.title) + '</strong></p><p class="text-sm text-muted">Full explanation is being developed.</p>';
                     })
                     .catch(function () {
-                        loadingEl.textContent = 'Could not load this chapter. Try again.';
+                        loadingEl.classList.add('hidden');
+                        bodyEl.innerHTML = '<p class="text-muted">Chapter: <strong>' + btn.dataset.title + '</strong></p><p class="text-sm text-muted">Could not load this chapter. Try again.</p>';
                     });
             }
 
