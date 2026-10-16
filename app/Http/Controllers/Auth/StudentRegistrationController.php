@@ -354,6 +354,8 @@ class StudentRegistrationController extends Controller
                         : null,
                 ]);
 
+                // A membership needs an institution (organization_id is
+                // non-nullable); JAMB verifications without one skip it.
                 if ($verification->organization) {
                     OrganizationMembership::create([
                         'organization_id' => $verification->organization->id,
