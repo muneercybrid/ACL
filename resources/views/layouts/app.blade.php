@@ -56,7 +56,7 @@
                 @endif
             @endforeach
 
-            @if ($errors->any())
+            @if (($errors ?? new \Illuminate\Support\ViewErrorBag())->any())
                 <div class="mb-4 rounded-lg border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
                     <ul class="list-disc pl-5">
                         @foreach ($errors->all() as $error)
