@@ -1,12 +1,30 @@
 # ACL Project Status & Handoff
 
-_Last updated: 2026-09-05. Maintain this file at every milestone._
+_Last updated: 2026-10-20. Maintain this file at every milestone._
+
+> **Monthly report:** [`docs/ACL_MONTHLY_REPORT_2026_10.md`](ACL_MONTHLY_REPORT_2026_10.md)
+> (PDF: `docs/ACL_MONTHLY_REPORT_2026_10.pdf`) covers 20 Sep – 20 Oct 2026: 112 commits,
+> 12 merged PRs, chapter coverage 6.8% → 100%.
+
+## 0. Where the project stands (2026-10-20)
+- **Curriculum coverage is complete.** All 5,928 catalogue courses now carry a full
+  20-chapter set (minimum 20, maximum 39), 118,875 real chapters, all derived from the
+  CCMAS national curriculum. **Zero placeholder chapters remain in the database.**
+- **Chapter titles are done; chapter bodies are not.** `introduction`, `summary` and
+  `key_takeaways` are still empty on generated chapters. The Start button degrades
+  gracefully (title + note) so every chapter is usable, but the written material the
+  specification calls for does not yet exist. This is the next material piece of work.
+- **ACLi has a provider failover chain** (Token Harbor → Cloudflare → OmniRoute) with
+  truncation recovery, quota backoff, and fail-fast on a dead-end 429.
+- **Critical outstanding human action: rotate five provider credentials** exposed in
+  chat. Then update `.env` and Doppler (`acl` / `prd`).
 
 ## 1. Repository
 - GitHub: muneercybrid/ACL, branch: main, remote
-  `https://github.com/muneercybrid/ACL.git`. **The code is pushed.** Three pull
-  requests are merged — #1 (devcontainer image build + SSH), #2 (tracked Claude
-  config), #3 (the ACL agent system) — plus the vendored Claude skills.
+  `https://github.com/muneercybrid/ACL.git`. **The code is pushed.** Twenty-one pull
+  requests are merged (#1–#27), most recently #19–#27 (Google OAuth null password,
+  student registration null organisation, concurrent registration, missing `courseRef`
+  on enroll, ACLi chat feedback model, plus dependabot bumps).
 - App root = repository root.
 - Development runs in a **GitHub Codespace** for `muneercybrid/ACL`. The Windows
   laptop is the editing interface; the codespace is the runtime where migrations,
@@ -78,29 +96,39 @@ _Last updated: 2026-09-05. Maintain this file at every milestone._
 - No bulk schema generation: schema follows the domain model, slice by slice.
 
 ## 5. Current Phase
-Phase 1 (foundation) is implemented and verified in the codespace. Immediate
-focus: the UI pass over the dashboard and course viewer per ADR-0004, then
-Slice 5.
+The national-curriculum content phase is in progress: chapter titles are complete for
+5,909 of 5,928 courses, and chapter bodies (Phase 2) are the next deliverable.
+Registration and the student dashboard are implemented and served in production.
+Immediate focus, in order:
+
+1. Write chapter bodies — introduction, summary, key takeaways, plus quizzes, exercises
+   and flashcards — via the existing opt-in generation path.
+2. Rotate the five exposed provider credentials (human action), then sync `.env` to
+   Doppler.
+3. Fix the five failing feature tests. `CcmcasCurriculumIntegrationTest` inserts an
+   `academic_programs` row with `department_id => 1`, violating the foreign key to
+   `departments`. Four `StudentRegistrationCompleteTest` cases insert without the NOT
+   NULL `student_registration_verifications.jamb_registration_number`. Both sets are
+   pre-existing, not introduced by this cycle — confirmed by running the two files
+   with and without this cycle's changes and getting identical results.
+4. Organisation selection cascade (state/federal/private → searchable institution →
+   organisation login) — requested, never started.
+5. Correct `docs/database/README.md` (still describes SQLite/PostgreSQL) and the
+   onboarding prerequisites (PostgreSQL listed instead of MariaDB).
 
 ## 6. Next Steps (in order)
-1. UI pass (dashboard + course viewer) per the ADR-0004 design language, and
-   feature-test the dashboard listing that the suite currently does not reach.
-2. Wire up the integrations decided this cycle (implementation is a Codespace/EC2
-   step — see §9): Doppler as the secrets source of truth (ADR-0012) and
-   Honeybadger error + uptime monitoring (ADR-0013, `composer require` +
-   `config/honeybadger.php` filtering + the `withExceptions` report callback + a
-   spy-transport filtering test).
-3. Remaining production hardening follow-ups from ADR-0011: an `acl:create-admin`
-   command (or production-safe seeder) to replace the hand-bootstrapped admin and
-   retire the blanket `Gate::before` platform-admin; a least-privilege TiDB
-   production user (not the current broad `…root` grant); a Content-Security-Policy
-   header; and host/infra metrics beyond Honeybadger's app-error + uptime slice.
-4. A CI pipeline. There is still no `.github/` directory, so nothing runs the
-   suite or Pint automatically — and, per ADR-0011, nothing gates what reaches
-   the EC2.
-5. Slice 5: authentication hardening (2FA for staff) + audit-logging
-   foundation.
-6. Then: assessments, then certificates.
+1. Chapter bodies (Phase 2) across the catalogue.
+2. Rotate exposed provider credentials; re-sync Doppler.
+3. Organisation selection cascade for registration.
+4. Fix the five failing feature tests (`CcmcasCurriculumIntegrationTest`,
+   `StudentRegistrationCompleteTest`).
+5. Generate assessment content — lesson blocks are currently zero.
+6. Production hardening follow-ups from ADR-0011: a least-privilege TiDB production
+   user (not the current broad `…root` grant); a Content-Security-Policy header; and
+   host/infra metrics beyond Honeybadger's app-error + uptime slice.
+7. A CI pipeline. There is still no `.github/` directory, so nothing runs the suite
+   or Pint automatically — and, per ADR-0011, nothing gates what reaches the EC2.
+8. Then: certificates, and 2FA/audit-logging foundations for staff.
 
 ## 7. Rules for Any AI Agent Continuing This Project
 1. Read this file, `.ai/guidelines/ACL.md`, and `docs/adr/` BEFORE changing
@@ -121,6 +149,19 @@ Slice 5.
   production.
 
 ## 9. Verification status (be honest about this)
+- **Verified in production — 2026-10-20.** Chapter coverage measured against the
+  production database by grouping chapters per course: **all 5,928 courses at a full
+  20 chapters (100%), 118,875 real chapters, zero placeholders remaining.** The
+  provider failover chain was exercised end-to-end (dead primary failing in 0.51s,
+  chain falling through to the next provider). The chapter start button was exercised
+  against a chapter with empty `introduction`, `summary` and `key_takeaways`. The
+  contact form delivered a test message through the real Resend SMTP path.
+  `https://app.aclacademy.me/`, `/login`, `/contact` and `/superadmin/login` all answer
+  200.
+- **Syntax verified only — 2026-10-16.** The nine PRs merged from remote (#19–#27) were
+  pulled and the application routes re-checked afterwards. **The full test suite was not
+  executed in that session**, so the suite result below still stands from 2026-09-03 and
+  does not cover those merges. Re-run it before relying on it.
 - **Verified in the codespace on 2026-09-03.** `bash scripts/troubleshoot.sh`
   reported no failures across all four sections. `php artisan test` →
   **39 passed, 67 assertions, 4.85s**. `php artisan serve` came up on
@@ -177,4 +218,4 @@ Slice 5.
 - Schema (`programmes` 2026-09-11): has `organization_id` (nullable FK), no `slug` column.
 - Model (`App\Models\Curriculum\Programme`): `$fillable` includes `slug` (no column → silent discard / error) and omits `organization_id` (present column → unfillable via mass assignment).
 - Action deferred: requires a migration (add `slug` OR remove from $fillable; add `organization_id` to $fillable) approved explicitly; kept out of this pass to avoid unverified schema change on TiDB production.
-- Related: `course_chapters` placeholders complete (140,064 draft), level co-ordinators seeded (1,666), student-registration flow verified (5 tests, isolated pass; full-suite pollution tracked to RefreshDatabase cross-test slugs), contact form delivers to muneercybrid@gmail.com, email diagnosis complete (SPF/DKIM/port 25 documented, not fixed — needs Cloudflare + AWS SG changes).
+- Related: `course_chapters` placeholders complete (140,064 draft), level co-ordinators seeded (1,666), student-registration flow verified (5 tests, isolated pass; full-suite pollution tracked to RefreshDatabase cross-test slugs), contact form delivers to the address in `MAIL_CONTACT_RECIPIENT` (currently `offaclacademy@gmail.com`), email diagnosis complete (SPF/DKIM/port 25 documented, not fixed — needs Cloudflare + AWS SG changes).
