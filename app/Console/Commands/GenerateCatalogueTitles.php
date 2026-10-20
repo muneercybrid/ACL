@@ -2,11 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Services\ACLi\DTO\AIRequest;
+use App\Services\ACLi\ProviderManager;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Services\ACLi\ProviderManager;
-use App\Services\ACLi\DTO\AIRequest;
 use Illuminate\Support\Str;
 
 /**
@@ -39,6 +39,7 @@ class GenerateCatalogueTitles extends Command
     protected $description = 'Replace generic placeholder chapters with real CCMAS-derived chapter titles';
 
     private const QUEUE_DIR = '/tmp/acl-gen-queue';
+
     private const LOG_DIR = '/tmp/acl-gen-log';
 
     public function handle(): int
@@ -70,16 +71,17 @@ class GenerateCatalogueTitles extends Command
 
         if ($courses->isEmpty()) {
             $this->info('Every course already has real chapters.');
+
             return self::SUCCESS;
         }
 
-        $this->info(count($courses) . ' courses need real chapter titles. Starting ' . $concurrency . ' workers.');
+        $this->info(count($courses).' courses need real chapter titles. Starting '.$concurrency.' workers.');
 
         // Write the queue to disk so the child processes read from files
         // rather than inheriting an open PDO connection across the fork.
-        $queueFile = self::QUEUE_DIR . '/titles-queue-' . getmypid() . '.txt';
+        $queueFile = self::QUEUE_DIR.'/titles-queue-'.getmypid().'.txt';
         file_put_contents($queueFile, $courses->map(fn ($c) => $c->id)->implode("\n"));
-        $codesFile = self::QUEUE_DIR . '/titles-codes-' . getmypid() . '.txt';
+        $codesFile = self::QUEUE_DIR.'/titles-codes-'.getmypid().'.txt';
         file_put_contents($codesFile, $courses->map(fn ($c) => $c->code)->implode("\n"));
 
         $pids = [];
@@ -87,12 +89,14 @@ class GenerateCatalogueTitles extends Command
             $pid = pcntl_fork();
             if ($pid === -1) {
                 $this->error('fork failed');
+
                 continue;
             }
             if ($pid === 0) {
                 DB::purge('mysql');
                 $slot = $workerSlot;
-                $ok = 0; $fail = 0;
+                $ok = 0;
+                $fail = 0;
                 $ids = file($queueFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
                 $codes = file($codesFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
                 $provider = app(ProviderManager::class)->provider();
@@ -107,17 +111,21 @@ class GenerateCatalogueTitles extends Command
                     $code = $codes[$idx] ?? null;
                     try {
                         $course = DB::table('courses')->where('id', $id)->first();
-                        if (! $course) { $fail++; continue; }
+                        if (! $course) {
+                            $fail++;
+
+                            continue;
+                        }
 
                         $titles = [];
-                        for ($attempt = 1; $attempt <= 3; $attempt++) {
+                        for ($attempt = 1; $attempt <= 4; $attempt++) {
                             // Honour a cluster-wide cooldown. Any
                             // worker that saw a 429 stamps the
                             // time the pool recovers; the others
                             // sleep until then instead of each
                             // hammering the endpoint on its own
                             // timer and keeping the pool cold.
-                            $cooldownFile = self::LOG_DIR . '/cooldown-until.txt';
+                            $cooldownFile = self::LOG_DIR.'/cooldown-until.txt';
                             if (is_file($cooldownFile)) {
                                 $until = (int) file_get_contents($cooldownFile);
                                 $wait = $until - time();
@@ -130,6 +138,26 @@ class GenerateCatalogueTitles extends Command
 
                             try {
                                 $titles = $this->titlesFor($provider, $course, $target);
+
+                                // The model sometimes returns fewer
+                                // than the requested number of usable
+                                // titles -- one long enough to be
+                                // discarded, or one it repeated. A
+                                // partial set is not a course: it
+                                // breaks the twenty-chapter floor the
+                                // whole campaign is measured against.
+                                // So ask only for the shortfall, telling
+                                // the model what is already written so
+                                // it continues rather than repeats.
+                                if (count($titles) < $target) {
+                                    $extra = $this->titlesFor(
+                                        $provider,
+                                        $course,
+                                        $target - count($titles),
+                                        $titles,
+                                    );
+                                    $titles = $this->mergeTitles($titles, $extra);
+                                }
                             } catch (\Throwable $e) {
                                 if (str_contains($e->getMessage(), '429')) {
                                     // Every credential for the
@@ -140,17 +168,33 @@ class GenerateCatalogueTitles extends Command
                                     // gets its turn.
                                     file_put_contents($cooldownFile, (string) (time() + 60));
                                     sleep(60);
+
                                     continue;
                                 }
                                 usleep(2 * 1000000);
                             }
-                            if (count($titles) >= 5) {
+                            if (count($titles) >= $target) {
                                 break;
                             }
                             usleep(2 * 1000000);
                         }
 
-                        if (count($titles) < 5) { $fail++; continue; }
+                        // Only a complete set is written. A short set
+                        // leaves whatever the course already had
+                        // untouched, so the next run picks the course
+                        // up again instead of it being silently
+                        // recorded as done.
+                        if (count($titles) < $target) {
+                            $fail++;
+                            Log::warning('titles: incomplete set', [
+                                'course_id' => $id,
+                                'code' => $course->code,
+                                'got' => count($titles),
+                                'need' => $target,
+                            ]);
+
+                            continue;
+                        }
                         $this->applyTitles($id, $course, $titles);
                         $ok++;
                         // Pace the requests. The chat shares
@@ -174,7 +218,7 @@ class GenerateCatalogueTitles extends Command
                         ]);
                     }
                 }
-                file_put_contents(self::LOG_DIR . '/titles-done-' . getmypid() . '.txt', "$ok,$fail\n");
+                file_put_contents(self::LOG_DIR.'/titles-done-'.getmypid().'.txt', "$ok,$fail\n");
                 exit(0);
             }
             $pids[] = $pid;
@@ -184,27 +228,45 @@ class GenerateCatalogueTitles extends Command
             pcntl_waitpid($pid, $status);
         }
 
-        $done = 0; $failed = 0;
-        foreach (glob(self::LOG_DIR . '/titles-done-*.txt') as $f) {
+        $done = 0;
+        $failed = 0;
+        foreach (glob(self::LOG_DIR.'/titles-done-*.txt') as $f) {
             [$d, $x] = explode(',', trim(file_get_contents($f)));
-            $done += (int) $d; $failed += (int) $x;
+            $done += (int) $d;
+            $failed += (int) $x;
             @unlink($f);
         }
-        @unlink($queueFile); @unlink($codesFile);
+        @unlink($queueFile);
+        @unlink($codesFile);
 
         $this->info("Done: $done courses titled, $failed failed.");
+
         return self::SUCCESS;
     }
 
-    private function titlesFor($provider, object $course, int $count): array
+    /**
+     * Ask the model for chapter titles for one course.
+     *
+     * $exclude carries the titles already collected for this course so a
+     * top-up call continues the plan instead of re-proposing the same
+     * opening chapters.
+     */
+    private function titlesFor($provider, object $course, int $count, array $exclude = []): array
     {
         $source = $this->ccmasFor($course);
         $prompt = "Course: {$course->code} - {$course->title}\n"
-            . ($source !== '' ? "NUC CCMAS statement:\n" . mb_substr($source, 0, 2500) . "\n\n" : '')
-            . "Propose exactly {$count} chapter titles for this course, easiest first, "
-            . "each naming a specific idea taught in this course (not generic placeholders). "
-            . "Cover the CCMAS course contents in the order given. "
-            . 'Return ONLY a JSON array of strings. No prose, no markdown.';
+            .($source !== '' ? "NUC CCMAS statement:\n".mb_substr($source, 0, 2500)."\n\n" : '')
+            ."Propose exactly {$count} chapter titles for this course, easiest first, "
+            .'each naming a specific idea taught in this course (not generic placeholders). '
+            .'Cover the CCMAS course contents in the order given. '
+            .'Keep every title under 120 characters. '
+            .'Return ONLY a JSON array of strings. No prose, no markdown.';
+
+        if ($exclude !== []) {
+            $prompt .= "\n\nThese titles are already used. Do not repeat them; "
+                ."propose the next, later topics instead:\n- "
+                .implode("\n- ", array_slice($exclude, 0, 30));
+        }
 
         $response = $provider->chat(new AIRequest(
             model: (string) config('acli.gateway.model'),
@@ -218,6 +280,23 @@ class GenerateCatalogueTitles extends Command
         return $this->parseTitles((string) $response, $count);
     }
 
+    /**
+     * Merge two title sets, dropping duplicates by slug.
+     */
+    private function mergeTitles(array $first, array $second): array
+    {
+        $merged = [];
+        foreach ([...$first, ...$second] as $title) {
+            $key = Str::slug($title);
+            if (isset($merged[$key])) {
+                continue;
+            }
+            $merged[$key] = $title;
+        }
+
+        return array_values($merged);
+    }
+
     private function ccmasFor(object $course): string
     {
         $code = strtoupper((string) $course->normalized_code);
@@ -228,7 +307,8 @@ class GenerateCatalogueTitles extends Command
         if (! $row) {
             return '';
         }
-        return trim((string) $row->learning_outcomes) . "\n" . trim((string) $row->course_contents);
+
+        return trim((string) $row->learning_outcomes)."\n".trim((string) $row->course_contents);
     }
 
     private function parseTitles(string $response, int $count): array
@@ -278,7 +358,7 @@ class GenerateCatalogueTitles extends Command
 
     private function applyTitles(int $courseId, object $course, array $titles): void
     {
-        DB::transaction(function () use ($courseId, $course, $titles) {
+        DB::transaction(function () use ($courseId, $titles) {
             // Clear the course's chapter set before writing the new plan.
             //
             // course_chapters has a unique key on (course_id, position), so
